@@ -12,6 +12,7 @@
 import { useState, useEffect, useRef } from "react";
 import OsmMap, { DriverPin } from "../OsmMap";
 import { Btn, Card, Pill, WsLive } from "../ui";
+import { apiClient } from "../api/apiClient";
 
 type RideType = "standard" | "xl" | "moto";
 type BookingStep = "idle" | "selecting" | "estimating" | "confirm" | "searching" | "matched";
@@ -60,7 +61,10 @@ export default function ScreenBooking() {
 
   const DISTANCE = 8.4;
   const selected = RIDE_TYPES.find(r => r.key === rideType)!;
-  const fare = Math.round(selected.base + DISTANCE * selected.perKm);
+  const [estimatedFare, setEstimatedFare] = useState<number>(0);
+  const [estimatedDistance, setEstimatedDistance] = useState<number>(0);
+  const [bookingError, setBookingError] = useState("");
+  const fare = estimatedFare || Math.round(selected.base + DISTANCE * selected.perKm);
 
   /* Simulate WS driver positions arriving + drifting */
   useEffect(() => {
@@ -76,13 +80,36 @@ export default function ScreenBooking() {
     return () => { clearTimeout(t); if (wsTickRef.current) clearInterval(wsTickRef.current); };
   }, []);
 
-  /* Skeleton fare estimate delay */
+  /* Real API call for fare estimate */
   useEffect(() => {
     if (step !== "estimating") return;
     setFareReady(false);
-    const t = setTimeout(() => { setFareReady(true); setStep("confirm"); }, 1900);
-    return () => clearTimeout(t);
-  }, [step, rideType]);
+    setBookingError("");
+
+    apiClient<any>('/rides/estimate', {
+      method: 'POST',
+      body: JSON.stringify({
+        pickupAddress: pickup,
+        pickupLat: 6.9329, // Default to Colombo Fort
+        pickupLng: 79.8438,
+        dropoffAddress: dropoff,
+        dropoffLat: 6.8913, // Default nearby location
+        dropoffLng: 79.8596,
+        rideType: rideType.toUpperCase()
+      })
+    })
+    .then(data => {
+      setEstimatedFare(data.estimatedFare || data.fare || 0);
+      setEstimatedDistance(data.estimatedDistanceKm || DISTANCE);
+      setFareReady(true);
+      setStep("confirm");
+    })
+    .catch(err => {
+      console.error(err);
+      setBookingError(err.message || "Failed to estimate fare.");
+      setStep("selecting");
+    });
+  }, [step, rideType, pickup, dropoff]);
 
   /* Searching animation dots */
   useEffect(() => {
@@ -317,8 +344,33 @@ export default function ScreenBooking() {
                 <button className="text-blue-600 font-semibold hover:underline">Change</button>
               </div>
 
+              {bookingError && (
+                <div className="bg-red-50 text-red-600 text-xs p-2 rounded mb-2 border border-red-200">
+                  {bookingError}
+                </div>
+              )}
               {step === "confirm" && (
-                <Btn v="primary" size="lg" full onClick={() => setStep("searching")}>
+                <Btn v="primary" size="lg" full onClick={async () => {
+                  setStep("searching");
+                  try {
+                    await apiClient('/rides/book', {
+                      method: 'POST',
+                      body: JSON.stringify({
+                        pickupAddress: pickup,
+                        pickupLat: 6.9329,
+                        pickupLng: 79.8438,
+                        dropoffAddress: dropoff,
+                        dropoffLat: 6.8913,
+                        dropoffLng: 79.8596,
+                        rideType: rideType.toUpperCase(),
+                        paymentMethod: "CASH"
+                      })
+                    });
+                  } catch (err: any) {
+                    setStep("confirm");
+                    setBookingError(err.message || "Failed to book ride");
+                  }
+                }}>
                   Book {selected.label} — LKR {fare.toLocaleString()} →
                 </Btn>
               )}

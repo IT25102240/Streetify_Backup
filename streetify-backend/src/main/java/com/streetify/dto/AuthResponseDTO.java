@@ -15,13 +15,14 @@ public class AuthResponseDTO {
     private String fullName;
     private String role;
     private String verificationStatus;
+    private String vehicleInfo;
     private String message;
 
     public AuthResponseDTO() {}
 
     public AuthResponseDTO(String accessToken, String refreshToken, long expiresIn, String tokenType,
                            Long userId, String email, String fullName, String role, String verificationStatus,
-                           String message) {
+                           String vehicleInfo, String message) {
         this.accessToken = accessToken;
         this.refreshToken = refreshToken;
         this.expiresIn = expiresIn;
@@ -31,6 +32,7 @@ public class AuthResponseDTO {
         this.fullName = fullName;
         this.role = role;
         this.verificationStatus = verificationStatus;
+        this.vehicleInfo = vehicleInfo;
         this.message = message;
     }
 
@@ -48,6 +50,7 @@ public class AuthResponseDTO {
         private String fullName;
         private String role;
         private String verificationStatus;
+        private String vehicleInfo;
         private String message;
 
         public Builder accessToken(String accessToken) { this.accessToken = accessToken; return this; }
@@ -59,10 +62,11 @@ public class AuthResponseDTO {
         public Builder fullName(String fullName) { this.fullName = fullName; return this; }
         public Builder role(String role) { this.role = role; return this; }
         public Builder verificationStatus(String verificationStatus) { this.verificationStatus = verificationStatus; return this; }
+        public Builder vehicleInfo(String vehicleInfo) { this.vehicleInfo = vehicleInfo; return this; }
         public Builder message(String message) { this.message = message; return this; }
 
         public AuthResponseDTO build() {
-            return new AuthResponseDTO(accessToken, refreshToken, expiresIn, tokenType, userId, email, fullName, role, verificationStatus, message);
+            return new AuthResponseDTO(accessToken, refreshToken, expiresIn, tokenType, userId, email, fullName, role, verificationStatus, vehicleInfo, message);
         }
     }
 
@@ -95,4 +99,7 @@ public class AuthResponseDTO {
 
     public String getMessage() { return message; }
     public void setMessage(String message) { this.message = message; }
+
+    public String getVehicleInfo() { return vehicleInfo; }
+    public void setVehicleInfo(String vehicleInfo) { this.vehicleInfo = vehicleInfo; }
 }

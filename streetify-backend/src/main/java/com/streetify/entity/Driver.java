@@ -10,14 +10,14 @@ import jakarta.persistence.*;
 @DiscriminatorValue("DRIVER")
 public class Driver extends User {
 
-    @Column(nullable = false, unique = true, length = 20)
+    @Column(unique = true, length = 20)
     private String nic;
 
     @Column(name = "license_number", length = 50)
     private String licenseNumber;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "verification_status", nullable = false, length = 30)
+    @Column(name = "verification_status", length = 30)
     private DriverVerificationStatus verificationStatus = DriverVerificationStatus.PENDING_VERIFICATION;
 
     @Column(name = "average_rating")
@@ -26,10 +26,10 @@ public class Driver extends User {
     @Column(name = "total_trips")
     private Integer totalTrips = 0;
 
-    @Column(name = "is_online", nullable = false)
+    @Column(name = "is_online")
     private boolean online = false;
 
-    @Column(name = "commission_debt", nullable = false)
+    @Column(name = "commission_debt")
     private Double commissionDebt = 0.0;
 
     @Column(name = "current_lat")

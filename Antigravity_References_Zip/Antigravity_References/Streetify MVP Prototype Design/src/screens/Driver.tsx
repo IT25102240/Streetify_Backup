@@ -13,6 +13,7 @@
 import { useState, useEffect, useRef } from "react";
 import OsmMap, { DriverPin } from "../OsmMap";
 import { Btn, Card, Pill, WsLive } from "../ui";
+import { apiClient } from "../api/apiClient";
 
 type TripState = "idle" | "assigned" | "en_route" | "arrived" | "in_trip" | "completed";
 
@@ -29,18 +30,7 @@ interface Trip {
   commission: number;
 }
 
-const ACTIVE_TRIP: Trip = {
-  id:         "TRIP-4821-089",
-  passenger:  "Nimesha Alwis",
-  avatar:     "NA",
-  rating:     4.8,
-  pickup:     "Colombo Fort Railway Station",
-  dropoff:    "BIA Terminal 1, Katunayake",
-  fare:       "LKR 1,240",
-  fareNum:    1240,
-  km:         "31.4",
-  commission: 124,
-};
+// Remove static ACTIVE_TRIP default
 
 const STATE_ORDER: TripState[] = ["assigned", "en_route", "arrived", "in_trip", "completed"];
 
@@ -69,17 +59,48 @@ export default function ScreenDriver() {
   const [arrivedSec, setArrived]  = useState(0);
   const [todayEarnings, setEarnings] = useState(6340);
   const [commDebt, setCommDebt]   = useState(1840);
+  const [activeTrip, setActiveTrip] = useState<Trip | null>(null);
   const [tripsToday, setTripsToday] = useState(7);
+
+  const driverName = localStorage.getItem("user_name") || "Kasun Perera";
+  const driverInitials = driverName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  const vehicleInfo = localStorage.getItem("vehicle_info") || "CAB-4821 · Toyota Prius";
 
   const tripTimer    = useRef<ReturnType<typeof setInterval> | null>(null);
   const arrivedTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  /* Simulate an incoming trip offer 2.5s after going online */
+  /* Poll for available trips when online */
   useEffect(() => {
-    if (!online) return;
-    const t = setTimeout(() => setIncoming(true), 2500);
-    return () => clearTimeout(t);
-  }, [online]);
+    if (!online || tripState !== "idle") return;
+    
+    const fetchTrips = async () => {
+      try {
+        const trips = await apiClient<any[]>('/rides/available');
+        if (trips && trips.length > 0 && !activeTrip) {
+          const t = trips[0]; // Just take the first available trip for MVP
+          setActiveTrip({
+            id: `TRIP-${t.id}`,
+            passenger: t.passengerName || "Passenger",
+            avatar: "P",
+            rating: 5.0,
+            pickup: t.pickupAddress,
+            dropoff: t.dropoffAddress,
+            fare: `LKR ${t.estimatedFare}`,
+            fareNum: t.estimatedFare,
+            km: t.estimatedDistanceKm?.toString() || "8.4",
+            commission: Math.round(t.estimatedFare * 0.15), // 15% commission
+          });
+          setIncoming(true);
+        }
+      } catch (err) {
+        console.error("Failed to fetch trips", err);
+      }
+    };
+
+    fetchTrips(); // initial fetch
+    const t = setInterval(fetchTrips, 3000); // poll every 3 seconds
+    return () => clearInterval(t);
+  }, [online, tripState, activeTrip]);
 
   /* Elapsed trip timer */
   useEffect(() => {
@@ -104,12 +125,19 @@ export default function ScreenDriver() {
     return () => { if (arrivedTimer.current) clearInterval(arrivedTimer.current); };
   }, [tripState]);
 
-  function acceptTrip() {
-    setIncoming(false);
-    setState("assigned");
-    setEarnings(e => e + ACTIVE_TRIP.fareNum - ACTIVE_TRIP.commission);
-    setCommDebt(d => Math.max(0, d - ACTIVE_TRIP.commission));
-    setTripsToday(t => t + 1);
+  async function acceptTrip() {
+    if (!activeTrip) return;
+    try {
+      const tripId = activeTrip.id.replace("TRIP-", "");
+      await apiClient(`/rides/accept/${tripId}`, { method: 'POST' });
+      setIncoming(false);
+      setState("assigned");
+      setEarnings(e => e + activeTrip.fareNum - activeTrip.commission);
+      setCommDebt(d => Math.max(0, d - activeTrip.commission));
+      setTripsToday(t => t + 1);
+    } catch (err: any) {
+      alert("Failed to accept trip: " + err.message);
+    }
   }
 
   function declineTrip() {
@@ -152,11 +180,11 @@ export default function ScreenDriver() {
       <header className="px-4 pt-5 pb-3 flex items-center justify-between border-b border-slate-800/80 flex-none">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center font-extrabold text-sm shadow">
-            KP
+            {driverInitials}
           </div>
           <div>
-            <p className="font-extrabold text-white leading-tight">Kasun Perera</p>
-            <p className="text-xs text-slate-400 font-mono">CAB-4821 · Toyota Prius · ★ 4.91</p>
+            <p className="font-extrabold text-white leading-tight">{driverName}</p>
+            <p className="text-xs text-slate-400 font-mono">{vehicleInfo} · ★ 4.91</p>
           </div>
         </div>
 
@@ -257,7 +285,7 @@ export default function ScreenDriver() {
         )}
 
         {/* ── INCOMING TRIP OFFER ── */}
-        {showIncoming && tripState === "idle" && (
+        {showIncoming && tripState === "idle" && activeTrip && (
           <div
             className="rounded-2xl bg-blue-950 border-2 border-blue-500 px-5 py-5 shadow-2xl"
             style={{ animation: "slide-in .35s cubic-bezier(.22,1,.36,1) both" }}
@@ -273,15 +301,15 @@ export default function ScreenDriver() {
             {/* Passenger & fare */}
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-slate-700 rounded-2xl flex items-center justify-center font-extrabold text-white flex-none border border-slate-600">
-                {ACTIVE_TRIP.avatar}
+                {activeTrip.avatar}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-extrabold text-white">{ACTIVE_TRIP.passenger}</p>
-                <p className="text-xs text-blue-300 font-mono">★ {ACTIVE_TRIP.rating} passenger rating</p>
+                <p className="font-extrabold text-white">{activeTrip.passenger}</p>
+                <p className="text-xs text-blue-300 font-mono">★ {activeTrip.rating} passenger rating</p>
               </div>
               <div className="text-right flex-none">
-                <p className="font-extrabold font-mono text-emerald-400 text-xl">{ACTIVE_TRIP.fare}</p>
-                <p className="text-xs text-slate-400 font-mono">{ACTIVE_TRIP.km} km</p>
+                <p className="font-extrabold font-mono text-emerald-400 text-xl">{activeTrip.fare}</p>
+                <p className="text-xs text-slate-400 font-mono">{activeTrip.km} km</p>
               </div>
             </div>
 
@@ -289,18 +317,18 @@ export default function ScreenDriver() {
             <div className="bg-slate-900/60 rounded-xl p-3 mb-4 space-y-2">
               <div className="flex items-start gap-2">
                 <span className="w-2.5 h-2.5 bg-emerald-400 rounded-full flex-none mt-0.5" />
-                <p className="text-xs text-slate-300 font-mono leading-snug">{ACTIVE_TRIP.pickup}</p>
+                <p className="text-xs text-slate-300 font-mono leading-snug">{activeTrip.pickup}</p>
               </div>
               <div className="flex items-start gap-2">
                 <span className="w-2.5 h-2.5 bg-blue-400 rounded-full flex-none mt-0.5" />
-                <p className="text-xs text-slate-300 font-mono leading-snug">{ACTIVE_TRIP.dropoff}</p>
+                <p className="text-xs text-slate-300 font-mono leading-snug">{activeTrip.dropoff}</p>
               </div>
             </div>
 
             {/* Commission info */}
             <div className="flex items-center justify-between text-xs text-slate-400 font-mono mb-4 px-1">
-              <span>Your net: <strong className="text-emerald-400">LKR {(ACTIVE_TRIP.fareNum - ACTIVE_TRIP.commission).toLocaleString()}</strong></span>
-              <span>Commission: <strong className="text-orange-400">LKR {ACTIVE_TRIP.commission}</strong> (10%)</span>
+              <span>Your net: <strong className="text-emerald-400">LKR {(activeTrip.fareNum - activeTrip.commission).toLocaleString()}</strong></span>
+              <span>Commission: <strong className="text-orange-400">LKR {activeTrip.commission}</strong> (15%)</span>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -311,7 +339,7 @@ export default function ScreenDriver() {
         )}
 
         {/* ── ACTIVE TRIP ── */}
-        {tripActive && (
+        {tripActive && activeTrip && (
           <>
             {/* Progress stepper */}
             <div className="flex items-center px-1">
@@ -338,34 +366,34 @@ export default function ScreenDriver() {
               <p className="text-xs font-bold text-slate-400 font-mono uppercase tracking-wider">
                 {STATE_META[tripState].label}
               </p>
-              <p className="text-xs text-slate-500 font-mono">{ACTIVE_TRIP.id}</p>
+              <p className="text-xs text-slate-500 font-mono">{activeTrip.id}</p>
             </div>
 
             {/* Passenger card */}
             <div className="bg-slate-800 rounded-2xl border border-slate-700 p-4">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center font-extrabold border border-slate-600 flex-none">
-                  {ACTIVE_TRIP.avatar}
+                  {activeTrip.avatar}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-extrabold text-white">{ACTIVE_TRIP.passenger}</p>
-                  <p className="text-xs text-slate-400 font-mono">★ {ACTIVE_TRIP.rating} · Toyota Prius · CAB-4821</p>
+                  <p className="font-extrabold text-white">{activeTrip.passenger}</p>
+                  <p className="text-xs text-slate-400 font-mono">★ {activeTrip.rating}</p>
                 </div>
                 <div className="text-right flex-none">
-                  <p className="font-extrabold font-mono text-emerald-400">{ACTIVE_TRIP.fare}</p>
-                  <p className="text-xs text-slate-500 font-mono">{ACTIVE_TRIP.km} km</p>
+                  <p className="font-extrabold font-mono text-emerald-400">{activeTrip.fare}</p>
+                  <p className="text-xs text-slate-500 font-mono">{activeTrip.km} km</p>
                 </div>
               </div>
 
               <div className="space-y-1.5 border-t border-slate-700/60 pt-3">
                 <div className="flex items-start gap-2">
                   <span className="w-2 h-2 bg-emerald-400 rounded-full flex-none mt-1" />
-                  <p className="text-xs text-slate-300 font-mono leading-snug">{ACTIVE_TRIP.pickup}</p>
+                  <p className="text-xs text-slate-300 font-mono leading-snug">{activeTrip.pickup}</p>
                 </div>
                 <div className="w-0.5 h-3 bg-slate-700 ml-0.75 rounded-full" />
                 <div className="flex items-start gap-2">
                   <span className="w-2 h-2 bg-blue-400 rounded-full flex-none mt-1" />
-                  <p className="text-xs text-slate-300 font-mono leading-snug">{ACTIVE_TRIP.dropoff}</p>
+                  <p className="text-xs text-slate-300 font-mono leading-snug">{activeTrip.dropoff}</p>
                 </div>
               </div>
             </div>
@@ -445,30 +473,30 @@ export default function ScreenDriver() {
         )}
 
         {/* ── COMPLETED ── */}
-        {tripState === "completed" && (
+        {tripState === "completed" && activeTrip && (
           <div
             className="bg-emerald-950/50 border border-emerald-700/50 rounded-2xl px-5 py-7 text-center"
             style={{ animation: "slide-in .4s cubic-bezier(.22,1,.36,1) both" }}
           >
             <p className="text-6xl mb-3">🏁</p>
             <p className="font-extrabold text-white text-2xl">Trip Completed!</p>
-            <p className="text-emerald-400 font-mono text-2xl font-extrabold mt-2">{ACTIVE_TRIP.fare}</p>
+            <p className="text-emerald-400 font-mono text-2xl font-extrabold mt-2">{activeTrip.fare}</p>
             <p className="text-xs text-slate-400 font-mono mt-1">
-              {ACTIVE_TRIP.id} · {ACTIVE_TRIP.km} km · {formatTime(elapsedSec)}
+              {activeTrip.id} · {activeTrip.km} km · {formatTime(elapsedSec)}
             </p>
             <div className="bg-slate-800/60 rounded-xl p-3 mt-4 text-xs font-mono text-left space-y-1.5">
               <div className="flex justify-between">
                 <span className="text-slate-500">Gross fare</span>
-                <span className="text-white font-bold">{ACTIVE_TRIP.fare}</span>
+                <span className="text-white font-bold">{activeTrip.fare}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Commission (10%)</span>
-                <span className="text-orange-400 font-bold">− LKR {ACTIVE_TRIP.commission}</span>
+                <span className="text-slate-500">Commission (15%)</span>
+                <span className="text-orange-400 font-bold">− LKR {activeTrip.commission}</span>
               </div>
               <div className="flex justify-between border-t border-slate-700 pt-1.5 mt-1">
                 <span className="text-slate-400 font-semibold">Your net</span>
                 <span className="text-emerald-400 font-extrabold">
-                  LKR {(ACTIVE_TRIP.fareNum - ACTIVE_TRIP.commission).toLocaleString()}
+                  LKR {(activeTrip.fareNum - activeTrip.commission).toLocaleString()}
                 </span>
               </div>
             </div>

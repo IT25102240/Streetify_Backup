@@ -11,6 +11,8 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.streetify.dto.AvailableTripDTO;
+
 import java.util.List;
 import java.util.Map;
 
@@ -213,8 +215,24 @@ public class DispatchService {
      * Used by drivers to see available trips.
      */
     @Transactional(readOnly = true)
-    public List<Trip> getRequestedTrips() {
-        return tripDAO.findAllRequestedTrips();
+    public List<AvailableTripDTO> getRequestedTrips() {
+        List<Trip> trips = tripDAO.findAllRequestedTrips();
+        return trips.stream().map(t -> {
+            AvailableTripDTO dto = new AvailableTripDTO();
+            dto.setId(t.getId());
+            dto.setPassengerName(t.getPassenger() != null ? t.getPassenger().getFullName() : "Passenger");
+            dto.setPickupAddress(t.getPickupAddress());
+            dto.setDropoffAddress(t.getDropoffAddress());
+            dto.setEstimatedFare(t.getTotalFare());
+            dto.setEstimatedDistanceKm(t.getDistanceKm());
+            
+            Double commission = t.getPlatformCommission();
+            if (commission == null && t.getTotalFare() != null) {
+                commission = (double) Math.round(t.getTotalFare() * 0.15);
+            }
+            dto.setPlatformCommission(commission);
+            return dto;
+        }).toList();
     }
 
     // ─── Haversine Distance Formula ───────────────────────────────────────────

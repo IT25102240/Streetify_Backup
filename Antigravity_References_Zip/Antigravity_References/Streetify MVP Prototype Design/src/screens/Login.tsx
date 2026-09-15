@@ -148,6 +148,12 @@ export default function ScreenLogin() {
       });
       
       localStorage.setItem("jwt_token", response.accessToken);
+      if (response.fullName) {
+        localStorage.setItem("user_name", response.fullName);
+      }
+      if (response.vehicleInfo) {
+        localStorage.setItem("vehicle_info", response.vehicleInfo);
+      }
       // Dispatch event to app to navigate to the correct dashboard
       window.dispatchEvent(new CustomEvent("auth-success", { detail: { role: response.role } }));
       setLLoad(false);
@@ -163,6 +169,15 @@ export default function ScreenLogin() {
     if (phone.replace(/\D/,"").length < 9) { setS1Err("Enter a valid mobile number."); return false; }
     if (!email.includes("@")) { setS1Err("Enter a valid email address."); return false; }
     if (nic.replace(/\D/,"").length < 9)  { setS1Err("Enter a valid NIC number."); return false; }
+    setS1Err(""); return true;
+  }
+
+  function validatePassenger() {
+    if (!firstName.trim()) { setS1Err("First name is required."); return false; }
+    if (!lastName.trim())  { setS1Err("Last name is required."); return false; }
+    if (phone.replace(/\D/,"").length < 9) { setS1Err("Enter a valid mobile number."); return false; }
+    if (!email.includes("@")) { setS1Err("Enter a valid email address."); return false; }
+    if (pw.length < 8) { setS1Err("Password must be at least 8 characters."); return false; }
     setS1Err(""); return true;
   }
 
@@ -217,7 +232,7 @@ export default function ScreenLogin() {
             <span className="text-2xl">🚖</span>
           </div>
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Streetify</h1>
-          <p className="text-sm text-slate-500 mt-1">Driver Portal</p>
+          <p className="text-sm text-slate-500 mt-1">User Portal</p>
         </div>
 
         {/* Tab switcher */}
@@ -274,32 +289,15 @@ export default function ScreenLogin() {
             )}
 
             <Btn v="primary" size="lg" full onClick={handleLogin} loading={loginLoading}>
-              Sign In to Driver Portal
+              Sign In to User Portal
             </Btn>
 
-            <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center justify-between text-xs pb-4">
               <button className="text-slate-400 hover:text-blue-600 hover:underline transition-colors">Forgot password?</button>
               <button className="text-slate-400 hover:text-blue-600 hover:underline transition-colors">Resend activation email</button>
             </div>
 
-            <HR label="or continue with" />
-
-            <div className="grid grid-cols-2 gap-3">
-              <button className="flex items-center justify-center gap-2 border border-slate-300 rounded-xl py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 active:scale-95 transition-all">
-                <svg width="17" height="17" viewBox="0 0 48 48">
-                  <path fill="#EA4335" d="M24 9.5c3.3 0 6.1 1.1 8.4 3.3l6.2-6.2C34.6 3 29.8 1 24 1 14.8 1 7 6.6 3.7 14.4l7.3 5.7C12.7 13.8 17.9 9.5 24 9.5z"/>
-                  <path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.4c-.5 2.9-2.1 5.3-4.5 6.9l7.1 5.5c4.1-3.8 6.5-9.4 6.5-16.4z"/>
-                  <path fill="#FBBC05" d="M11 28.1A14.5 14.5 0 0 1 9.5 24c0-1.4.2-2.8.5-4.1L2.7 14.4A23 23 0 0 0 1 24c0 3.7.9 7.3 2.7 10.4l7.3-5.7z"/>
-                  <path fill="#34A853" d="M24 47c5.8 0 10.7-1.9 14.3-5.1l-7.1-5.5c-2 1.3-4.5 2.1-7.2 2.1-6.1 0-11.3-4.1-13.2-9.7L3.4 34.4C6.8 41.3 14.8 47 24 47z"/>
-                </svg>
-                Google SSO
-              </button>
-              <button className="flex items-center justify-center gap-2 border border-slate-300 rounded-xl py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 active:scale-95 transition-all">
-                <span className="text-lg">🍎</span> Apple SSO
-              </button>
-            </div>
-
-            <p className="text-center text-[10px] text-slate-400 font-mono pt-1 leading-relaxed">
+            <p className="text-center text-[10px] text-slate-400 font-mono pt-1 leading-relaxed border-t border-slate-100 mt-4">
               Protected by RS256 JWT · 15-min access tokens · TLS 1.3
             </p>
           </Card>
@@ -564,9 +562,9 @@ export default function ScreenLogin() {
                             email,
                             password: pw,
                             phone,
-                            nicNumber: nic,
+                            nic: nic,
                             vehicleType: vehicle,
-                            licensePlate: plate,
+                            numberPlate: plate,
                             yearOfManufacture: parseInt(year)
                           })
                         });
@@ -625,8 +623,7 @@ export default function ScreenLogin() {
                v="primary" size="lg" full
                loading={loginLoading}
                onClick={async () => {
-                 if (!validateStep1() || pw.length < 8) {
-                    setS1Err("Please fill all fields correctly and ensure password is 8+ chars.");
+                 if (!validatePassenger()) {
                     return;
                  }
                  setLLoad(true);
@@ -643,6 +640,12 @@ export default function ScreenLogin() {
                    });
                    // Automatically log them in after registration by saving the token
                    localStorage.setItem("jwt_token", response.accessToken);
+                   if (response.fullName) {
+                     localStorage.setItem("user_name", response.fullName);
+                   }
+                   if (response.vehicleInfo) {
+                     localStorage.setItem("vehicle_info", response.vehicleInfo);
+                   }
                    window.dispatchEvent(new CustomEvent("auth-success", { detail: { role: response.role } }));
                  } catch (e: any) {
                    setS1Err(e.message || "Failed to register.");

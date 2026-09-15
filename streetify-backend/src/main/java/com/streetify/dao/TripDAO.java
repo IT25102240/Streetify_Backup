@@ -39,7 +39,7 @@ public interface TripDAO extends JpaRepository<Trip, Long> {
     @Query("""
            SELECT t FROM Trip t
            WHERE t.driver.id = :driverId
-             AND t.status IN ('ACCEPTED', 'EN_ROUTE', 'ARRIVED', 'IN_PROGRESS')
+             AND t.status IN (com.streetify.entity.TripStatus.ACCEPTED, com.streetify.entity.TripStatus.EN_ROUTE, com.streetify.entity.TripStatus.ARRIVED, com.streetify.entity.TripStatus.IN_PROGRESS)
            ORDER BY t.createdAt DESC
            """)
     Optional<Trip> findActiveTrip_ByDriverId(@Param("driverId") Long driverId);
@@ -54,13 +54,13 @@ public interface TripDAO extends JpaRepository<Trip, Long> {
      * Find all REQUESTED trips (no driver assigned yet).
      * DispatchService broadcasts these to online drivers via WebSocket.
      */
-    @Query("SELECT t FROM Trip t WHERE t.status = 'REQUESTED' ORDER BY t.createdAt ASC")
+    @Query("SELECT t FROM Trip t WHERE t.status = com.streetify.entity.TripStatus.REQUESTED ORDER BY t.createdAt ASC")
     List<Trip> findAllRequestedTrips();
 
     /**
      * Count completed trips for a driver.
      */
-    @Query("SELECT COUNT(t) FROM Trip t WHERE t.driver.id = :driverId AND t.status = 'COMPLETED'")
+    @Query("SELECT COUNT(t) FROM Trip t WHERE t.driver.id = :driverId AND t.status = com.streetify.entity.TripStatus.COMPLETED")
     long countCompletedTripsByDriver(@Param("driverId") Long driverId);
 
     // ─── Passenger-focused Queries ────────────────────────────────────────────
@@ -83,7 +83,7 @@ public interface TripDAO extends JpaRepository<Trip, Long> {
     @Query("""
            SELECT t FROM Trip t
            WHERE t.passenger.id = :passengerId
-             AND t.status IN ('REQUESTED', 'ACCEPTED', 'EN_ROUTE', 'ARRIVED', 'IN_PROGRESS')
+             AND t.status IN (com.streetify.entity.TripStatus.REQUESTED, com.streetify.entity.TripStatus.ACCEPTED, com.streetify.entity.TripStatus.EN_ROUTE, com.streetify.entity.TripStatus.ARRIVED, com.streetify.entity.TripStatus.IN_PROGRESS)
            """)
     Optional<Trip> findActiveTrip_ByPassengerId(@Param("passengerId") Long passengerId);
 
@@ -109,9 +109,9 @@ public interface TripDAO extends JpaRepository<Trip, Long> {
     @Query("""
            UPDATE Trip t
            SET t.driver.id = :driverId,
-               t.status = 'ACCEPTED',
+               t.status = com.streetify.entity.TripStatus.ACCEPTED,
                t.acceptedAt = :acceptedAt
-           WHERE t.id = :tripId AND t.status = 'REQUESTED'
+           WHERE t.id = :tripId AND t.status = com.streetify.entity.TripStatus.REQUESTED
            """)
     void assignDriverToTrip(
             @Param("tripId") Long tripId,
@@ -125,7 +125,7 @@ public interface TripDAO extends JpaRepository<Trip, Long> {
      */
     @Modifying
     @Transactional
-    @Query("UPDATE Trip t SET t.status = 'ARRIVED', t.arrivedAt = :arrivedAt WHERE t.id = :tripId")
+    @Query("UPDATE Trip t SET t.status = com.streetify.entity.TripStatus.ARRIVED, t.arrivedAt = :arrivedAt WHERE t.id = :tripId")
     void markArrived(@Param("tripId") Long tripId, @Param("arrivedAt") LocalDateTime arrivedAt);
 
     /**
@@ -133,7 +133,7 @@ public interface TripDAO extends JpaRepository<Trip, Long> {
      */
     @Modifying
     @Transactional
-    @Query("UPDATE Trip t SET t.status = 'IN_PROGRESS', t.startedAt = :startedAt WHERE t.id = :tripId")
+    @Query("UPDATE Trip t SET t.status = com.streetify.entity.TripStatus.IN_PROGRESS, t.startedAt = :startedAt WHERE t.id = :tripId")
     void markInProgress(@Param("tripId") Long tripId, @Param("startedAt") LocalDateTime startedAt);
 
     /**
@@ -143,7 +143,7 @@ public interface TripDAO extends JpaRepository<Trip, Long> {
     @Transactional
     @Query("""
            UPDATE Trip t
-           SET t.status = 'COMPLETED',
+           SET t.status = com.streetify.entity.TripStatus.COMPLETED,
                t.completedAt = :completedAt
            WHERE t.id = :tripId
            """)
@@ -159,7 +159,7 @@ public interface TripDAO extends JpaRepository<Trip, Long> {
      */
     @Query("""
            SELECT t FROM Trip t
-           WHERE t.status = 'ARRIVED'
+           WHERE t.status = com.streetify.entity.TripStatus.ARRIVED
              AND t.arrivedAt < :cutoffTime
            """)
     List<Trip> findNoShowEligibleTrips(@Param("cutoffTime") LocalDateTime cutoffTime);
@@ -173,7 +173,7 @@ public interface TripDAO extends JpaRepository<Trip, Long> {
     @Query("""
            SELECT COALESCE(SUM(t.platformCommission), 0)
            FROM Trip t
-           WHERE t.status = 'COMPLETED'
+           WHERE t.status = com.streetify.entity.TripStatus.COMPLETED
              AND t.completedAt >= :startOfDay
            """)
     Double sumPlatformCommissionSince(@Param("startOfDay") LocalDateTime startOfDay);

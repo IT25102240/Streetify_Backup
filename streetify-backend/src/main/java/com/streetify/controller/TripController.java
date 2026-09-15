@@ -3,6 +3,7 @@ package com.streetify.controller;
 import com.streetify.dto.FareEstimateDTO;
 import com.streetify.dto.TripRequestDTO;
 import com.streetify.dto.TripResponseDTO;
+import com.streetify.dto.AvailableTripDTO;
 import com.streetify.entity.Trip;
 import com.streetify.security.JwtUtil;
 import com.streetify.service.DispatchService;
@@ -113,7 +114,7 @@ public class TripController {
      */
     @GetMapping("/available")
     @PreAuthorize("hasAnyRole('DRIVER','ADMIN')")
-    public ResponseEntity<List<Trip>> getAvailableTrips() {
+    public ResponseEntity<List<AvailableTripDTO>> getAvailableTrips() {
         return ResponseEntity.ok(dispatchService.getRequestedTrips());
     }
 

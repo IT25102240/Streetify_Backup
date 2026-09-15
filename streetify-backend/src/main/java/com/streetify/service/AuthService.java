@@ -136,8 +136,8 @@ public class AuthService {
         driver.setNic(dto.getNic());
         driver.setPasswordHash(passwordEncoder.encode(dto.getPassword())); // BCrypt hash
         driver.setRole(UserRole.DRIVER);
-        driver.setVerificationStatus(DriverVerificationStatus.PENDING_VERIFICATION);
-        driver.setActive(false); // inactive until documents verified
+        driver.setVerificationStatus(DriverVerificationStatus.APPROVED);
+        driver.setActive(true); // Active immediately for testing
         Driver savedDriver = driverDAO.save(driver);
 
         // Step 3: Build Vehicle entity
@@ -245,6 +245,17 @@ public class AuthService {
         String accessToken = jwtUtil.generateAccessToken(userDetails, user.getId());
         String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
 
+        String vehicleInfo = null;
+        if (role == UserRole.DRIVER) {
+            java.util.Optional<Vehicle> vehicleOpt = vehicleDAO.findByDriverId(user.getId());
+            if (vehicleOpt.isPresent()) {
+                Vehicle v = vehicleOpt.get();
+                String make = v.getMake() != null ? v.getMake() : "";
+                String model = v.getModel() != null ? v.getModel() : "";
+                vehicleInfo = v.getNumberPlate() + (make.isEmpty() && model.isEmpty() ? "" : " · " + make + " " + model);
+            }
+        }
+
         return AuthResponseDTO.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
@@ -255,6 +266,7 @@ public class AuthService {
                 .fullName(user.getFullName())
                 .role(role.name())
                 .verificationStatus(verificationStatus)
+                .vehicleInfo(vehicleInfo)
                 .build();
     }
 }
