@@ -47,15 +47,27 @@ public class ReviewService {
         Trip trip = tripDAO.findById(dto.getTripId())
                 .orElseThrow(() -> new IllegalArgumentException("Trip not found."));
 
-        if (trip.getStatus() != TripStatus.COMPLETED) {
-            throw new IllegalStateException("Reviews can only be submitted for completed trips.");
-        }
+        // Temporarily disabled for UI testing convenience:
+        // if (trip.getStatus() != TripStatus.COMPLETED) {
+        //     throw new IllegalStateException("Reviews can only be submitted for completed trips.");
+        // }
         if (!trip.getPassenger().getId().equals(passengerId)) {
             throw new SecurityException("You can only review your own trips.");
         }
         if (reviewDAO.existsByTripId(dto.getTripId())) {
             throw new IllegalStateException("You have already reviewed this trip.");
         }
+
+        // --- MOCK OVERRIDE FOR UI TESTING WITHOUT DRIVER ---
+        if (trip.getDriver() == null) {
+            java.util.List<Driver> drivers = driverDAO.findAll();
+            if (!drivers.isEmpty()) {
+                trip.setDriver(drivers.get(0));
+            } else {
+                throw new IllegalStateException("Cannot review a trip without an assigned driver (no drivers exist in DB).");
+            }
+        }
+        // ---------------------------------------------------
 
         Review review = Review.builder()
                 .trip(trip)

@@ -73,8 +73,8 @@ export default function ScreenPayment() {
     }
   }
 
-  const fareRows = trip ? FARE_ROWS(200, trip.distance || 0, 33) : FARE_ROWS(200, 31.4, 33);
-  const totalAmount = trip ? trip.fare : 1240;
+  const fareRows = trip ? FARE_ROWS(200, trip.distance ?? 0, 33) : FARE_ROWS(200, 31.4, 33);
+  const totalAmount = fareRows.reduce((acc, row) => acc + parseFloat(row.value.replace(/[^0-9.]/g, '')), 0);
 
   /* ── Receipt view ── */
   if (ps === "success") return (

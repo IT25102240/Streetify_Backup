@@ -17,6 +17,7 @@ public class AuthResponseDTO {
     private String verificationStatus;
     private String vehicleInfo;
     private String message;
+    private String adminRole;
 
     public AuthResponseDTO() {}
 
@@ -52,6 +53,7 @@ public class AuthResponseDTO {
         private String verificationStatus;
         private String vehicleInfo;
         private String message;
+        private String adminRole;
 
         public Builder accessToken(String accessToken) { this.accessToken = accessToken; return this; }
         public Builder refreshToken(String refreshToken) { this.refreshToken = refreshToken; return this; }
@@ -64,9 +66,12 @@ public class AuthResponseDTO {
         public Builder verificationStatus(String verificationStatus) { this.verificationStatus = verificationStatus; return this; }
         public Builder vehicleInfo(String vehicleInfo) { this.vehicleInfo = vehicleInfo; return this; }
         public Builder message(String message) { this.message = message; return this; }
+        public Builder adminRole(String adminRole) { this.adminRole = adminRole; return this; }
 
         public AuthResponseDTO build() {
-            return new AuthResponseDTO(accessToken, refreshToken, expiresIn, tokenType, userId, email, fullName, role, verificationStatus, vehicleInfo, message);
+            AuthResponseDTO dto = new AuthResponseDTO(accessToken, refreshToken, expiresIn, tokenType, userId, email, fullName, role, verificationStatus, vehicleInfo, message);
+            dto.adminRole = adminRole;
+            return dto;
         }
     }
 
@@ -102,4 +107,7 @@ public class AuthResponseDTO {
 
     public String getVehicleInfo() { return vehicleInfo; }
     public void setVehicleInfo(String vehicleInfo) { this.vehicleInfo = vehicleInfo; }
+
+    public String getAdminRole() { return adminRole; }
+    public void setAdminRole(String adminRole) { this.adminRole = adminRole; }
 }

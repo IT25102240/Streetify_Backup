@@ -76,6 +76,7 @@ export default function App() {
     localStorage.removeItem("user_role");
     localStorage.removeItem("user_name");
     localStorage.removeItem("vehicle_info");
+    localStorage.removeItem("admin_role");
     setRole(null);
     setScreen("login");
   };

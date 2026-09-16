@@ -109,8 +109,8 @@ export default function ScreenBooking() {
       })
     })
     .then(data => {
-      setEstimatedFare(data.totalFare || data.estimatedFare || data.fare || 0);
-      setEstimatedDistance(data.distanceKm || data.estimatedDistanceKm || DISTANCE);
+      setEstimatedFare(data.totalFare ?? data.estimatedFare ?? data.fare ?? 0);
+      setEstimatedDistance(data.distanceKm ?? data.estimatedDistanceKm ?? DISTANCE);
       setFareReady(true);
       setStep("confirm");
     })
@@ -132,7 +132,7 @@ export default function ScreenBooking() {
       }, 3200);
       return () => { clearTimeout(t); if (dotRef.current) clearInterval(dotRef.current); };
     }
-  }, [step, drivers]);
+  }, [step]); // Removed drivers dependency so the 3.2s timeout doesn't keep resetting
 
   function pickSavedPlace(addr: string) {
     setDropoff(addr);
@@ -285,7 +285,7 @@ export default function ScreenBooking() {
           {(step === "selecting" || step === "confirm" || step === "matched") && (
             <div className="space-y-2" style={{ animation: "slide-up .38s cubic-bezier(.22,1,.36,1) both" }}>
               {RIDE_TYPES.map(r => {
-                const f = Math.round(r.base + DISTANCE * r.perKm);
+                const f = Math.round(r.base + (estimatedDistance > 0 ? estimatedDistance : DISTANCE) * r.perKm);
                 return (
                   <button
                     key={r.key}
@@ -379,9 +379,9 @@ export default function ScreenBooking() {
                       })
                     });
                     localStorage.setItem('active_trip', JSON.stringify({
-                      tripId: response.tripId || response.id,
-                      fare: response.totalFare || fare,
-                      distance: response.distanceKm || estimatedDistance || DISTANCE,
+                      tripId: response.tripId ?? response.id,
+                      fare: response.totalFare ?? fare,
+                      distance: response.distanceKm ?? estimatedDistance ?? DISTANCE,
                       pickup: pickup,
                       dropoff: dropoff,
                       driverName: response.driverName || "Assigning...",

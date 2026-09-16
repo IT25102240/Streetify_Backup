@@ -267,6 +267,7 @@ public class AuthService {
                 .role(role.name())
                 .verificationStatus(verificationStatus)
                 .vehicleInfo(vehicleInfo)
+                .adminRole(role == UserRole.ADMIN ? user.getAdminRole() : null)
                 .build();
     }
 }

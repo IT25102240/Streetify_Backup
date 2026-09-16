@@ -1,5 +1,6 @@
 package com.streetify.controller;
 
+import com.streetify.dto.ReviewResponseDTO;
 import com.streetify.dto.ReviewSubmitDTO;
 import com.streetify.entity.Review;
 import com.streetify.security.JwtUtil;
@@ -43,13 +44,13 @@ public class ReviewController {
      */
     @PostMapping
     @PreAuthorize("hasAnyRole('PASSENGER','ADMIN')")
-    public ResponseEntity<Review> submitReview(
+    public ResponseEntity<ReviewResponseDTO> submitReview(
             @Valid @RequestBody ReviewSubmitDTO dto,
             @RequestHeader("Authorization") String authorization
     ) {
         Long passengerId = jwtUtil.extractUserId(authorization.substring(7));
         Review review = reviewService.submitReview(passengerId, dto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(review);
+        return ResponseEntity.status(HttpStatus.CREATED).body(new ReviewResponseDTO(review));
     }
 
     /**
@@ -58,7 +59,10 @@ public class ReviewController {
      * Returns all reviews for a specific driver.
      */
     @GetMapping("/driver/{driverId}")
-    public ResponseEntity<List<Review>> getDriverReviews(@PathVariable Long driverId) {
-        return ResponseEntity.ok(reviewService.getDriverReviews(driverId));
+    public ResponseEntity<List<ReviewResponseDTO>> getDriverReviews(@PathVariable Long driverId) {
+        List<ReviewResponseDTO> reviews = reviewService.getDriverReviews(driverId).stream()
+                .map(ReviewResponseDTO::new)
+                .toList();
+        return ResponseEntity.ok(reviews);
     }
 }

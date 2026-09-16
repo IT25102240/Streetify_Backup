@@ -24,6 +24,7 @@ interface AuthResponseDTO {
   role: string;
   verificationStatus: string;
   message: string;
+  adminRole?: string;
 }
 
 type Tab  = "login" | "register-driver" | "register-passenger";
@@ -157,8 +158,11 @@ export default function ScreenLogin() {
       if (response.role) {
         localStorage.setItem("user_role", response.role.toLowerCase());
       }
+      if (response.adminRole) {
+        localStorage.setItem("admin_role", response.adminRole);
+      }
       // Dispatch event to app to navigate to the correct dashboard
-      window.dispatchEvent(new CustomEvent("auth-success", { detail: { role: response.role } }));
+      window.dispatchEvent(new CustomEvent("auth-success", { detail: { role: response.role, adminRole: response.adminRole } }));
       setLLoad(false);
     } catch (e: any) {
       setLLoad(false);

@@ -54,6 +54,14 @@ public class User {
     @Column(name = "suspension_reason", length = 500)
     private String suspensionReason;
 
+    /**
+     * adminRole — Scopes which CRUD module this ADMIN user manages.
+     * Values: SUPER_ADMIN, USER_MGMT, BOOKING_MGMT, DRIVER_MGMT, PAYMENT_MGMT, REVIEW_MGMT
+     * Null for non-admin roles.
+     */
+    @Column(name = "admin_role", length = 30)
+    private String adminRole;
+
     @Column(name = "wallet_balance", nullable = false)
     private Double walletBalance = 0.0;
 
@@ -84,6 +92,7 @@ public class User {
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public String getFullName() { return firstName + " " + lastName; }
+    public String getAdminRole() { return adminRole; }
 
     // ── Setters ──────────────────────────────────────────────────────────────
 
@@ -99,4 +108,5 @@ public class User {
     public void setSuspendedUntil(LocalDateTime suspendedUntil) { this.suspendedUntil = suspendedUntil; }
     public void setSuspensionReason(String suspensionReason) { this.suspensionReason = suspensionReason; }
     public void setWalletBalance(Double walletBalance) { this.walletBalance = walletBalance; }
+    public void setAdminRole(String adminRole) { this.adminRole = adminRole; }
 }
