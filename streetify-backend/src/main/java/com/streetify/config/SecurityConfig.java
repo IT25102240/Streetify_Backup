@@ -80,8 +80,8 @@ public class SecurityConfig {
                     "/v3/api-docs/**"
                 ).permitAll()
 
-                // ── Passenger Routes ───────────────────────────────────────
-                .requestMatchers("/api/rides/**").hasAnyRole("PASSENGER", "ADMIN")
+                // ── Passenger & Ride Routes ────────────────────────────────
+                .requestMatchers("/api/rides/**").hasAnyRole("PASSENGER", "DRIVER", "ADMIN")
                 .requestMatchers("/api/payments/**").hasAnyRole("PASSENGER", "ADMIN")
                 .requestMatchers("/api/reviews/**").hasAnyRole("PASSENGER", "ADMIN")
                 .requestMatchers("/api/disputes/**").hasAnyRole("PASSENGER", "STAFF", "ADMIN")

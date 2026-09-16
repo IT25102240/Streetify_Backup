@@ -57,10 +57,12 @@ export default function ScreenDriver() {
   const [showIncoming, setIncoming] = useState(false);
   const [elapsedSec, setElapsed]  = useState(0);
   const [arrivedSec, setArrived]  = useState(0);
-  const [todayEarnings, setEarnings] = useState(6340);
-  const [commDebt, setCommDebt]   = useState(1840);
+  const [todayEarnings, setEarnings] = useState(0);
+  const [commDebt, setCommDebt]   = useState(0);
   const [activeTrip, setActiveTrip] = useState<Trip | null>(null);
-  const [tripsToday, setTripsToday] = useState(7);
+  const [activeTripDbId, setActiveTripDbId] = useState<string | null>(null);
+  const [tripsToday, setTripsToday] = useState(0);
+  const [stateError, setStateError] = useState("");
 
   const driverName = localStorage.getItem("user_name") || "Kasun Perera";
   const driverInitials = driverName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
@@ -125,16 +127,23 @@ export default function ScreenDriver() {
     return () => { if (arrivedTimer.current) clearInterval(arrivedTimer.current); };
   }, [tripState]);
 
+  /* Load active trip from backend on mount (resume after refresh) */
+  useEffect(() => {
+    const savedId = localStorage.getItem('driver_trip_id');
+    if (savedId) setActiveTripDbId(savedId);
+  }, []);
+
   async function acceptTrip() {
     if (!activeTrip) return;
     try {
       const tripId = activeTrip.id.replace("TRIP-", "");
-      await apiClient(`/rides/accept/${tripId}`, { method: 'POST' });
+      const res = await apiClient<any>(`/rides/accept/${tripId}`, { method: 'POST' });
+      const dbTripId = (res.tripId || tripId).toString();
+      setActiveTripDbId(dbTripId);
+      localStorage.setItem('driver_trip_id', dbTripId);
       setIncoming(false);
       setState("assigned");
-      setEarnings(e => e + activeTrip.fareNum - activeTrip.commission);
-      setCommDebt(d => Math.max(0, d - activeTrip.commission));
-      setTripsToday(t => t + 1);
+      setStateError("");
     } catch (err: any) {
       alert("Failed to accept trip: " + err.message);
     }
@@ -144,9 +153,47 @@ export default function ScreenDriver() {
     setIncoming(false);
   }
 
-  function advanceState() {
+  async function advanceState() {
     const idx = STATE_ORDER.indexOf(tripState);
-    if (idx < STATE_ORDER.length - 1) setState(STATE_ORDER[idx + 1] as TripState);
+    if (idx >= STATE_ORDER.length - 1) return;
+    const nextState = STATE_ORDER[idx + 1] as TripState;
+
+    // Map UI state to backend status string
+    const statusMap: Record<TripState, string> = {
+      idle: "", assigned: "EN_ROUTE", en_route: "ARRIVED",
+      arrived: "IN_PROGRESS", in_trip: "COMPLETED", completed: ""
+    };
+    const backendStatus = statusMap[tripState];
+
+    if (activeTripDbId && backendStatus) {
+      try {
+        await apiClient(`/trips/${activeTripDbId}/status`, {
+          method: 'PUT',
+          body: JSON.stringify({ tripId: Number(activeTripDbId), status: backendStatus })
+        });
+        setStateError("");
+      } catch (err: any) {
+        setStateError(err.message || "Failed to update trip status");
+        return; // Don't advance UI if backend failed
+      }
+    }
+
+    setState(nextState);
+
+    // On completion: update stats, save for passenger payment, navigate to review
+    if (nextState === "completed" && activeTrip) {
+      setEarnings(e => e + activeTrip.fareNum - activeTrip.commission);
+      setTripsToday(t => t + 1);
+      localStorage.setItem('last_completed_trip', JSON.stringify({
+        tripId: activeTripDbId,
+        fare: activeTrip.fareNum,
+        distance: parseFloat(activeTrip.km),
+        driverName: driverName,
+        vehiclePlate: vehicleInfo.split(' · ')[0] || activeTrip.id
+      }));
+      localStorage.removeItem('driver_trip_id');
+      setActiveTripDbId(null);
+    }
   }
 
   function cancelNoShow() {
@@ -369,6 +416,13 @@ export default function ScreenDriver() {
               <p className="text-xs text-slate-500 font-mono">{activeTrip.id}</p>
             </div>
 
+            {/* Backend error banner */}
+            {stateError && (
+              <div className="bg-red-900/60 border border-red-500/60 rounded-xl px-3 py-2 text-xs text-red-300 font-mono">
+                ⚠️ {stateError}
+              </div>
+            )}
+
             {/* Passenger card */}
             <div className="bg-slate-800 rounded-2xl border border-slate-700 p-4">
               <div className="flex items-center gap-3 mb-3">
@@ -501,7 +555,7 @@ export default function ScreenDriver() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 mt-5">
-              <Btn v="secondary" size="lg" full onClick={() => setState("idle")}>Accept Next</Btn>
+              <Btn v="secondary" size="lg" full onClick={() => { setState("idle"); setActiveTrip(null); setActiveTripDbId(null); setStateError(""); }}>Accept Next</Btn>
               <Btn v="ghost" size="lg" full onClick={goOffline}>Go Offline</Btn>
             </div>
           </div>

@@ -6,8 +6,9 @@
  *   GET /api/trips?userId=...&page=1&limit=20 → Trip[]
  *   GET /api/payments/receipt/:txnId           → { pdf_url }
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Btn, Card, Pill } from "../ui";
+import { apiClient } from "../api/apiClient";
 
 type ViewMode = "passenger" | "driver";
 
@@ -27,31 +28,60 @@ const DRIVER_TRIPS = [
   { id:"TRIP-4821-084", date:"13 Sep 2026", time:"14:12", from:"Moratuwa",    to:"Fort Station",       passenger:"Dilshan P.",  fare:"LKR 640",   km:"16.0", status:"completed", commission:"LKR 64"  },
 ];
 
-const STATUS_COLOR: Record<string, string> = { completed: "green", cancelled: "red" };
+const STATUS_COLOR: Record<string, string> = { completed: "green", cancelled: "red", requested: "blue", in_progress: "yellow" };
 const METHOD_ICON:  Record<string, string> = { card: "💳", wallet: "📱", cash: "💵" };
 
 export default function ScreenHistory() {
   const [mode, setMode]     = useState<ViewMode>("passenger");
   const [selected, setSelected] = useState<string|null>(null);
   const [search, setSearch] = useState("");
+  const [passengerTrips, setPassengerTrips] = useState<any[]>([]);
+  const [driverTrips, setDriverTrips] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const pTrips = PASSENGER_TRIPS.filter(t =>
-    !search || t.from.toLowerCase().includes(search.toLowerCase()) ||
-    t.to.toLowerCase().includes(search.toLowerCase()) ||
-    t.driver.toLowerCase().includes(search.toLowerCase())
+  const userRole = localStorage.getItem("user_role") || "passenger";
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        if (userRole === "driver") {
+          const data = await apiClient<any[]>("/rides/driver/history");
+          setDriverTrips(data || []);
+          setMode("driver");
+        } else {
+          const data = await apiClient<any[]>("/rides/history");
+          setPassengerTrips(data || []);
+          setMode("passenger");
+        }
+      } catch (err: any) {
+        setError(err.message || "Failed to load trip history");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchHistory();
+  }, [userRole]);
+
+  const pTrips = passengerTrips.filter(t =>
+    !search || (t.from || "").toLowerCase().includes(search.toLowerCase()) ||
+    (t.to || "").toLowerCase().includes(search.toLowerCase()) ||
+    (t.driver || "").toLowerCase().includes(search.toLowerCase())
   );
-  const dTrips = DRIVER_TRIPS.filter(t =>
-    !search || t.from.toLowerCase().includes(search.toLowerCase()) ||
-    t.to.toLowerCase().includes(search.toLowerCase())
+  const dTrips = driverTrips.filter(t =>
+    !search || (t.from || "").toLowerCase().includes(search.toLowerCase()) ||
+    (t.to || "").toLowerCase().includes(search.toLowerCase())
   );
 
-  const passengerTotal = PASSENGER_TRIPS
+  const passengerTotal = passengerTrips
     .filter(t => t.status === "completed")
-    .reduce((sum, t) => sum + parseInt(t.fare.replace(/\D/g,"")), 0);
+    .reduce((sum, t) => sum + (t.fareAmount || 0), 0);
 
-  const driverTotal = DRIVER_TRIPS
+  const driverTotal = driverTrips
     .filter(t => t.status === "completed")
-    .reduce((sum, t) => sum + parseInt(t.fare.replace(/\D/g,"")), 0);
+    .reduce((sum, t) => sum + (t.fareAmount || 0), 0);
 
   return (
     <div className="min-h-screen bg-slate-100 py-10 px-4">
@@ -71,18 +101,31 @@ export default function ScreenHistory() {
           </div>
         </div>
 
+        {/* Loading / Error states */}
+        {loading && (
+          <div className="text-center py-10 text-slate-400">
+            <p className="text-3xl mb-2">⏳</p>
+            <p className="font-semibold">Loading your trip history...</p>
+          </div>
+        )}
+        {!loading && error && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-red-600 text-sm mb-2">
+            ⚠️ {error}
+          </div>
+        )}
+
         {/* Summary stats */}
-        {(() => {
+        {!loading && !error && (() => {
           const stats = mode === "passenger"
             ? [
-                { l: "Total Trips",  v: PASSENGER_TRIPS.filter(t => t.status === "completed").length.toString(), icon: "🛣️" },
-                { l: "Total Spent",  v: `LKR ${passengerTotal.toLocaleString()}`, icon: "💸" },
+                { l: "Total Trips",  v: passengerTrips.filter(t => t.status === "completed").length.toString(), icon: "🛣️" },
+                { l: "Total Spent",  v: `LKR ${Math.round(passengerTotal).toLocaleString()}`, icon: "💸" },
                 { l: "Avg Rating",   v: "4.8 ★", icon: "⭐" },
               ]
             : [
-                { l: "Trips Completed", v: DRIVER_TRIPS.filter(t => t.status === "completed").length.toString(), icon: "✅" },
-                { l: "Total Earned",    v: `LKR ${driverTotal.toLocaleString()}`, icon: "💰" },
-                { l: "Commission",      v: "LKR 295", icon: "🏦" },
+                { l: "Trips Completed", v: driverTrips.filter(t => t.status === "completed").length.toString(), icon: "✅" },
+                { l: "Total Earned",    v: `LKR ${Math.round(driverTotal).toLocaleString()}`, icon: "💰" },
+                { l: "Commission Paid", v: `LKR ${Math.round(driverTotal * 0.15).toLocaleString()}`, icon: "🏦" },
               ];
           return (
             <div className="grid grid-cols-3 gap-3">

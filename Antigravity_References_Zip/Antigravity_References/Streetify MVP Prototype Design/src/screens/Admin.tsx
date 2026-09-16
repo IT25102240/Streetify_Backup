@@ -14,6 +14,7 @@
 import { useState, useEffect } from "react";
 import OsmMap, { DriverPin } from "../OsmMap";
 import { Btn, Card, Pill, StatCard, WsLive } from "../ui";
+import { apiClient } from "../api/apiClient";
 
 type AdminTab = "verifications" | "fleet" | "audit";
 
@@ -96,10 +97,33 @@ export default function ScreenAdmin() {
   const [liveTrips, setLiveTrips] = useState(23);
   const [approvedIds, setApproved] = useState<Set<string>>(new Set());
   const [rejectedIds, setRejected] = useState<Set<string>>(new Set());
+  const [stats, setStats] = useState<any>(null);
+  const [realFlagged, setRealFlagged] = useState<any[]>([]);
+  const [realAudit, setRealAudit] = useState<any[]>([]);
+  const [adminError, setAdminError] = useState("");
 
   useEffect(() => {
     const t = setInterval(() => setLiveTrips(p => Math.max(18, Math.min(32, p + (Math.random() > 0.5 ? 1 : -1)))), 3800);
     return () => clearInterval(t);
+  }, []);
+
+  /* Fetch real admin data on mount */
+  useEffect(() => {
+    const fetchAdminData = async () => {
+      try {
+        const [statsData, flaggedData, auditData] = await Promise.all([
+          apiClient<any>("/admin/stats").catch(() => null),
+          apiClient<any[]>("/admin/flagged").catch(() => []),
+          apiClient<any[]>("/admin/audit?limit=50").catch(() => []),
+        ]);
+        if (statsData) setStats(statsData);
+        if (flaggedData) setRealFlagged(flaggedData);
+        if (auditData) setRealAudit(auditData);
+      } catch (err: any) {
+        setAdminError(err.message || "Failed to load admin data");
+      }
+    };
+    fetchAdminData();
   }, []);
 
   const filtered = FLAGGED.filter(a =>
@@ -108,12 +132,18 @@ export default function ScreenAdmin() {
 
   async function executeSuspend() {
     setRevoking(true);
-    // TODO: await apiPost("/api/admin/suspend",   { userId: modal!.id, duration: dur, auditNote: note });
-    // TODO: await apiPost("/api/auth/revoke-jwt", { userId: modal!.id });
-    await new Promise(r => setTimeout(r, 2000));
-    setRevoking(false);
-    setDone(true);
-    setTimeout(() => { setModal(null); setDone(false); setNote(""); }, 1800);
+    try {
+      await apiClient("/admin/suspend", {
+        method: "POST",
+        body: JSON.stringify({ userId: modal!.id, duration: parseInt(dur), auditNote: note })
+      });
+      setRevoking(false);
+      setDone(true);
+      setTimeout(() => { setModal(null); setDone(false); setNote(""); }, 1800);
+    } catch (err: any) {
+      setRevoking(false);
+      alert("Failed to suspend: " + (err.message || "Unknown error"));
+    }
   }
 
   const NAV: { key: AdminTab; icon: string; label: string; count?: number }[] = [

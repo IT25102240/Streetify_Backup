@@ -55,17 +55,27 @@ export default function App() {
       setScreen("login");
     };
 
+    const handleNavigate = (e: any) => {
+      const dest = e.detail?.screen as Screen;
+      if (dest) setScreen(dest);
+    };
+
     window.addEventListener("auth-success", handleAuthSuccess);
     window.addEventListener("auth-expired", handleAuthExpired);
+    window.addEventListener("navigate", handleNavigate);
 
     return () => {
       window.removeEventListener("auth-success", handleAuthSuccess);
       window.removeEventListener("auth-expired", handleAuthExpired);
+      window.removeEventListener("navigate", handleNavigate);
     };
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("jwt_token");
+    localStorage.removeItem("user_role");
+    localStorage.removeItem("user_name");
+    localStorage.removeItem("vehicle_info");
     setRole(null);
     setScreen("login");
   };

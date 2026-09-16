@@ -5,8 +5,9 @@
  *   POST /api/feedback { rideId, rating, tags, comment }
  *   POST /api/disputes  { rideId, type, description }    → { ticketId }
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Btn, Card, Toast } from "../ui";
+import { apiClient } from "../api/apiClient";
 
 const DISPUTE_OPTIONS = [
   "Driver didn't show up",
@@ -36,6 +37,20 @@ export default function ScreenReview() {
   const [tags, setTags]       = useState<Set<string>>(new Set());
   const [toast, setToast]     = useState(false);
   const [loading, setLoading] = useState(false);
+  const [trip, setTrip] = useState<any>(null);
+  const [errorToast, setErrorToast] = useState("");
+
+  useEffect(() => {
+    const lastTrip = localStorage.getItem("last_completed_trip");
+    if (lastTrip) {
+      try {
+        setTrip(JSON.parse(lastTrip));
+      } catch (e) {
+        console.error("Failed to parse last trip");
+      }
+    }
+  }, []);
+
   const MAX = 500;
 
   const EMOJI_LABEL = ["", "😤 Poor", "😐 Fair", "🙂 Good", "😊 Very Good", "🤩 Excellent!"];
@@ -47,20 +62,59 @@ export default function ScreenReview() {
 
   async function submit() {
     setLoading(true);
-    // TODO: await apiPost("/api/feedback", { rideId:"RIDE-88421", rating, tags:[...tags], comment });
-    // TODO: if (dispute) await apiPost("/api/disputes", { rideId:"RIDE-88421", type: dispute, description: comment });
-    await new Promise(r => setTimeout(r, 1000));
-    setLoading(false);
-    setToast(true);
-    setTimeout(() => setToast(false), 4500);
+    setErrorToast("");
+    
+    if (!trip || !trip.tripId) {
+       setErrorToast("No trip context found to review.");
+       setLoading(false);
+       setToast(true);
+       setTimeout(() => setToast(false), 4500);
+       return;
+    }
+
+    try {
+      const combinedComment = tags.size > 0 
+        ? `[${Array.from(tags).join(", ")}] ${comment}` 
+        : comment;
+
+      await apiClient("/reviews", {
+        method: "POST",
+        body: JSON.stringify({
+          tripId: trip.tripId,
+          rating,
+          comment: combinedComment.slice(0, 1000)
+        })
+      });
+
+      if (dispute) {
+        await apiClient("/disputes/create", {
+          method: "POST",
+          body: JSON.stringify({
+            tripId: trip.tripId,
+            subject: `Dispute: ${dispute}`,
+            description: comment || "No description provided",
+            disputeType: "OTHER"
+          })
+        });
+      }
+      
+      setLoading(false);
+      setToast(true);
+      setTimeout(() => setToast(false), 4500);
+    } catch (err: any) {
+      setLoading(false);
+      setErrorToast(err.message || "Failed to submit review");
+      setToast(true);
+      setTimeout(() => setToast(false), 4500);
+    }
   }
 
   return (
     <div className="min-h-screen bg-slate-100 flex items-start justify-center py-10 px-4">
       <Toast
-        message="Ticket submitted successfully via API"
-        sub="TKT-2026-88421 · Support responds within 24 hours"
-        type="success"
+        message={errorToast ? "Failed to submit" : "Submitted successfully"}
+        sub={errorToast || "Support responds within 24 hours if disputed"}
+        type={errorToast ? "error" : "success"}
         visible={toast}
       />
 
@@ -73,15 +127,17 @@ export default function ScreenReview() {
         {/* Trip summary card */}
         <Card className="p-4">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl flex items-center justify-center font-extrabold text-white flex-none">KP</div>
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl flex items-center justify-center font-extrabold text-white flex-none">
+              {trip?.driverName?.slice(0, 2)?.toUpperCase() || "KP"}
+            </div>
             <div className="flex-1 min-w-0">
-              <p className="font-extrabold text-slate-900">Kasun Perera</p>
-              <p className="text-xs text-slate-500 font-mono mt-0.5">CAB-4821 · 14 Sep 2026, 14:32</p>
-              <p className="text-xs text-slate-400 mt-0.5 truncate">Colombo Fort → BIA Terminal 1</p>
+              <p className="font-extrabold text-slate-900">{trip?.driverName || "Kasun Perera"}</p>
+              <p className="text-xs text-slate-500 font-mono mt-0.5">{trip?.vehiclePlate || "CAB-4821"} · {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</p>
+              <p className="text-xs text-slate-400 mt-0.5 truncate">{trip?.pickup?.slice(0,10) || "Colombo"} → {trip?.dropoff?.slice(0,10) || "BIA"}</p>
             </div>
             <div className="text-right flex-none">
-              <p className="font-extrabold font-mono text-blue-700">LKR 1,240</p>
-              <p className="text-xs text-slate-400 font-mono">31.4 km</p>
+              <p className="font-extrabold font-mono text-blue-700">LKR {trip?.fare?.toFixed(0) || "1,240"}</p>
+              <p className="text-xs text-slate-400 font-mono">{trip?.distance || 31.4} km</p>
             </div>
           </div>
         </Card>

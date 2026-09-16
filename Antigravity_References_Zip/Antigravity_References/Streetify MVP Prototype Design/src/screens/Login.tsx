@@ -154,6 +154,9 @@ export default function ScreenLogin() {
       if (response.vehicleInfo) {
         localStorage.setItem("vehicle_info", response.vehicleInfo);
       }
+      if (response.role) {
+        localStorage.setItem("user_role", response.role.toLowerCase());
+      }
       // Dispatch event to app to navigate to the correct dashboard
       window.dispatchEvent(new CustomEvent("auth-success", { detail: { role: response.role } }));
       setLLoad(false);

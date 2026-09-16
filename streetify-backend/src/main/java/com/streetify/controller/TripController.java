@@ -118,6 +118,47 @@ public class TripController {
         return ResponseEntity.ok(dispatchService.getRequestedTrips());
     }
 
+    @GetMapping("/available-test")
+    public ResponseEntity<List<AvailableTripDTO>> getAvailableTripsTest() {
+        return ResponseEntity.ok(dispatchService.getRequestedTrips());
+    }
+
+    // ─── Passenger Trip History ───────────────────────────────────────────────
+
+    /**
+     * GET /api/rides/history
+     *
+     * Returns the authenticated passenger's trip history, newest first.
+     * Frontend: History.tsx (passenger view).
+     */
+    @GetMapping("/history")
+    @PreAuthorize("hasAnyRole('PASSENGER','ADMIN')")
+    public ResponseEntity<List<java.util.Map<String, Object>>> getPassengerHistory(
+            @RequestHeader("Authorization") String authorization
+    ) {
+        Long passengerId = extractUserId(authorization);
+        List<java.util.Map<String, Object>> history = dispatchService.getPassengerHistory(passengerId);
+        return ResponseEntity.ok(history);
+    }
+
+    // ─── Driver Trip History ──────────────────────────────────────────────────
+
+    /**
+     * GET /api/rides/driver/history
+     *
+     * Returns the authenticated driver's trip history, newest first.
+     * Frontend: History.tsx (driver view).
+     */
+    @GetMapping("/driver/history")
+    @PreAuthorize("hasAnyRole('DRIVER','ADMIN')")
+    public ResponseEntity<List<java.util.Map<String, Object>>> getDriverHistory(
+            @RequestHeader("Authorization") String authorization
+    ) {
+        Long driverId = extractUserId(authorization);
+        List<java.util.Map<String, Object>> history = dispatchService.getDriverHistory(driverId);
+        return ResponseEntity.ok(history);
+    }
+
     // ─── Helper ───────────────────────────────────────────────────────────────
 
     private Long extractUserId(String authorization) {

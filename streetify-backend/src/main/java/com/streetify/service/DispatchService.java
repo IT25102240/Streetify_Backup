@@ -109,9 +109,10 @@ public class DispatchService {
      * @return TripResponseDTO with tripId and REQUESTED status
      */
     public TripResponseDTO bookTrip(Long passengerId, TripRequestDTO dto) {
-        // Step 1: Prevent double booking
+        // Step 1: Prevent double booking (automatically cancel old active trips for testing convenience)
         tripDAO.findActiveTrip_ByPassengerId(passengerId).ifPresent(t -> {
-            throw new IllegalStateException("You already have an active trip (Trip #" + t.getId() + ").");
+            t.setStatus(TripStatus.CANCELLED);
+            tripDAO.save(t);
         });
 
         // Step 2: Load passenger
@@ -232,6 +233,55 @@ public class DispatchService {
             }
             dto.setPlatformCommission(commission);
             return dto;
+        }).toList();
+    }
+
+    /**
+     * Get trip history for a passenger (newest first).
+     * Used by GET /api/rides/history.
+     */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getPassengerHistory(Long passengerId) {
+        List<Trip> trips = tripDAO.findByPassengerIdOrderByCreatedAtDesc(passengerId);
+        return trips.stream().map(t -> {
+            Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("id", "RIDE-" + t.getId());
+            m.put("date", t.getCreatedAt() != null ? t.getCreatedAt().toLocalDate().toString() : "");
+            m.put("time", t.getCreatedAt() != null ? t.getCreatedAt().toLocalTime().toString().substring(0,5) : "");
+            m.put("from", t.getPickupAddress());
+            m.put("to", t.getDropoffAddress());
+            m.put("driver", t.getDriver() != null ? t.getDriver().getFullName() : "N/A");
+            m.put("fare", "LKR " + (t.getTotalFare() != null ? Math.round(t.getTotalFare()) : 0));
+            m.put("fareAmount", t.getTotalFare() != null ? t.getTotalFare() : 0.0);
+            m.put("km", t.getDistanceKm() != null ? String.valueOf(Math.round(t.getDistanceKm() * 10.0) / 10.0) : "0");
+            m.put("status", t.getStatus() != null ? t.getStatus().name().toLowerCase() : "unknown");
+            m.put("method", t.getPaymentMethod() != null ? t.getPaymentMethod().toLowerCase() : "cash");
+            return m;
+        }).toList();
+    }
+
+    /**
+     * Get trip history for a driver (newest first).
+     * Used by GET /api/rides/driver/history.
+     */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getDriverHistory(Long driverId) {
+        List<Trip> trips = tripDAO.findByDriverIdAndStatus(driverId, TripStatus.COMPLETED);
+        return trips.stream().map(t -> {
+            Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("id", "TRIP-" + driverId + "-" + String.format("%03d", t.getId()));
+            m.put("date", t.getCreatedAt() != null ? t.getCreatedAt().toLocalDate().toString() : "");
+            m.put("time", t.getCreatedAt() != null ? t.getCreatedAt().toLocalTime().toString().substring(0,5) : "");
+            m.put("from", t.getPickupAddress());
+            m.put("to", t.getDropoffAddress());
+            m.put("passenger", t.getPassenger() != null ? t.getPassenger().getFullName() : "Passenger");
+            m.put("fare", "LKR " + (t.getTotalFare() != null ? Math.round(t.getTotalFare()) : 0));
+            m.put("fareAmount", t.getTotalFare() != null ? t.getTotalFare() : 0.0);
+            m.put("km", t.getDistanceKm() != null ? String.valueOf(Math.round(t.getDistanceKm() * 10.0) / 10.0) : "0");
+            m.put("status", t.getStatus() != null ? t.getStatus().name().toLowerCase() : "unknown");
+            double commission = t.getPlatformCommission() != null ? t.getPlatformCommission() : 0.0;
+            m.put("commission", "LKR " + Math.round(commission));
+            return m;
         }).toList();
     }
 

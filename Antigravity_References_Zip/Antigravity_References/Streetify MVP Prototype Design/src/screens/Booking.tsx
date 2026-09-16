@@ -34,11 +34,18 @@ const RIDE_TYPES: { key: RideType; label: string; icon: string; desc: string; ba
 ];
 
 const SAVED_PLACES = [
-  { icon: "🏠", label: "Home",           addr: "42/B Kotte Road, Nugegoda" },
-  { icon: "🏢", label: "Office",         addr: "World Trade Centre, Col 01" },
-  { icon: "✈️", label: "BIA Terminal 1", addr: "Bandaranaike Int. Airport" },
-  { icon: "🏥", label: "Nawaloka",       addr: "Nawaloka Hospital, Col 02" },
+  { icon: "🏠", label: "Home",           addr: "42/B Kotte Road, Nugegoda", lat: 6.8649, lng: 79.8997 },
+  { icon: "🏢", label: "Office",         addr: "World Trade Centre, Col 01", lat: 6.9329, lng: 79.8438 },
+  { icon: "✈️", label: "BIA Terminal 1", addr: "Bandaranaike Int. Airport", lat: 7.1805, lng: 79.8837 },
+  { icon: "🏥", label: "Nawaloka",       addr: "Nawaloka Hospital, Col 02", lat: 6.9208, lng: 79.8519 },
 ];
+
+const getCoords = (address: string) => {
+  const place = SAVED_PLACES.find(p => p.addr.toLowerCase() === address.toLowerCase() || p.label.toLowerCase() === address.toLowerCase());
+  if (place) return { lat: place.lat, lng: place.lng };
+  // Default coordinates for unknown places (Colombo Fort)
+  return { lat: 6.9329, lng: 79.8438 };
+};
 
 const INITIAL_DRIVERS: DriverPos[] = [
   { id: "d1", name: "Kasun P.",  plate: "CAB-4821", top: 40, left: 34, eta: 4, rating: 4.91 },
@@ -64,7 +71,7 @@ export default function ScreenBooking() {
   const [estimatedFare, setEstimatedFare] = useState<number>(0);
   const [estimatedDistance, setEstimatedDistance] = useState<number>(0);
   const [bookingError, setBookingError] = useState("");
-  const fare = estimatedFare || Math.round(selected.base + DISTANCE * selected.perKm);
+  const fare = estimatedFare || Math.round(selected.base + estimatedDistance * selected.perKm);
 
   /* Simulate WS driver positions arriving + drifting */
   useEffect(() => {
@@ -86,21 +93,24 @@ export default function ScreenBooking() {
     setFareReady(false);
     setBookingError("");
 
+    const pCoords = getCoords(pickup);
+    const dCoords = getCoords(dropoff);
+
     apiClient<any>('/rides/estimate', {
       method: 'POST',
       body: JSON.stringify({
         pickupAddress: pickup,
-        pickupLat: 6.9329, // Default to Colombo Fort
-        pickupLng: 79.8438,
+        pickupLat: pCoords.lat,
+        pickupLng: pCoords.lng,
         dropoffAddress: dropoff,
-        dropoffLat: 6.8913, // Default nearby location
-        dropoffLng: 79.8596,
+        dropoffLat: dCoords.lat,
+        dropoffLng: dCoords.lng,
         rideType: rideType.toUpperCase()
       })
     })
     .then(data => {
-      setEstimatedFare(data.estimatedFare || data.fare || 0);
-      setEstimatedDistance(data.estimatedDistanceKm || DISTANCE);
+      setEstimatedFare(data.totalFare || data.estimatedFare || data.fare || 0);
+      setEstimatedDistance(data.distanceKm || data.estimatedDistanceKm || DISTANCE);
       setFareReady(true);
       setStep("confirm");
     })
@@ -132,7 +142,7 @@ export default function ScreenBooking() {
 
   const FARE_ROWS = [
     { label: "Base fare",    value: `LKR ${selected.base}` },
-    { label: `${DISTANCE} km × LKR ${selected.perKm}`, value: `LKR ${Math.round(DISTANCE * selected.perKm)}` },
+    { label: `${estimatedDistance.toFixed(1)} km × LKR ${selected.perKm}`, value: `LKR ${Math.round(estimatedDistance * selected.perKm)}` },
     { label: "Platform fee", value: "LKR 4" },
   ];
 
@@ -295,7 +305,7 @@ export default function ScreenBooking() {
                       <p className={`font-extrabold font-mono text-sm ${rideType === r.key ? "text-blue-700" : "text-slate-700"}`}>
                         LKR {f.toLocaleString()}
                       </p>
-                      <p className="text-[10px] text-slate-400 font-mono">{DISTANCE} km est.</p>
+                      <p className="text-[10px] text-slate-400 font-mono">{estimatedDistance > 0 ? estimatedDistance.toFixed(1) : DISTANCE} km est.</p>
                     </div>
                   </button>
                 );
@@ -352,20 +362,31 @@ export default function ScreenBooking() {
               {step === "confirm" && (
                 <Btn v="primary" size="lg" full onClick={async () => {
                   setStep("searching");
+                  const pCoords = getCoords(pickup);
+                  const dCoords = getCoords(dropoff);
                   try {
-                    await apiClient('/rides/book', {
+                    const response: any = await apiClient('/rides/book', {
                       method: 'POST',
                       body: JSON.stringify({
                         pickupAddress: pickup,
-                        pickupLat: 6.9329,
-                        pickupLng: 79.8438,
+                        pickupLat: pCoords.lat,
+                        pickupLng: pCoords.lng,
                         dropoffAddress: dropoff,
-                        dropoffLat: 6.8913,
-                        dropoffLng: 79.8596,
+                        dropoffLat: dCoords.lat,
+                        dropoffLng: dCoords.lng,
                         rideType: rideType.toUpperCase(),
                         paymentMethod: "CASH"
                       })
                     });
+                    localStorage.setItem('active_trip', JSON.stringify({
+                      tripId: response.tripId || response.id,
+                      fare: response.totalFare || fare,
+                      distance: response.distanceKm || estimatedDistance || DISTANCE,
+                      pickup: pickup,
+                      dropoff: dropoff,
+                      driverName: response.driverName || "Assigning...",
+                      vehiclePlate: response.vehiclePlate || "..."
+                    }));
                   } catch (err: any) {
                     setStep("confirm");
                     setBookingError(err.message || "Failed to book ride");
@@ -386,9 +407,15 @@ export default function ScreenBooking() {
                 </Btn>
               )}
               {step === "matched" && (
-                <Btn v="danger" size="lg" full onClick={() => { setStep("idle"); setMatch(null); }}>
-                  Cancel Ride
-                </Btn>
+                <div className="space-y-2">
+                  <Btn v="primary" size="lg" full onClick={() => {
+                    // Navigate to Payment screen via custom event
+                    window.dispatchEvent(new CustomEvent('navigate', { detail: { screen: 'payment' } }));
+                  }}>💳 Go to Payment →</Btn>
+                  <Btn v="danger" size="lg" full onClick={() => { setStep("idle"); setMatch(null); localStorage.removeItem('active_trip'); }}>
+                    Cancel Ride
+                  </Btn>
+                </div>
               )}
             </Card>
           )}

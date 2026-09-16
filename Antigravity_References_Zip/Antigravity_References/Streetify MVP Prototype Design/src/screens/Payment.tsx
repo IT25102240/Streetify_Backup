@@ -6,15 +6,16 @@
  *   POST /api/payments/charge { rideId, method, cardToken } → { txnId, status }
  *   GET  /api/payments/receipt/:txnId                       → { pdf_url }
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Btn, Card, Field, Pill } from "../ui";
+import { apiClient } from "../api/apiClient";
 
 type PayMeth  = "card"|"wallet"|"cash";
 type PayState = "idle"|"processing"|"declined"|"success";
 
-const FARE_ROWS = [
-  { label: "Base Fare",                     value: "LKR 200.00" },
-  { label: "Distance — 31.4 km × LKR 33",  value: "LKR 1,036.00" },
+const FARE_ROWS = (base: number, km: number, perKm: number) => [
+  { label: "Base Fare",                     value: `LKR ${base.toFixed(2)}` },
+  { label: `Distance — ${km} km × LKR ${perKm}`,  value: `LKR ${(km * perKm).toFixed(2)}` },
   { label: "Platform Fee",                  value: "LKR 4.00" },
 ];
 
@@ -23,19 +24,57 @@ export default function ScreenPayment() {
   const [ps, setPs]         = useState<PayState>("idle");
   const [cardNum, setCard]  = useState("");
   const [expiry, setExpiry] = useState("");
+  const [errorMsg, setError] = useState("");
+  const [trip, setTrip] = useState<any>(null);
+  const [receipt, setReceipt] = useState<any>(null);
+
+  useEffect(() => {
+    const active = localStorage.getItem("active_trip");
+    if (active) {
+      try {
+        setTrip(JSON.parse(active));
+      } catch (e) {
+        console.error("Failed to parse active trip");
+      }
+    }
+  }, []);
 
   function fmtCard(v: string) { return v.replace(/\D/g,"").slice(0,16).replace(/(.{4})/g,"$1 ").trim(); }
   function fmtExp(v: string)  { return v.replace(/\D/g,"").slice(0,4).replace(/(\d{2})(\d)/,"$1/$2"); }
   function cardBrand(v: string) { return v.startsWith("4") ? "VISA" : v.startsWith("5") ? "MC" : v.startsWith("3") ? "AMEX" : ""; }
 
-  function pay() {
+  async function pay() {
     setPs("processing");
-    // TODO: const token = await stripe.createToken(cardElement);
-    // TODO: const res = await apiPost("/api/payments/charge", { rideId: "RIDE-88421", method, cardToken: token.id });
-    setTimeout(() => {
-      setPs(method === "card" && cardNum.startsWith("4111") ? "declined" : "success");
-    }, 2500);
+    setError("");
+
+    if (!trip || !trip.tripId) {
+       setPs("declined");
+       setError("No active trip found to pay for.");
+       return;
+    }
+
+    try {
+      const res = await apiClient<any>("/payments/process", {
+        method: "POST",
+        body: JSON.stringify({
+          tripId: trip.tripId,
+          paymentMethod: method.toUpperCase(),
+          cardLastFour: method === "card" ? cardNum.slice(-4) : null,
+          cardType: method === "card" ? cardBrand(cardNum.replace(/ /g,"")) : null
+        })
+      });
+      
+      setReceipt(res);
+      setPs("success");
+    } catch (err: any) {
+      console.error("Payment failed", err);
+      setPs("declined");
+      setError(err.message || "An unexpected error occurred during payment.");
+    }
   }
+
+  const fareRows = trip ? FARE_ROWS(200, trip.distance || 0, 33) : FARE_ROWS(200, 31.4, 33);
+  const totalAmount = trip ? trip.fare : 1240;
 
   /* ── Receipt view ── */
   if (ps === "success") return (
@@ -62,12 +101,12 @@ export default function ScreenPayment() {
           <div className="px-6 pt-7 pb-8 space-y-5">
             <div className="text-center">
               <p className="text-xs text-slate-400 font-mono uppercase tracking-widest">Total Charged</p>
-              <p className="text-4xl font-extrabold font-mono text-slate-900 mt-1">LKR 1,240.00</p>
-              <p className="text-xs text-slate-400 font-mono mt-2">TXN-2026-09-14-88421</p>
+              <p className="text-4xl font-extrabold font-mono text-slate-900 mt-1">LKR {receipt?.grossAmount?.toFixed(2) || totalAmount.toFixed(2)}</p>
+              <p className="text-xs text-slate-400 font-mono mt-2">TXN-{new Date().toISOString().split('T')[0]}-{receipt?.paymentId || "88421"}</p>
             </div>
 
             <div className="space-y-2.5">
-              {FARE_ROWS.map(({ label, value }) => (
+              {fareRows.map(({ label, value }) => (
                 <div key={label} className="flex justify-between text-sm text-slate-600">
                   <span>{label}</span>
                   <span className="font-mono font-medium">{value}</span>
@@ -75,7 +114,7 @@ export default function ScreenPayment() {
               ))}
               <div className="border-t border-dashed border-slate-200 pt-3 flex justify-between font-extrabold text-slate-900">
                 <span>Total Paid</span>
-                <span className="font-mono text-blue-700">LKR 1,240.00</span>
+                <span className="font-mono text-blue-700">LKR {receipt?.grossAmount?.toFixed(2) || totalAmount.toFixed(2)}</span>
               </div>
             </div>
 
@@ -92,17 +131,22 @@ export default function ScreenPayment() {
             </div>
 
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs font-mono text-slate-500 space-y-1.5">
-              <p>📅 14 Sep 2026 · 14:32 WIB</p>
-              <p>🗺 Colombo Fort → BIA Terminal 1</p>
-              <p>🚗 Kasun Perera · Toyota Prius · CAB-4821</p>
-              <p>💳 {method === "card" ? "Visa ···· 4242" : method === "wallet" ? "Streetify Wallet" : "Cash to driver"}</p>
+              <p>📅 {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} · {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute:'2-digit' })}</p>
+              <p>🗺 {trip?.pickup || "Colombo Fort"} → {trip?.dropoff || "BIA Terminal 1"}</p>
+              <p>🚗 {trip?.driverName || "Kasun Perera"} · {trip?.vehiclePlate || "CAB-4821"}</p>
+              <p>💳 {method === "card" ? `Visa ···· ${cardNum.slice(-4) || '4242'}` : method === "wallet" ? "Streetify Wallet" : "Cash to driver"}</p>
             </div>
 
             <div className="flex gap-3">
               <Btn v="secondary" size="md" className="flex-1">📧 Email PDF</Btn>
               <Btn v="secondary" size="md" className="flex-1">📲 Share</Btn>
             </div>
-            <Btn v="primary" size="lg" full onClick={() => setPs("idle")}>Back to Home</Btn>
+            <Btn v="primary" size="lg" full onClick={() => { 
+              setPs("idle"); 
+              if (trip) localStorage.setItem("last_completed_trip", JSON.stringify(trip));
+              localStorage.removeItem("active_trip"); 
+              setTrip(null); 
+            }}>Done</Btn>
           </div>
         </Card>
       </div>
@@ -124,7 +168,7 @@ export default function ScreenPayment() {
         <Card className="p-5">
           <p className="text-xs font-extrabold text-slate-400 uppercase tracking-widest font-mono mb-4">Fare Breakdown</p>
           <div className="space-y-2.5 mb-4">
-            {FARE_ROWS.map(({ label, value }) => (
+            {fareRows.map(({ label, value }) => (
               <div key={label} className="flex justify-between text-sm text-slate-600">
                 <span>{label}</span>
                 <span className="font-mono font-medium">{value}</span>
@@ -134,9 +178,9 @@ export default function ScreenPayment() {
           <div className="border-t-2 border-dashed border-slate-200 pt-4 flex items-end justify-between">
             <div>
               <p className="font-extrabold text-slate-900">Total Due</p>
-              <p className="text-xs text-slate-400 mt-0.5">31.4 km · Colombo Fort → BIA</p>
+              <p className="text-xs text-slate-400 mt-0.5">{trip?.distance || 31.4} km · {trip?.pickup || "Colombo Fort"} → {trip?.dropoff?.slice(0, 8) || "BIA"}</p>
             </div>
-            <p className="text-3xl font-extrabold font-mono text-blue-700">LKR 1,240</p>
+            <p className="text-3xl font-extrabold font-mono text-blue-700">LKR {totalAmount.toFixed(0)}</p>
           </div>
         </Card>
 
@@ -214,11 +258,11 @@ export default function ScreenPayment() {
                style={{ animation: "slide-up .38s cubic-bezier(.22,1,.36,1) both" }}>
             <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center flex-none text-xl">✗</div>
             <div>
-              <p className="font-extrabold text-red-800">Transaction Failed — Card Declined</p>
+              <p className="font-extrabold text-red-800">Transaction Failed</p>
               <p className="text-sm text-red-600 mt-0.5 leading-relaxed">
-                Your card was declined by the issuing bank. Please check your card details or try a different payment method.
+                {errorMsg || "Your card was declined by the issuing bank. Please check your card details or try a different payment method."}
               </p>
-              <p className="text-xs text-slate-500 font-mono mt-2">Error: CARD_DECLINED · Ref: TXN-FAIL-88419 · Retry allowed</p>
+              <p className="text-xs text-slate-500 font-mono mt-2">Error: PAYMENT_DECLINED · Retry allowed</p>
             </div>
           </div>
         )}
@@ -229,7 +273,7 @@ export default function ScreenPayment() {
           loading={ps === "processing"}
           disabled={ps === "processing"}
         >
-          {ps === "processing" ? "Processing payment…" : ps === "declined" ? "↩ Try Another Method" : "Pay LKR 1,240 →"}
+          {ps === "processing" ? "Processing payment…" : ps === "declined" ? "↩ Try Another Method" : `Pay LKR ${totalAmount.toFixed(0)} →`}
         </Btn>
 
         <p className="text-center text-xs text-slate-400 pb-2">

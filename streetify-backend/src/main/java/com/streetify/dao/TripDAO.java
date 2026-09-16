@@ -45,10 +45,11 @@ public interface TripDAO extends JpaRepository<Trip, Long> {
     Optional<Trip> findActiveTrip_ByDriverId(@Param("driverId") Long driverId);
 
     /**
-     * Find trips for a driver with a specific status.
-     * e.g., findByDriverIdAndStatus(42L, REQUESTED) → new offers for this driver
+     * Find trips for a driver with a specific status, ordered newest first.
+     * Used for driver history (COMPLETED trips).
      */
-    List<Trip> findByDriverIdAndStatus(Long driverId, TripStatus status);
+    @Query("SELECT t FROM Trip t WHERE t.driver.id = :driverId AND t.status = :status ORDER BY t.createdAt DESC")
+    List<Trip> findByDriverIdAndStatus(@Param("driverId") Long driverId, @Param("status") TripStatus status);
 
     /**
      * Find all REQUESTED trips (no driver assigned yet).
