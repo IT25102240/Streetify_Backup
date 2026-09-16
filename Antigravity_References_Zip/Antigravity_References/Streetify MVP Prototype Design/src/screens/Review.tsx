@@ -100,7 +100,10 @@ export default function ScreenReview() {
       
       setLoading(false);
       setToast(true);
-      setTimeout(() => setToast(false), 4500);
+      setTimeout(() => {
+        setToast(false);
+        window.dispatchEvent(new CustomEvent('navigate', { detail: { screen: 'history' } }));
+      }, 3000);
     } catch (err: any) {
       setLoading(false);
       setErrorToast(err.message || "Failed to submit review");

@@ -145,7 +145,8 @@ export default function ScreenPayment() {
               setPs("idle"); 
               if (trip) localStorage.setItem("last_completed_trip", JSON.stringify(trip));
               localStorage.removeItem("active_trip"); 
-              setTrip(null); 
+              setTrip(null);
+              window.dispatchEvent(new CustomEvent('navigate', { detail: { screen: 'review' } }));
             }}>Done</Btn>
           </div>
         </Card>
