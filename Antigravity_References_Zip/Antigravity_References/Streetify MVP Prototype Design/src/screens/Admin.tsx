@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Btn, Card, Pill } from "../ui";
 import { apiClient } from "../api/apiClient";
 
-type AdminTab = "users" | "bookings" | "driver-trips" | "payments" | "reviews" | "system";
+type AdminTab = "users" | "bookings" | "driver-trips" | "driver-docs" | "payments" | "reviews" | "system";
 
 export default function AdminDashboard() {
   const adminRole = localStorage.getItem("admin_role") || "UNKNOWN";
@@ -17,6 +17,7 @@ export default function AdminDashboard() {
   }
   if (adminRole === "SUPER_ADMIN" || adminRole === "DRIVER_MGMT") {
     allowedTabs.push({ key: "driver-trips", icon: "🚗", label: "Driver Trips" });
+    allowedTabs.push({ key: "driver-docs", icon: "📄", label: "Driver Verifications" });
   }
   if (adminRole === "SUPER_ADMIN" || adminRole === "PAYMENT_MGMT") {
     allowedTabs.push({ key: "payments", icon: "💳", label: "Payment Management" });
@@ -83,6 +84,7 @@ export default function AdminDashboard() {
           {tab === "users" && <UsersPanel />}
           {tab === "bookings" && <BookingsPanel />}
           {tab === "driver-trips" && <DriverTripsPanel />}
+          {tab === "driver-docs" && <DriverDocsPanel />}
           {tab === "payments" && <PaymentsPanel />}
           {tab === "reviews" && <ReviewsPanel />}
           {tab === "system" && <SystemPanel />}
@@ -99,26 +101,44 @@ function UsersPanel() {
     try {
       const data = await apiClient<any[]>('/module-admin/users');
       setUsers(data || []);
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
   };
 
   useEffect(() => { fetchUsers(); }, []);
+
+  const handleAdd = async () => {
+    const firstName = prompt("First Name:"); if (!firstName) return;
+    const lastName = prompt("Last Name:"); if (!lastName) return;
+    const email = prompt("Email:"); if (!email) return;
+    const phone = prompt("Phone:"); if (!phone) return;
+    try {
+      await apiClient('/module-admin/users', { method: 'POST', body: JSON.stringify({ firstName, lastName, email, phone }) });
+      fetchUsers();
+    } catch (e) { alert("Error: " + e); }
+  };
+
+  const handleEdit = async (u: any) => {
+    const firstName = prompt("Edit First Name:", u.firstName); if (!firstName) return;
+    const lastName = prompt("Edit Last Name:", u.lastName); if (!lastName) return;
+    const phone = prompt("Edit Phone:", u.phone); if (!phone) return;
+    try {
+      await apiClient(`/module-admin/users/${u.id}`, { method: 'PUT', body: JSON.stringify({ firstName, lastName, phone, active: u.active }) });
+      fetchUsers();
+    } catch (e) { alert("Error: " + e); }
+  };
 
   const handleDeactivate = async (id: number) => {
     try {
       await apiClient(`/module-admin/users/${id}`, { method: 'DELETE' });
       fetchUsers();
-    } catch (e) {
-      alert("Error: " + e);
-    }
+    } catch (e) { alert("Error: " + e); }
   };
 
   return (
     <Card>
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
         <p className="font-extrabold text-slate-800">User Management</p>
+        <Btn size="sm" onClick={handleAdd}>+ Add User</Btn>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -141,6 +161,7 @@ function UsersPanel() {
                 <td className="px-4 py-3"><Pill color="blue">{u.role}</Pill></td>
                 <td className="px-4 py-3"><Pill color={u.active ? "green" : "red"}>{u.active ? "Active" : "Inactive"}</Pill></td>
                 <td className="px-4 py-3 flex gap-2">
+                  <Btn size="xs" v="secondary" onClick={() => handleEdit(u)}>Edit</Btn>
                   <Btn size="xs" disabled={!u.active} onClick={() => handleDeactivate(u.id)}>Deactivate</Btn>
                 </td>
               </tr>
@@ -160,26 +181,41 @@ function BookingsPanel() {
     try {
       const data = await apiClient<any[]>('/module-admin/bookings');
       setTrips(data || []);
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
   };
 
   useEffect(() => { fetchTrips(); }, []);
+
+  const handleAdd = async () => {
+    const pickupAddress = prompt("Pickup Address:"); if (!pickupAddress) return;
+    const dropoffAddress = prompt("Dropoff Address:"); if (!dropoffAddress) return;
+    try {
+      await apiClient('/module-admin/bookings', { method: 'POST', body: JSON.stringify({ pickupAddress, dropoffAddress }) });
+      fetchTrips();
+    } catch (e) { alert("Error: " + e); }
+  };
+
+  const handleEdit = async (t: any) => {
+    const status = prompt("Update Status (REQUESTED, ACTIVE, COMPLETED, CANCELLED):", t.status); if (!status) return;
+    const estimatedFare = prompt("Estimated Fare:", t.totalFare || 0);
+    try {
+      await apiClient(`/module-admin/bookings/${t.id}`, { method: 'PUT', body: JSON.stringify({ status, estimatedFare: Number(estimatedFare) }) });
+      fetchTrips();
+    } catch (e) { alert("Error: " + e); }
+  };
 
   const handleCancel = async (id: number) => {
     try {
       await apiClient(`/module-admin/bookings/${id}`, { method: 'DELETE' });
       fetchTrips();
-    } catch (e) {
-      alert("Error: " + e);
-    }
+    } catch (e) { alert("Error: " + e); }
   };
 
   return (
     <Card>
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
         <p className="font-extrabold text-slate-800">Booking Management</p>
+        <Btn size="sm" onClick={handleAdd}>+ Add Booking</Btn>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -200,6 +236,7 @@ function BookingsPanel() {
                 <td className="px-4 py-3 max-w-xs truncate">{t.dropoffAddress}</td>
                 <td className="px-4 py-3"><Pill>{t.status}</Pill></td>
                 <td className="px-4 py-3 flex gap-2">
+                  <Btn size="xs" v="secondary" onClick={() => handleEdit(t)}>Edit</Btn>
                   <Btn size="xs" v="danger" onClick={() => handleCancel(t.id)}>Cancel</Btn>
                 </td>
               </tr>
@@ -219,20 +256,25 @@ function DriverTripsPanel() {
     try {
       const data = await apiClient<any[]>('/module-admin/driver-trips');
       setTrips(data || []);
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
   };
 
   useEffect(() => { fetchTrips(); }, []);
+
+  const handleEdit = async (t: any) => {
+    const driverId = prompt("Assign Driver ID:", t.driver?.id || "");
+    if (!driverId) return;
+    try {
+      await apiClient(`/module-admin/driver-trips/${t.id}`, { method: 'PUT', body: JSON.stringify({ driverId: Number(driverId) }) });
+      fetchTrips();
+    } catch (e) { alert("Error: " + e); }
+  };
 
   const unassignDriver = async (id: number) => {
     try {
       await apiClient(`/module-admin/driver-trips/${id}`, { method: 'DELETE' });
       fetchTrips();
-    } catch (e) {
-      alert("Error: " + e);
-    }
+    } catch (e) { alert("Error: " + e); }
   };
 
   return (
@@ -257,6 +299,7 @@ function DriverTripsPanel() {
                 <td className="px-4 py-3 font-bold">{t.driver ? `${t.driver.firstName} ${t.driver.lastName}` : "Unassigned"}</td>
                 <td className="px-4 py-3"><Pill>{t.status}</Pill></td>
                 <td className="px-4 py-3 flex gap-2">
+                  <Btn size="xs" v="secondary" onClick={() => handleEdit(t)}>Assign</Btn>
                   <Btn size="xs" disabled={!t.driver} onClick={() => unassignDriver(t.id)}>Unassign</Btn>
                 </td>
               </tr>
@@ -276,26 +319,40 @@ function PaymentsPanel() {
     try {
       const data = await apiClient<any[]>('/module-admin/payments');
       setPayments(data || []);
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
   };
 
   useEffect(() => { fetchPayments(); }, []);
+
+  const handleAdd = async () => {
+    const grossAmount = prompt("Amount (LKR):"); if (!grossAmount) return;
+    const paymentMethod = prompt("Method (CASH, CARD):", "CASH"); if (!paymentMethod) return;
+    try {
+      await apiClient('/module-admin/payments', { method: 'POST', body: JSON.stringify({ grossAmount: Number(grossAmount), paymentMethod }) });
+      fetchPayments();
+    } catch (e) { alert("Error: " + e); }
+  };
+
+  const handleEdit = async (p: any) => {
+    const status = prompt("Status (PENDING, COMPLETED, FAILED):", p.status); if (!status) return;
+    try {
+      await apiClient(`/module-admin/payments/${p.id}`, { method: 'PUT', body: JSON.stringify({ status }) });
+      fetchPayments();
+    } catch (e) { alert("Error: " + e); }
+  };
 
   const voidPayment = async (id: number) => {
     try {
       await apiClient(`/module-admin/payments/${id}`, { method: 'DELETE' });
       fetchPayments();
-    } catch (e) {
-      alert("Error: " + e);
-    }
+    } catch (e) { alert("Error: " + e); }
   };
 
   return (
     <Card>
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
         <p className="font-extrabold text-slate-800">Payment Management</p>
+        <Btn size="sm" onClick={handleAdd}>+ Add Payment</Btn>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -318,6 +375,7 @@ function PaymentsPanel() {
                 <td className="px-4 py-3">Rs {p.driverNet}</td>
                 <td className="px-4 py-3"><Pill>{p.status}</Pill></td>
                 <td className="px-4 py-3 flex gap-2">
+                  <Btn size="xs" v="secondary" onClick={() => handleEdit(p)}>Edit</Btn>
                   <Btn size="xs" v="danger" onClick={() => voidPayment(p.id)}>Void</Btn>
                 </td>
               </tr>
@@ -337,26 +395,41 @@ function ReviewsPanel() {
     try {
       const data = await apiClient<any[]>('/module-admin/reviews');
       setReviews(data || []);
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
   };
 
   useEffect(() => { fetchReviews(); }, []);
+
+  const handleAdd = async () => {
+    const rating = prompt("Rating (1-5):"); if (!rating) return;
+    const comment = prompt("Comment:"); if (!comment) return;
+    try {
+      await apiClient('/module-admin/reviews', { method: 'POST', body: JSON.stringify({ rating: Number(rating), comment }) });
+      fetchReviews();
+    } catch (e) { alert("Error: " + e); }
+  };
+
+  const handleEdit = async (r: any) => {
+    const rating = prompt("Edit Rating (1-5):", r.rating); if (!rating) return;
+    const comment = prompt("Edit Comment:", r.comment); if (!comment) return;
+    try {
+      await apiClient(`/module-admin/reviews/${r.id}`, { method: 'PUT', body: JSON.stringify({ rating: Number(rating), comment }) });
+      fetchReviews();
+    } catch (e) { alert("Error: " + e); }
+  };
 
   const deleteReview = async (id: number) => {
     try {
       await apiClient(`/module-admin/reviews/${id}`, { method: 'DELETE' });
       fetchReviews();
-    } catch (e) {
-      alert("Error: " + e);
-    }
+    } catch (e) { alert("Error: " + e); }
   };
 
   return (
     <Card>
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
         <p className="font-extrabold text-slate-800">Review Management</p>
+        <Btn size="sm" onClick={handleAdd}>+ Add Review</Btn>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -375,6 +448,7 @@ function ReviewsPanel() {
                 <td className="px-4 py-3 text-lg font-mono">{r.rating} ⭐</td>
                 <td className="px-4 py-3 max-w-sm truncate">{r.comment}</td>
                 <td className="px-4 py-3 flex gap-2">
+                  <Btn size="xs" v="secondary" onClick={() => handleEdit(r)}>Edit</Btn>
                   <Btn size="xs" v="danger" onClick={() => deleteReview(r.id)}>Delete</Btn>
                 </td>
               </tr>
@@ -387,38 +461,110 @@ function ReviewsPanel() {
   );
 }
 
-const AUDIT = [
-  { ts:"14 Sep · 14:22", admin:"admin@streetify.lk",  action:"Suspended USR-3302 for 30 days — fraud confirmed",           type:"suspend" },
-  { ts:"14 Sep · 13:55", admin:"coord@streetify.lk",  action:"Approved vehicle registration for DRV-2103",                 type:"approve" },
-  { ts:"14 Sep · 11:30", admin:"admin@streetify.lk",  action:"Revoked all JWT session tokens for USR-3302",               type:"revoke"  },
-  { ts:"13 Sep · 17:44", admin:"coord@streetify.lk",  action:"Issued formal warning to USR-6617 (missed trips)",           type:"warn"    },
-  { ts:"13 Sep · 09:12", admin:"admin@streetify.lk",  action:"Resolved dispute TKT-88312 — partial refund LKR 340",        type:"resolve" },
-];
-const AUDIT_CLR: Record<string,string> = { suspend:"bg-red-500", revoke:"bg-red-400", warn:"bg-orange-400", approve:"bg-emerald-500", resolve:"bg-blue-500" };
+const AUDIT_CLR: Record<string,string> = { 
+  suspend:"bg-red-500", revoke:"bg-red-400", warn:"bg-orange-400", approve:"bg-emerald-500", resolve:"bg-blue-500",
+  CREATE_USER:"bg-green-500", UPDATE_USER:"bg-blue-500", DEACTIVATE_USER:"bg-red-500",
+  CREATE_BOOKING:"bg-green-500", UPDATE_BOOKING:"bg-blue-500", CANCEL_BOOKING:"bg-red-500",
+  ASSIGN_DRIVER:"bg-purple-500", UPDATE_TRIP_STATUS:"bg-blue-500", UNASSIGN_DRIVER:"bg-orange-500",
+  APPROVE_DRIVER:"bg-emerald-500", REJECT_DRIVER:"bg-red-500",
+  CREATE_PAYMENT:"bg-green-500", UPDATE_PAYMENT:"bg-blue-500", VOID_PAYMENT:"bg-red-500",
+  CREATE_REVIEW:"bg-green-500", UPDATE_REVIEW:"bg-blue-500", DELETE_REVIEW:"bg-red-500",
+};
 
 function SystemPanel() {
+  const [audit, setAudit] = useState<any[]>([]);
+
+  const fetchAudit = async () => {
+    try {
+      const data = await apiClient<any[]>('/module-admin/audit');
+      setAudit(data || []);
+    } catch (e) { console.error(e); }
+  };
+
+  useEffect(() => { fetchAudit(); }, []);
+
   return (
     <Card>
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
         <div>
           <p className="font-extrabold text-slate-800">System Audit Log</p>
           <p className="text-[11px] text-slate-400 font-mono mt-0.5">
-            GET /api/admin/audit?limit=50 · Immutable append-only
+            GET /api/module-admin/audit?limit=50 · Immutable append-only
           </p>
         </div>
-        <Btn v="secondary" size="sm">⬇ Export CSV</Btn>
+        <Btn v="secondary" size="sm" onClick={() => fetchAudit()}>🔄 Refresh</Btn>
       </div>
       <div className="divide-y divide-slate-100">
-        {AUDIT.map((log, i) => (
+        {audit.map((log, i) => (
           <div key={i} className="px-5 py-4 flex items-start gap-4 hover:bg-slate-50 transition-colors">
-            <div className={`w-2.5 h-2.5 rounded-full mt-1.5 flex-none ${AUDIT_CLR[log.type] ?? "bg-slate-400"}`} />
+            <div className={`w-2.5 h-2.5 rounded-full mt-1.5 flex-none ${AUDIT_CLR[log.actionType] ?? "bg-slate-400"}`} />
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-slate-800 font-semibold leading-snug">{log.action}</p>
-              <p className="text-[11px] text-slate-400 font-mono mt-0.5">{log.admin}</p>
+              <p className="text-sm text-slate-800 font-semibold leading-snug">{log.description}</p>
+              <p className="text-[11px] text-slate-400 font-mono mt-0.5">{log.performedByEmail}</p>
             </div>
-            <p className="text-[11px] text-slate-400 font-mono flex-none whitespace-nowrap">{log.ts}</p>
+            <p className="text-[11px] text-slate-400 font-mono flex-none whitespace-nowrap">
+              {new Date(log.createdAt).toLocaleString()}
+            </p>
           </div>
         ))}
+        {audit.length === 0 && <div className="p-4 text-center">No logs found</div>}
+      </div>
+    </Card>
+  );
+}
+
+function DriverDocsPanel() {
+  const [drivers, setDrivers] = useState<any[]>([]);
+
+  const fetchDrivers = async () => {
+    try {
+      const data = await apiClient<any[]>('/module-admin/driver-docs');
+      setDrivers(data || []);
+    } catch (e) { console.error(e); }
+  };
+
+  useEffect(() => { fetchDrivers(); }, []);
+
+  const handleVerify = async (id: number, action: 'APPROVE' | 'REJECT') => {
+    if (!confirm(`Are you sure you want to ${action} driver ${id}?`)) return;
+    try {
+      await apiClient(`/module-admin/driver-docs/${id}`, { method: 'PUT', body: JSON.stringify({ action }) });
+      fetchDrivers();
+    } catch (e) { alert("Error: " + e); }
+  };
+
+  return (
+    <Card>
+      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <p className="font-extrabold text-slate-800">Pending Driver Verifications</p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-slate-50 border-b border-slate-200">
+              <th className="px-4 py-3 text-left">Driver ID</th>
+              <th className="px-4 py-3 text-left">Name</th>
+              <th className="px-4 py-3 text-left">NIC</th>
+              <th className="px-4 py-3 text-left">License</th>
+              <th className="px-4 py-3 text-left">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {drivers.map(d => (
+              <tr key={d.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                <td className="px-4 py-3 font-mono">{d.id}</td>
+                <td className="px-4 py-3 font-bold">{d.firstName} {d.lastName}</td>
+                <td className="px-4 py-3">{d.nic}</td>
+                <td className="px-4 py-3">{d.licenseNumber}</td>
+                <td className="px-4 py-3 flex gap-2">
+                  <Btn size="xs" onClick={() => handleVerify(d.id, 'APPROVE')}>Approve</Btn>
+                  <Btn size="xs" v="danger" onClick={() => handleVerify(d.id, 'REJECT')}>Reject</Btn>
+                </td>
+              </tr>
+            ))}
+            {drivers.length === 0 && <tr><td colSpan={5} className="text-center p-4">No pending verifications found</td></tr>}
+          </tbody>
+        </table>
       </div>
     </Card>
   );
