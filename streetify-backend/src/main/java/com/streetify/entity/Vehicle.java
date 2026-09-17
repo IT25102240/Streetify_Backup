@@ -50,6 +50,7 @@ public class Vehicle {
 
     // ── Getters ──────────────────────────────────────────────────────────────
     public Long getId() { return id; }
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public Driver getDriver() { return driver; }
     public String getVehicleType() { return vehicleType; }
     public String getNumberPlate() { return numberPlate; }

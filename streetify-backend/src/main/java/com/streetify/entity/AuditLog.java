@@ -61,6 +61,15 @@ public class AuditLog {
     public Long getTargetEntityId() { return targetEntityId; }
     public LocalDateTime getCreatedAt() { return createdAt; }
 
+    // ── Setters ──────────────────────────────────────────────────────────────
+    public void setPerformedByStaffId(Long id) { this.performedByStaffId = id; }
+    public void setPerformedByEmail(String e) { this.performedByEmail = e; }
+    public void setActionType(String t) { this.actionType = t; }
+    public void setDescription(String d) { this.description = d; }
+    public void setTargetUserId(Long id) { this.targetUserId = id; }
+    public void setTargetEntityType(String t) { this.targetEntityType = t; }
+    public void setTargetEntityId(Long id) { this.targetEntityId = id; }
+
     // ── Manual Builder ────────────────────────────────────────────────────────
     public static class AuditLogBuilder {
         private final AuditLog a = new AuditLog();

@@ -79,6 +79,7 @@ public class User {
 
     public Long getId() { return id; }
     public String getEmail() { return email; }
+    @com.fasterxml.jackson.annotation.JsonIgnore
     public String getPasswordHash() { return passwordHash; }
     public UserRole getRole() { return role; }
     public String getFirstName() { return firstName; }

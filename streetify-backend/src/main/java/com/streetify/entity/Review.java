@@ -59,6 +59,9 @@ public class Review {
     public LocalDateTime getCreatedAt() { return createdAt; }
 
     // ── Setters ──────────────────────────────────────────────────────────────
+    public void setTrip(Trip trip) { this.trip = trip; }
+    public void setPassenger(Passenger passenger) { this.passenger = passenger; }
+    public void setDriver(Driver driver) { this.driver = driver; }
     public void setRating(Integer rating) { this.rating = rating; }
     public void setComment(String comment) { this.comment = comment; }
 

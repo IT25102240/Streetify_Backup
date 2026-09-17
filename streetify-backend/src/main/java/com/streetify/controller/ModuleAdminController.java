@@ -23,6 +23,7 @@ public class ModuleAdminController {
     private final TripDAO tripDAO;
     private final PaymentDAO paymentDAO;
     private final ReviewDAO reviewDAO;
+    private final AuditLogDAO auditLogDAO;
     private final JwtUtil jwtUtil;
     private final AdminGovernanceService adminGovernanceService;
 
@@ -32,6 +33,7 @@ public class ModuleAdminController {
                                  TripDAO tripDAO,
                                  PaymentDAO paymentDAO,
                                  ReviewDAO reviewDAO,
+                                 AuditLogDAO auditLogDAO,
                                  JwtUtil jwtUtil,
                                  AdminGovernanceService adminGovernanceService) {
         this.userDAO = userDAO;
@@ -40,6 +42,7 @@ public class ModuleAdminController {
         this.tripDAO = tripDAO;
         this.paymentDAO = paymentDAO;
         this.reviewDAO = reviewDAO;
+        this.auditLogDAO = auditLogDAO;
         this.jwtUtil = jwtUtil;
         this.adminGovernanceService = adminGovernanceService;
     }
@@ -56,7 +59,7 @@ public class ModuleAdminController {
     // ═══════════════════════════════════════════════════════════════════════════════
 
     @PostMapping("/users")
-    public ResponseEntity<User> createUser(@RequestBody Map<String, Object> data) {
+    public ResponseEntity<Map<String, Object>> createUser(@RequestBody Map<String, Object> data) {
         User user = new User();
         if (data.containsKey("firstName")) user.setFirstName((String) data.get("firstName"));
         if (data.containsKey("lastName"))  user.setLastName((String) data.get("lastName"));
@@ -68,21 +71,38 @@ public class ModuleAdminController {
         User saved = userDAO.save(user);
         
         logAdminAction("CREATE_USER", "Created new passenger user: " + user.getEmail(), saved.getId(), "USER");
-        return ResponseEntity.ok(saved);
+        return ResponseEntity.ok(Map.of("status", "ok", "id", saved.getId()));
     }
 
     @GetMapping("/users")
-    public ResponseEntity<List<User>> getAllUsers() {
-        return ResponseEntity.ok(userDAO.findAll());
+    public ResponseEntity<List<Map<String, Object>>> getAllUsers() {
+        List<Map<String, Object>> result = userDAO.findAll().stream().map(u -> Map.<String, Object>of(
+            "id", u.getId(),
+            "firstName", u.getFirstName(),
+            "lastName", u.getLastName(),
+            "email", u.getEmail(),
+            "phone", u.getPhone() != null ? u.getPhone() : "",
+            "role", u.getRole().name(),
+            "active", u.isActive()
+        )).toList();
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/users/{id}")
-    public ResponseEntity<User> getUser(@PathVariable Long id) {
-        return userDAO.findById(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<Map<String, Object>> getUser(@PathVariable Long id) {
+        return userDAO.findById(id).map(u -> ResponseEntity.ok(Map.<String, Object>of(
+            "id", u.getId(),
+            "firstName", u.getFirstName(),
+            "lastName", u.getLastName(),
+            "email", u.getEmail(),
+            "phone", u.getPhone() != null ? u.getPhone() : "",
+            "role", u.getRole().name(),
+            "active", u.isActive()
+        ))).orElse(ResponseEntity.notFound().build());
     }
 
     @PutMapping("/users/{id}")
-    public ResponseEntity<User> updateUser(@PathVariable Long id, @RequestBody Map<String, Object> updates) {
+    public ResponseEntity<Map<String, Object>> updateUser(@PathVariable Long id, @RequestBody Map<String, Object> updates) {
         User user = userDAO.findById(id).orElseThrow(() -> new IllegalArgumentException("User not found: " + id));
 
         if (updates.containsKey("firstName"))  user.setFirstName((String) updates.get("firstName"));
@@ -92,7 +112,7 @@ public class ModuleAdminController {
 
         User saved = userDAO.save(user);
         logAdminAction("UPDATE_USER", "Updated user details for ID " + id, id, "USER");
-        return ResponseEntity.ok(saved);
+        return ResponseEntity.ok(Map.of("status", "ok", "id", saved.getId()));
     }
 
     @DeleteMapping("/users/{id}")
@@ -110,7 +130,7 @@ public class ModuleAdminController {
     // ═══════════════════════════════════════════════════════════════════════════════
 
     @PostMapping("/bookings")
-    public ResponseEntity<Trip> createBooking(@RequestBody Map<String, Object> data) {
+    public ResponseEntity<Map<String, Object>> createBooking(@RequestBody Map<String, Object> data) {
         Trip trip = new Trip();
         Passenger p = passengerDAO.findAll().stream().findFirst().orElse(null);
         trip.setPassenger(p);
@@ -125,21 +145,38 @@ public class ModuleAdminController {
         Trip saved = tripDAO.save(trip);
         
         logAdminAction("CREATE_BOOKING", "Created new trip manually from " + trip.getPickupAddress(), saved.getId(), "TRIP");
-        return ResponseEntity.ok(saved);
+        return ResponseEntity.ok(Map.of("status", "ok", "id", saved.getId()));
     }
 
     @GetMapping("/bookings")
-    public ResponseEntity<List<Trip>> getAllBookings() {
-        return ResponseEntity.ok(tripDAO.findAll());
+    public ResponseEntity<List<Map<String, Object>>> getAllBookings() {
+        List<Map<String, Object>> result = tripDAO.findAll().stream().map(t -> {
+            Map<String, Object> map = new java.util.HashMap<>();
+            map.put("id", t.getId());
+            map.put("pickupAddress", t.getPickupAddress());
+            map.put("dropoffAddress", t.getDropoffAddress());
+            map.put("status", t.getStatus().name());
+            map.put("totalFare", t.getTotalFare());
+            return map;
+        }).toList();
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/bookings/{id}")
-    public ResponseEntity<Trip> getBooking(@PathVariable Long id) {
-        return tripDAO.findById(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<Map<String, Object>> getBooking(@PathVariable Long id) {
+        return tripDAO.findById(id).map(t -> {
+            Map<String, Object> map = new java.util.HashMap<>();
+            map.put("id", t.getId());
+            map.put("pickupAddress", t.getPickupAddress());
+            map.put("dropoffAddress", t.getDropoffAddress());
+            map.put("status", t.getStatus().name());
+            map.put("totalFare", t.getTotalFare());
+            return ResponseEntity.ok(map);
+        }).orElse(ResponseEntity.notFound().build());
     }
 
     @PutMapping("/bookings/{id}")
-    public ResponseEntity<Trip> updateBooking(@PathVariable Long id, @RequestBody Map<String, Object> updates) {
+    public ResponseEntity<Map<String, Object>> updateBooking(@PathVariable Long id, @RequestBody Map<String, Object> updates) {
         Trip trip = tripDAO.findById(id).orElseThrow(() -> new IllegalArgumentException("Trip not found: " + id));
 
         if (updates.containsKey("status")) {
@@ -153,7 +190,7 @@ public class ModuleAdminController {
 
         Trip saved = tripDAO.save(trip);
         logAdminAction("UPDATE_BOOKING", "Updated booking ID " + id + " status to " + trip.getStatus(), id, "TRIP");
-        return ResponseEntity.ok(saved);
+        return ResponseEntity.ok(Map.of("status", "ok", "id", saved.getId()));
     }
 
     @DeleteMapping("/bookings/{id}")
@@ -171,24 +208,61 @@ public class ModuleAdminController {
     // ═══════════════════════════════════════════════════════════════════════════
 
     @GetMapping("/driver-trips")
-    public ResponseEntity<List<Trip>> getAllDriverTrips() {
-        return ResponseEntity.ok(tripDAO.findAll());
+    public ResponseEntity<List<Map<String, Object>>> getAllDriverTrips() {
+        List<Map<String, Object>> result = tripDAO.findAll().stream().map(t -> {
+            Map<String, Object> map = new java.util.HashMap<>();
+            map.put("id", t.getId());
+            map.put("status", t.getStatus().name());
+            if (t.getDriver() != null) {
+                map.put("driver", Map.of(
+                    "id", t.getDriver().getId(),
+                    "firstName", t.getDriver().getFirstName(),
+                    "lastName", t.getDriver().getLastName()
+                ));
+            } else {
+                map.put("driver", null);
+            }
+            return map;
+        }).toList();
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/driver-trips/{id}")
-    public ResponseEntity<Trip> getDriverTrip(@PathVariable Long id) {
-        return tripDAO.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<Map<String, Object>> getDriverTrip(@PathVariable Long id) {
+        return tripDAO.findById(id).map(t -> {
+            Map<String, Object> map = new java.util.HashMap<>();
+            map.put("id", t.getId());
+            map.put("status", t.getStatus().name());
+            if (t.getDriver() != null) {
+                map.put("driver", Map.of(
+                    "id", t.getDriver().getId(),
+                    "firstName", t.getDriver().getFirstName(),
+                    "lastName", t.getDriver().getLastName()
+                ));
+            } else {
+                map.put("driver", null);
+            }
+            return ResponseEntity.ok(map);
+        }).orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/drivers")
-    public ResponseEntity<List<Driver>> getAllDrivers() {
-        return ResponseEntity.ok(driverDAO.findAll());
+    public ResponseEntity<List<Map<String, Object>>> getAllDrivers() {
+        List<Map<String, Object>> result = driverDAO.findAll().stream().map(d -> {
+            Map<String, Object> map = new java.util.HashMap<>();
+            map.put("id", d.getId());
+            map.put("firstName", d.getFirstName());
+            map.put("lastName", d.getLastName());
+            map.put("email", d.getEmail());
+            map.put("phone", d.getPhone() != null ? d.getPhone() : "");
+            map.put("active", d.isActive());
+            return map;
+        }).toList();
+        return ResponseEntity.ok(result);
     }
 
     @PutMapping("/driver-trips/{id}")
-    public ResponseEntity<Trip> updateDriverTrip(@PathVariable Long id, @RequestBody Map<String, Object> updates) {
+    public ResponseEntity<Map<String, Object>> updateDriverTrip(@PathVariable Long id, @RequestBody Map<String, Object> updates) {
         Trip trip = tripDAO.findById(id).orElseThrow(() -> new IllegalArgumentException("Trip not found: " + id));
 
         if (updates.containsKey("driverId")) {
@@ -204,7 +278,8 @@ public class ModuleAdminController {
             logAdminAction("UPDATE_TRIP_STATUS", "Updated trip ID " + id + " status to " + trip.getStatus(), id, "TRIP");
         }
 
-        return ResponseEntity.ok(tripDAO.save(trip));
+        tripDAO.save(trip);
+        return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
     @DeleteMapping("/driver-trips/{id}")
@@ -220,8 +295,32 @@ public class ModuleAdminController {
 
     // Driver Verification Endpoints
     @GetMapping("/driver-docs")
-    public ResponseEntity<List<Driver>> getPendingDriverDocs() {
-        return ResponseEntity.ok(driverDAO.findByVerificationStatus(DriverVerificationStatus.PENDING_VERIFICATION));
+    public ResponseEntity<List<Map<String, Object>>> getPendingDriverDocs() {
+        List<Map<String, Object>> result = driverDAO.findByVerificationStatus(DriverVerificationStatus.PENDING_VERIFICATION)
+            .stream().map(d -> {
+                Map<String, Object> map = new java.util.HashMap<>();
+                map.put("id", d.getId());
+                map.put("firstName", d.getFirstName());
+                map.put("lastName", d.getLastName());
+                map.put("email", d.getEmail());
+                map.put("phone", d.getPhone());
+                map.put("nic", d.getNic() != null ? d.getNic() : "");
+                map.put("licenseNumber", d.getLicenseNumber() != null ? d.getLicenseNumber() : "");
+                if (d.getVehicle() != null) {
+                    Map<String, Object> vMap = new java.util.HashMap<>();
+                    vMap.put("make", d.getVehicle().getMake());
+                    vMap.put("model", d.getVehicle().getModel());
+                    vMap.put("year", d.getVehicle().getYearOfManufacture());
+                    vMap.put("color", d.getVehicle().getColor());
+                    vMap.put("plate", d.getVehicle().getNumberPlate());
+                    vMap.put("type", d.getVehicle().getVehicleType());
+                    map.put("vehicle", vMap);
+                } else {
+                    map.put("vehicle", null);
+                }
+                return map;
+            }).toList();
+        return ResponseEntity.ok(result);
     }
 
     @PutMapping("/driver-docs/{id}")
@@ -247,9 +346,35 @@ public class ModuleAdminController {
 
     @PostMapping("/payments")
     public ResponseEntity<Map<String, Object>> createPayment(@RequestBody Map<String, Object> data) {
+        Trip t = null;
+        if (data.containsKey("tripId") && data.get("tripId") != null) {
+            Long tripId = ((Number) data.get("tripId")).longValue();
+            t = tripDAO.findById(tripId).orElse(null);
+        }
+        
+        if (t == null) {
+            // Fallback to the first available trip that DOES NOT already have a payment
+            List<Long> usedTripIds = paymentDAO.findAll().stream().map(payment -> payment.getTrip().getId()).toList();
+            t = tripDAO.findAll().stream()
+                .filter(trip -> !usedTripIds.contains(trip.getId()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("All existing trips already have payments! Please create a new Trip first before adding a payment."));
+        }
+
         Payment p = new Payment();
-        if (data.containsKey("grossAmount")) p.setGrossAmount(((Number) data.get("grossAmount")).doubleValue());
+        p.setTrip(t);
+        if (t.getPassenger() != null) p.setPassenger(t.getPassenger());
+        if (t.getDriver() != null) p.setDriver(t.getDriver());
+
+        Double gross = 0.0;
+        if (data.containsKey("grossAmount")) gross = ((Number) data.get("grossAmount")).doubleValue();
+        p.setGrossAmount(gross);
+        p.setPlatformCommission(gross * 0.1);
+        p.setDriverNet(gross * 0.9);
+
         if (data.containsKey("paymentMethod")) p.setPaymentMethod((String) data.get("paymentMethod"));
+        else p.setPaymentMethod("CASH");
+        
         p.setStatus(PaymentStatus.SUCCESS);
         p.setProcessedAt(java.time.LocalDateTime.now());
         Payment saved = paymentDAO.save(p);
@@ -301,11 +426,21 @@ public class ModuleAdminController {
         if (updates.containsKey("paymentMethod")) {
             p.setPaymentMethod((String) updates.get("paymentMethod"));
         }
+        if (updates.containsKey("grossAmount")) {
+            p.setGrossAmount(((Number) updates.get("grossAmount")).doubleValue());
+        }
+        if (updates.containsKey("platformCommission")) {
+            p.setPlatformCommission(((Number) updates.get("platformCommission")).doubleValue());
+        }
+        if (updates.containsKey("driverNet")) {
+            p.setDriverNet(((Number) updates.get("driverNet")).doubleValue());
+        }
         paymentDAO.save(p);
         
         logAdminAction("UPDATE_PAYMENT", "Updated payment ID " + id, id, "PAYMENT");
         return ResponseEntity.ok(Map.<String, Object>of("status", "ok", "message", "Payment " + id + " updated."));
     }
+
 
     @DeleteMapping("/payments/{id}")
     public ResponseEntity<Map<String, String>> voidPayment(@PathVariable Long id) {
@@ -324,9 +459,30 @@ public class ModuleAdminController {
 
     @PostMapping("/reviews")
     public ResponseEntity<Map<String, String>> createReview(@RequestBody Map<String, Object> data) {
+        Trip t = null;
+        if (data.containsKey("tripId") && data.get("tripId") != null) {
+            Long tripId = ((Number) data.get("tripId")).longValue();
+            t = tripDAO.findById(tripId).orElse(null);
+        }
+        
+        if (t == null) {
+            // Fallback to a trip that does not already have a review
+            List<Long> usedTripIds = reviewDAO.findAll().stream().map(r -> r.getTrip().getId()).toList();
+            t = tripDAO.findAll().stream()
+                .filter(trip -> !usedTripIds.contains(trip.getId()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("All existing trips already have reviews! Please create a new Trip first."));
+        }
+
         Review r = new Review();
-        if (data.containsKey("rating"))  r.setRating((Integer) data.get("rating"));
+        r.setTrip(t);
+        if (t.getPassenger() != null) r.setPassenger(t.getPassenger());
+        if (t.getDriver() != null) r.setDriver(t.getDriver());
+
+        if (data.containsKey("rating"))  r.setRating(Integer.valueOf(data.get("rating").toString()));
+        else r.setRating(5); // fallback rating
         if (data.containsKey("comment")) r.setComment((String) data.get("comment"));
+        
         Review saved = reviewDAO.save(r);
         
         logAdminAction("CREATE_REVIEW", "Created manual review rating " + r.getRating(), saved.getId(), "REVIEW");
@@ -386,5 +542,46 @@ public class ModuleAdminController {
     @GetMapping("/audit")
     public ResponseEntity<List<AuditLog>> getAuditLogs() {
         return ResponseEntity.ok(adminGovernanceService.getRecentAuditLogs(100));
+    }
+
+    @PostMapping("/audit")
+    public ResponseEntity<Map<String, String>> createAuditLog(@RequestBody Map<String, Object> data) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User admin = userDAO.findByEmail(email).orElse(null);
+        Long adminId = admin != null ? admin.getId() : 0L;
+
+        String desc = data.containsKey("description") ? (String) data.get("description") : "Manual Audit Entry";
+        String type = data.containsKey("actionType") ? (String) data.get("actionType") : "MANUAL_ENTRY";
+        
+        AuditLog log = new AuditLog();
+        log.setPerformedByStaffId(adminId);
+        log.setPerformedByEmail(email);
+        log.setActionType(type);
+        log.setDescription(desc);
+        
+        AuditLog saved = auditLogDAO.save(log);
+        return ResponseEntity.ok(Map.of("status", "ok", "message", "Audit log " + saved.getId() + " created."));
+    }
+
+    @PutMapping("/audit/{id}")
+    public ResponseEntity<Map<String, String>> updateAuditLog(@PathVariable Long id, @RequestBody Map<String, Object> data) {
+        AuditLog log = auditLogDAO.findById(id).orElseThrow(() -> new IllegalArgumentException("Audit log not found: " + id));
+        if (data.containsKey("description")) {
+            log.setDescription((String) data.get("description"));
+        }
+        if (data.containsKey("actionType")) {
+            log.setActionType((String) data.get("actionType"));
+        }
+        auditLogDAO.save(log);
+        return ResponseEntity.ok(Map.of("status", "ok", "message", "Audit log " + id + " updated."));
+    }
+
+    @DeleteMapping("/audit/{id}")
+    public ResponseEntity<Map<String, String>> deleteAuditLog(@PathVariable Long id) {
+        if (!auditLogDAO.existsById(id)) {
+            throw new IllegalArgumentException("Audit log not found: " + id);
+        }
+        auditLogDAO.deleteById(id);
+        return ResponseEntity.ok(Map.of("status", "ok", "message", "Audit log " + id + " deleted."));
     }
 }
