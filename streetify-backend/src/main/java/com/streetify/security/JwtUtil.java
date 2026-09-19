@@ -4,7 +4,6 @@ import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
@@ -24,7 +23,6 @@ import java.util.stream.Collectors;
  *   - expiry    : access = 15 min, refresh = 7 days
  */
 @Component
-@SuppressWarnings("null")
 public class JwtUtil {
 
     @Value("${streetify.jwt.secret}")

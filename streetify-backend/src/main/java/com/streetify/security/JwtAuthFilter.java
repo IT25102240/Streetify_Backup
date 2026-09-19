@@ -27,7 +27,6 @@ import java.io.IOException;
  * No manual JSON parsing here.
  */
 @Component
-@SuppressWarnings("null")
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;

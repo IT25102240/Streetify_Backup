@@ -29,6 +29,7 @@ import java.util.Optional;
  */
 @Service
 @Transactional
+@SuppressWarnings("null")
 public class TripTrackingService {
 
     private static final double NO_SHOW_FEE_LKR = 100.0; // LKR penalty for no-show

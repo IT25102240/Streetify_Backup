@@ -38,7 +38,6 @@ import java.util.stream.Collectors;
  */
 @Configuration
 @EnableWebSocketMessageBroker
-@SuppressWarnings("null")
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final JwtUtil jwtUtil;

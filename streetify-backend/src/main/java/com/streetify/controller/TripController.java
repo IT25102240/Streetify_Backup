@@ -28,7 +28,6 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/rides")
-@SuppressWarnings("null")
 public class TripController {
 
     private final DispatchService dispatchService;
