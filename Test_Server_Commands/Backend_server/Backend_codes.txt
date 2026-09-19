@@ -1,0 +1,36 @@
+# 🚀 Streetify Backend Server Commands
+This file contains all the necessary PowerShell commands to manage, build, test, and run the Streetify Spring Boot Backend.
+
+> **IMPORTANT:** Ensure your terminal or PowerShell window is inside the `streetify-backend` folder before running any of these commands!
+
+---
+
+### 1. Start the Server (Development Mode)
+*Use this command for daily development. It sets the Java version to JDK 24 and starts the Spring Boot application on port 8080.*
+```powershell
+$env:JAVA_HOME="C:\Program Files\Java\jdk-24"; .\mvnw.cmd spring-boot:run
+```
+
+### 2. Clean and Rebuild the Project
+*Use this command if you are facing weird compilation errors or if the server refuses to apply your latest code changes. It deletes the old `/target` build folder and downloads/recompiles everything fresh.*
+```powershell
+$env:JAVA_HOME="C:\Program Files\Java\jdk-24"; .\mvnw.cmd clean install -DskipTests
+```
+
+### 3. Run Backend Unit Tests
+*If you or your team write any JUnit tests for your Java backend, run this command to execute all of them and verify that everything passes.*
+```powershell
+$env:JAVA_HOME="C:\Program Files\Java\jdk-24"; .\mvnw.cmd test
+```
+
+### 4. Build a Production JAR File
+*Use this when preparing for your final evaluation. It packages the entire Spring Boot application into a single, deployable `.jar` file inside the `/target` folder without running tests.*
+```powershell
+$env:JAVA_HOME="C:\Program Files\Java\jdk-24"; .\mvnw.cmd clean package -DskipTests
+```
+
+### 5. Run the Production JAR File
+*Once you have generated the `.jar` file using the command above, use this command to run the compiled production application. (Note: Ensure the filename matches what is in your `/target` folder).*
+```powershell
+$env:JAVA_HOME="C:\Program Files\Java\jdk-24"; & "$env:JAVA_HOME\bin\java.exe" -jar target\streetify-backend-0.0.1-SNAPSHOT.jar
+```

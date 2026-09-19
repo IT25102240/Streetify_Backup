@@ -1,0 +1,40 @@
+cd "E:\2Y1S\2Y1S_Projects\SE_project\Streetify\Streetify_Backup\Antigravity_References_Zip\Antigravity_References\Streetify MVP Prototype Design"
+PS E:\2Y1S\2Y1S_Projects\SE_project\Streetify\Streetify_Backup\Antigravity_References_Zip\Antigravity_References\Streetify MVP Prototype Design>
+PS E:\2Y1S\2Y1S_Projects\SE_project\Streetify\Streetify_Backup\Antigravity_References_Zip\Antigravity_References\Streetify MVP Prototype Design> npm run dev
+
+
+PS E:\2Y1S\2Y1S_Projects\SE_project\Streetify\Streetify_Backup\Antigravity_References_Zip\Antigravity_References\Streetify MVP Prototype Design> npm run dev
+
+> figma-make-app@1.0.0 dev
+> vite
+
+
+
+# 🎨 Streetify Frontend Server Commands (React / Vite)
+This section covers how to manage the React frontend built with Vite.
+
+> **IMPORTANT:** Ensure your terminal or PowerShell window is inside the `Streetify MVP Prototype Design` frontend folder before running any of these commands!
+
+### 1. Start the Frontend Server (Development Mode)
+*Use this command to start the Vite development server. It runs extremely fast and instantly updates the UI in your browser whenever you save a file. Make sure your Spring Boot backend is ALSO running in a separate terminal so they can talk to each other!*
+```powershell
+npm run dev
+```
+
+### 2. Install New Dependencies
+*If someone else on your team adds a new library (like an icon pack or chart library) and you pull their code, run this command to install all the missing packages.*
+```powershell
+npm install
+```
+
+### 3. Build a Production Version
+*When you are ready for your final evaluation and want to deploy the frontend, this command compiles your React code into highly optimized, static HTML/JS/CSS files inside the `/dist` folder.*
+```powershell
+npm run build
+```
+
+### 4. Preview the Production Build
+*After running `npm run build`, use this command to test the final production build locally before uploading it to a real web server.*
+```powershell
+npm run preview
+```
