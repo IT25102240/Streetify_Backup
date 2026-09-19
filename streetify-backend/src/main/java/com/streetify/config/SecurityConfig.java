@@ -42,6 +42,7 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity(prePostEnabled = true) // Enables @PreAuthorize on controllers
+@SuppressWarnings("null")
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
@@ -62,7 +63,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             // Disable CSRF (stateless JWT — no session cookies)
-            .csrf(AbstractHttpConfigurer::disable)
+            .csrf(csrf -> csrf.disable())
 
             // CORS configuration
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))

@@ -4,7 +4,6 @@ import com.streetify.dto.FareEstimateDTO;
 import com.streetify.dto.TripRequestDTO;
 import com.streetify.dto.TripResponseDTO;
 import com.streetify.dto.AvailableTripDTO;
-import com.streetify.entity.Trip;
 import com.streetify.security.JwtUtil;
 import com.streetify.service.DispatchService;
 import jakarta.validation.Valid;
@@ -29,6 +28,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/rides")
+@SuppressWarnings("null")
 public class TripController {
 
     private final DispatchService dispatchService;

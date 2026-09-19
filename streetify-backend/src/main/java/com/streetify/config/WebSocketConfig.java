@@ -12,6 +12,7 @@ import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.lang.NonNull;
 import org.springframework.web.socket.config.annotation.*;
 
 import java.util.List;
@@ -37,6 +38,7 @@ import java.util.stream.Collectors;
  */
 @Configuration
 @EnableWebSocketMessageBroker
+@SuppressWarnings("null")
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final JwtUtil jwtUtil;
@@ -48,7 +50,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     // ─── STOMP Endpoint Registration ────────────────────────────────────────
 
     @Override
-    public void registerStompEndpoints(StompEndpointRegistry registry) {
+    public void registerStompEndpoints(@NonNull StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
                 // Allow frontend origin for CORS during WebSocket handshake
                 .setAllowedOriginPatterns("http://localhost:*", "http://127.0.0.1:*")
@@ -59,7 +61,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     // ─── Message Broker Configuration ───────────────────────────────────────
 
     @Override
-    public void configureMessageBroker(MessageBrokerRegistry registry) {
+    public void configureMessageBroker(@NonNull MessageBrokerRegistry registry) {
         // Client sends messages to /app/... → @MessageMapping handlers
         registry.setApplicationDestinationPrefixes("/app");
 
@@ -79,10 +81,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
      * This ensures WebSocket connections are authenticated just like HTTP requests.
      */
     @Override
-    public void configureClientInboundChannel(ChannelRegistration registration) {
+    public void configureClientInboundChannel(@NonNull ChannelRegistration registration) {
         registration.interceptors(new ChannelInterceptor() {
             @Override
-            public Message<?> preSend(Message<?> message, MessageChannel channel) {
+            public Message<?> preSend(@NonNull Message<?> message, @NonNull MessageChannel channel) {
                 StompHeaderAccessor accessor =
                         MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 

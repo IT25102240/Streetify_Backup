@@ -32,6 +32,7 @@ import java.util.Map;
  */
 @Service
 @Transactional
+@SuppressWarnings("null")
 public class AdminGovernanceService {
 
     private final UserDAO userDAO;

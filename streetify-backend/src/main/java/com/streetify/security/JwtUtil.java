@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
  *   - expiry    : access = 15 min, refresh = 7 days
  */
 @Component
+@SuppressWarnings("null")
 public class JwtUtil {
 
     @Value("${streetify.jwt.secret}")
@@ -56,7 +57,7 @@ public class JwtUtil {
      */
     public String generateAccessToken(UserDetails userDetails, Long userId) {
         List<String> roles = userDetails.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
+                .map(auth -> auth.getAuthority())
                 .collect(Collectors.toList());
 
         return Jwts.builder()

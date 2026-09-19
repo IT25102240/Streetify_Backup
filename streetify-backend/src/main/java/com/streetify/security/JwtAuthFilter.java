@@ -27,6 +27,7 @@ import java.io.IOException;
  * No manual JSON parsing here.
  */
 @Component
+@SuppressWarnings("null")
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
@@ -95,7 +96,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
      * WebSocket auth is handled separately in WebSocketConfig.
      */
     @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) {
+    protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
         String path = request.getServletPath();
         return path.startsWith("/ws");
     }

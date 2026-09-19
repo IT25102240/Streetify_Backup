@@ -32,6 +32,7 @@ import java.util.Map;
  */
 @Service
 @Transactional
+@SuppressWarnings("null")
 public class DispatchService {
 
     private final TripDAO tripDAO;

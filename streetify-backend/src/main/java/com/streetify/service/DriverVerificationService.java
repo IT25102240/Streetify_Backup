@@ -34,6 +34,7 @@ import java.util.List;
  */
 @Service
 @Transactional
+@SuppressWarnings("null")
 public class DriverVerificationService {
 
     private final DriverDAO driverDAO;

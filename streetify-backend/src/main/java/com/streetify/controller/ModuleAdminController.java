@@ -2,7 +2,6 @@ package com.streetify.controller;
 
 import com.streetify.dao.*;
 import com.streetify.entity.*;
-import com.streetify.security.JwtUtil;
 import com.streetify.service.AdminGovernanceService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -15,6 +14,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/module-admin")
 @PreAuthorize("hasRole('ADMIN')")
+@SuppressWarnings("null")
 public class ModuleAdminController {
 
     private final UserDAO userDAO;
@@ -24,7 +24,6 @@ public class ModuleAdminController {
     private final PaymentDAO paymentDAO;
     private final ReviewDAO reviewDAO;
     private final AuditLogDAO auditLogDAO;
-    private final JwtUtil jwtUtil;
     private final AdminGovernanceService adminGovernanceService;
 
     public ModuleAdminController(UserDAO userDAO,
@@ -34,7 +33,6 @@ public class ModuleAdminController {
                                  PaymentDAO paymentDAO,
                                  ReviewDAO reviewDAO,
                                  AuditLogDAO auditLogDAO,
-                                 JwtUtil jwtUtil,
                                  AdminGovernanceService adminGovernanceService) {
         this.userDAO = userDAO;
         this.passengerDAO = passengerDAO;
@@ -43,7 +41,6 @@ public class ModuleAdminController {
         this.paymentDAO = paymentDAO;
         this.reviewDAO = reviewDAO;
         this.auditLogDAO = auditLogDAO;
-        this.jwtUtil = jwtUtil;
         this.adminGovernanceService = adminGovernanceService;
     }
 
