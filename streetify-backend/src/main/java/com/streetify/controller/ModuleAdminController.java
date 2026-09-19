@@ -260,18 +260,78 @@ public class ModuleAdminController {
         }).toList();
         return ResponseEntity.ok(result);
     }
+    @PostMapping("/drivers")
+    public ResponseEntity<Map<String, Object>> createDriver(@RequestBody Map<String, Object> data) {
+        Driver d = new Driver();
+        if (data.containsKey("firstName")) d.setFirstName((String) data.get("firstName"));
+        if (data.containsKey("lastName"))  d.setLastName((String) data.get("lastName"));
+        if (data.containsKey("email"))     d.setEmail((String) data.get("email"));
+        if (data.containsKey("phone"))     d.setPhone((String) data.get("phone"));
+        d.setPasswordHash("default-hash");
+        d.setRole(UserRole.DRIVER);
+        d.setActive(true);
+        d.setVerificationStatus(DriverVerificationStatus.APPROVED);
+        Driver saved = driverDAO.save(d);
+        
+        logAdminAction("CREATE_DRIVER", "Created new driver: " + saved.getEmail(), saved.getId(), "USER");
+        return ResponseEntity.ok(Map.of("status", "ok", "id", saved.getId()));
+    }
+    @PostMapping("/driver-trips")
+    public ResponseEntity<Map<String, Object>> createDriverTrip(@RequestBody Map<String, Object> data) {
+        Trip trip = new Trip();
+        Passenger p = passengerDAO.findAll().stream().findFirst().orElse(null);
+        trip.setPassenger(p);
+
+        trip.setPickupLat(6.9271); trip.setPickupLng(79.8612);
+        trip.setDropoffLat(6.8649); trip.setDropoffLng(79.8997);
+        if (data.containsKey("pickupAddress")) trip.setPickupAddress((String) data.get("pickupAddress"));
+        else trip.setPickupAddress("Dummy Pickup Address");
+        
+        if (data.containsKey("dropoffAddress")) trip.setDropoffAddress((String) data.get("dropoffAddress"));
+        else trip.setDropoffAddress("Dummy Dropoff Address");
+
+        trip.setRideType("CAR");
+        trip.setStatus(TripStatus.REQUESTED);
+
+        if (data.containsKey("driverId") && data.get("driverId") != null) {
+            Long driverId = ((Number) data.get("driverId")).longValue();
+            Driver driver = driverDAO.findById(driverId)
+                    .orElseThrow(() -> new IllegalArgumentException("Driver not found: " + driverId));
+            trip.setDriver(driver);
+            trip.setStatus(TripStatus.ACCEPTED);
+        }
+
+        Trip saved = tripDAO.save(trip);
+        logAdminAction("CREATE_DRIVER_TRIP", "Created dummy trip ID " + saved.getId(), saved.getId(), "TRIP");
+        return ResponseEntity.ok(Map.of("status", "ok", "id", saved.getId()));
+    }
 
     @PutMapping("/driver-trips/{id}")
     public ResponseEntity<Map<String, Object>> updateDriverTrip(@PathVariable Long id, @RequestBody Map<String, Object> updates) {
         Trip trip = tripDAO.findById(id).orElseThrow(() -> new IllegalArgumentException("Trip not found: " + id));
 
         if (updates.containsKey("driverId")) {
-            Long driverId = ((Number) updates.get("driverId")).longValue();
-            Driver driver = driverDAO.findById(driverId)
-                    .orElseThrow(() -> new IllegalArgumentException("Driver not found: " + driverId));
-            trip.setDriver(driver);
-            trip.setStatus(TripStatus.ACCEPTED);
-            logAdminAction("ASSIGN_DRIVER", "Assigned driver ID " + driverId + " to trip ID " + id, id, "TRIP");
+            Object driverIdObj = updates.get("driverId");
+            if (driverIdObj == null) {
+                trip.setDriver(null);
+                trip.setStatus(TripStatus.REQUESTED);
+                logAdminAction("UNASSIGN_DRIVER", "Unassigned driver from trip ID " + id, id, "TRIP");
+            } else {
+                Long driverId = ((Number) driverIdObj).longValue();
+                Driver driver = driverDAO.findById(driverId)
+                        .orElseThrow(() -> new IllegalArgumentException("Driver not found: " + driverId));
+                trip.setDriver(driver);
+                trip.setStatus(TripStatus.ACCEPTED);
+                logAdminAction("ASSIGN_DRIVER", "Assigned driver ID " + driverId + " to trip ID " + id, id, "TRIP");
+            }
+        }
+        if (updates.containsKey("pickupAddress")) {
+            trip.setPickupAddress((String) updates.get("pickupAddress"));
+            logAdminAction("UPDATE_TRIP", "Updated pickup address for trip ID " + id, id, "TRIP");
+        }
+        if (updates.containsKey("dropoffAddress")) {
+            trip.setDropoffAddress((String) updates.get("dropoffAddress"));
+            logAdminAction("UPDATE_TRIP", "Updated dropoff address for trip ID " + id, id, "TRIP");
         }
         if (updates.containsKey("status")) {
             trip.setStatus(TripStatus.valueOf((String) updates.get("status")));
@@ -283,17 +343,28 @@ public class ModuleAdminController {
     }
 
     @DeleteMapping("/driver-trips/{id}")
-    public ResponseEntity<Map<String, String>> unassignDriver(@PathVariable Long id) {
+    public ResponseEntity<Map<String, String>> deleteDriverTrip(@PathVariable Long id) {
         Trip trip = tripDAO.findById(id).orElseThrow(() -> new IllegalArgumentException("Trip not found: " + id));
-        trip.setDriver(null);
-        trip.setStatus(TripStatus.REQUESTED);
-        tripDAO.save(trip);
+        tripDAO.delete(trip);
         
-        logAdminAction("UNASSIGN_DRIVER", "Unassigned driver from trip ID " + id, id, "TRIP");
-        return ResponseEntity.ok(Map.of("status", "ok", "message", "Driver unassigned from trip " + id));
+        logAdminAction("DELETE_DRIVER_TRIP", "Deleted driver trip ID " + id, id, "TRIP");
+        return ResponseEntity.ok(Map.of("status", "ok", "message", "Trip " + id + " deleted"));
     }
 
     // Driver Verification Endpoints
+    @PostMapping("/driver-docs")
+    public ResponseEntity<Map<String, String>> addPendingVerification(@RequestBody Map<String, Object> data) {
+        Long driverId = ((Number) data.get("driverId")).longValue();
+        Driver driver = driverDAO.findById(driverId).orElseThrow(() -> new IllegalArgumentException("Driver not found: " + driverId));
+        driver.setVerificationStatus(DriverVerificationStatus.PENDING_VERIFICATION);
+        if (data.containsKey("nic")) driver.setNic((String) data.get("nic"));
+        if (data.containsKey("license")) driver.setLicenseNumber((String) data.get("license"));
+        driverDAO.save(driver);
+        
+        logAdminAction("ADD_PENDING_VERIFICATION", "Set driver ID " + driverId + " to pending verification", driverId, "USER");
+        return ResponseEntity.ok(Map.of("status", "ok", "message", "Driver set to pending verification."));
+    }
+
     @GetMapping("/driver-docs")
     public ResponseEntity<List<Map<String, Object>>> getPendingDriverDocs() {
         List<Map<String, Object>> result = driverDAO.findByVerificationStatus(DriverVerificationStatus.PENDING_VERIFICATION)

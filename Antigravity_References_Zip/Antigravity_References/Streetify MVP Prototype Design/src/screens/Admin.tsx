@@ -271,6 +271,43 @@ function DriverTripsPanel() {
 
   useEffect(() => { fetchTrips(); }, []);
 
+  const handleAdd = async () => {
+    const pickupAddress = prompt("Enter Pickup Address:", "Dummy Pickup Address"); if (!pickupAddress) return;
+    const dropoffAddress = prompt("Enter Dropoff Address:", "Dummy Dropoff Address"); if (!dropoffAddress) return;
+    const driverId = prompt("Enter Driver ID (Optional):");
+    try {
+      await apiClient('/module-admin/driver-trips', { 
+        method: 'POST', 
+        body: JSON.stringify({ 
+          pickupAddress, 
+          dropoffAddress, 
+          driverId: driverId ? Number(driverId) : null 
+        }) 
+      });
+      fetchTrips();
+    } catch (e) { alert("Error: " + e); }
+  };
+
+  const handleEdit = async (t: any) => {
+    const pickupAddress = prompt("Edit Pickup Address:", t.pickupAddress || "Dummy Pickup Address"); if (!pickupAddress) return;
+    const dropoffAddress = prompt("Edit Dropoff Address:", t.dropoffAddress || "Dummy Dropoff Address"); if (!dropoffAddress) return;
+    try {
+      await apiClient(`/module-admin/driver-trips/${t.id}`, { 
+        method: 'PUT', 
+        body: JSON.stringify({ pickupAddress, dropoffAddress }) 
+      });
+      fetchTrips();
+    } catch (e) { alert("Error: " + e); }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm(`Are you sure you want to completely delete trip ${id}?`)) return;
+    try {
+      await apiClient(`/module-admin/driver-trips/${id}`, { method: 'DELETE' });
+      fetchTrips();
+    } catch (e) { alert("Error: " + e); }
+  };
+
   const assignDriver = async (t: any) => {
     const driverId = prompt("Assign Driver ID:", t.driver?.id || "");
     if (!driverId) return;
@@ -293,7 +330,7 @@ function DriverTripsPanel() {
 
   const unassignDriver = async (id: number) => {
     try {
-      await apiClient(`/module-admin/driver-trips/${id}`, { method: 'DELETE' });
+      await apiClient(`/module-admin/driver-trips/${id}`, { method: 'PUT', body: JSON.stringify({ driverId: null }) });
       fetchTrips();
     } catch (e) { alert("Error: " + e); }
   };
@@ -302,6 +339,7 @@ function DriverTripsPanel() {
     <Card>
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
         <p className="font-extrabold text-slate-800">Driver Trip Management</p>
+        <Btn size="sm" onClick={handleAdd}>+ Add Trip</Btn>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -324,9 +362,11 @@ function DriverTripsPanel() {
                     {t.driver ? "Reassign" : "Assign"}
                   </Btn>
                   <Btn size="xs" v="secondary" onClick={() => updateStatus(t)}>Update Status</Btn>
+                  <Btn size="xs" v="secondary" onClick={() => handleEdit(t)}>Edit Route</Btn>
                   {t.driver && (
                     <Btn size="xs" v="danger" onClick={() => unassignDriver(t.id)}>Unassign</Btn>
                   )}
+                  <Btn size="xs" v="danger" onClick={() => handleDelete(t.id)}>Delete</Btn>
                 </td>
               </tr>
             ))}
@@ -595,6 +635,16 @@ function DriverDocsPanel() {
 
   useEffect(() => { fetchDrivers(); }, []);
 
+  const handleAdd = async () => {
+    const driverId = prompt("Enter Driver ID to verify:"); if (!driverId) return;
+    const nic = prompt("Enter NIC (Optional):");
+    const license = prompt("Enter License (Optional):");
+    try {
+      await apiClient('/module-admin/driver-docs', { method: 'POST', body: JSON.stringify({ driverId: Number(driverId), nic, license }) });
+      fetchDrivers();
+    } catch (e) { alert("Error: " + e); }
+  };
+
   const handleVerify = async (id: number, action: 'APPROVE' | 'REJECT') => {
     if (!confirm(`Are you sure you want to ${action} driver ${id}?`)) return;
     try {
@@ -628,6 +678,7 @@ function DriverDocsPanel() {
     <Card>
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
         <p className="font-extrabold text-slate-800">Pending Driver Verifications</p>
+        <Btn size="sm" onClick={handleAdd}>+ Add Verification</Btn>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -674,6 +725,17 @@ function DriversPanel() {
 
   useEffect(() => { fetchDrivers(); }, []);
 
+  const handleAdd = async () => {
+    const firstName = prompt("First Name:"); if (!firstName) return;
+    const lastName = prompt("Last Name:"); if (!lastName) return;
+    const email = prompt("Email:"); if (!email) return;
+    const phone = prompt("Phone:"); if (!phone) return;
+    try {
+      await apiClient('/module-admin/drivers', { method: 'POST', body: JSON.stringify({ firstName, lastName, email, phone }) });
+      fetchDrivers();
+    } catch (e) { alert("Error: " + e); }
+  };
+
   const handleEdit = async (d: any) => {
     const firstName = prompt("Edit First Name:", d.firstName); if (!firstName) return;
     const lastName = prompt("Edit Last Name:", d.lastName); if (!lastName) return;
@@ -699,6 +761,7 @@ function DriversPanel() {
     <Card>
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
         <p className="font-extrabold text-slate-800">Driver Profiles Management</p>
+        <Btn size="sm" onClick={handleAdd}>+ Add Driver</Btn>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
