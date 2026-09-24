@@ -9,10 +9,12 @@
  *   WS   /ws/drivers           → { driverId, lat, lng, heading }[]
  *   WS   /ws/trips/:rideId     → { state, driverLat, driverLng, eta }
  */
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import OsmMap, { DriverPin } from "../OsmMap";
 import { Btn, Card, Pill, WsLive } from "../ui";
 import { apiClient } from "../api/apiClient";
+import { useGeolocation, reverseGeocode } from "../hooks/useGeolocation";
+import type L from "leaflet";
 
 type RideType = "standard" | "xl" | "moto";
 type BookingStep = "idle" | "selecting" | "estimating" | "confirm" | "searching" | "matched";
@@ -54,7 +56,7 @@ const INITIAL_DRIVERS: DriverPos[] = [
 ];
 
 export default function ScreenBooking() {
-  const [pickup, setPickup]       = useState("Colombo Fort Railway Station");
+  const [pickup, setPickup]       = useState("Detecting your location…");
   const [dropoff, setDropoff]     = useState("");
   const [rideType, setRide]       = useState<RideType>("standard");
   const [step, setStep]           = useState<BookingStep>("idle");
@@ -65,6 +67,10 @@ export default function ScreenBooking() {
   const [searchDots, setDots]     = useState(0);
   const wsTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const dotRef    = useRef<ReturnType<typeof setInterval> | null>(null);
+  const leafletMapRef = useRef<L.Map | null>(null);
+
+  /* Real GPS location */
+  const { coords: myCoords, error: geoError, loading: geoLoading } = useGeolocation();
 
   const DISTANCE = 8.4;
   const selected = RIDE_TYPES.find(r => r.key === rideType)!;
@@ -72,6 +78,21 @@ export default function ScreenBooking() {
   const [estimatedDistance, setEstimatedDistance] = useState<number>(0);
   const [bookingError, setBookingError] = useState("");
   const fare = estimatedFare || Math.round(selected.base + estimatedDistance * selected.perKm);
+
+  /* Reverse-geocode real GPS position → set as pickup address */
+  useEffect(() => {
+    if (!myCoords) return;
+    reverseGeocode(myCoords.lat, myCoords.lng).then(addr => {
+      setPickup(addr);
+    });
+  }, [myCoords?.lat, myCoords?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Recenter map to real GPS on 🎯 button press */
+  const recenterToMyLocation = useCallback(() => {
+    if (leafletMapRef.current && myCoords) {
+      leafletMapRef.current.setView([myCoords.lat, myCoords.lng], 16, { animate: true });
+    }
+  }, [myCoords]);
 
   /* Simulate WS driver positions arriving + drifting */
   useEffect(() => {
@@ -140,6 +161,25 @@ export default function ScreenBooking() {
     setFareReady(false);
   }
 
+  const handleCancelTrip = async () => {
+    try {
+      const activeStr = localStorage.getItem('active_trip');
+      if (activeStr) {
+        const active = JSON.parse(activeStr);
+        if (active?.tripId) {
+          await apiClient(`/rides/${active.tripId}/cancel`, {
+            method: 'POST',
+            body: JSON.stringify({ reason: 'PASSENGER_CANCELLED' })
+          }).catch(() => {});
+        }
+      }
+    } catch {}
+    localStorage.removeItem('active_trip');
+    if (dotRef.current) clearInterval(dotRef.current);
+    setStep("idle");
+    setMatch(null);
+  };
+
   const FARE_ROWS = [
     { label: "Base fare",    value: `LKR ${selected.base}` },
     { label: `${estimatedDistance.toFixed(1)} km × LKR ${selected.perKm}`, value: `LKR ${Math.round(estimatedDistance * selected.perKm)}` },
@@ -153,12 +193,31 @@ export default function ScreenBooking() {
     >
       {/* ── MAP (top 58%) ── */}
       <div className="relative flex-none" style={{ height: "58dvh" }}>
+        {/* Geo error/loading banner */}
+        {(geoLoading || geoError) && (
+          <div className="absolute top-0 left-0 right-0 z-[900] px-3 pt-2">
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold backdrop-blur-sm border ${
+              geoError
+                ? "bg-orange-900/80 border-orange-600/60 text-orange-200"
+                : "bg-slate-900/80 border-slate-700/60 text-slate-300"
+            }`}>
+              <span>{geoError ? "⚠️" : "📡"}</span>
+              <span>{geoError ?? "Getting your GPS location…"}</span>
+            </div>
+          </div>
+        )}
+
         <OsmMap
           height="100%"
           dark
           animate={step === "confirm" || step === "searching" || step === "matched"}
           showPickup
           showDropoff={!!dropoff}
+          pickupAddress={pickup}
+          dropoffAddress={dropoff}
+          myLat={myCoords?.lat}
+          myLng={myCoords?.lng}
+          onMapReady={(map) => { leafletMapRef.current = map; }}
           className="w-full h-full"
         >
           {drivers.map(d => (
@@ -198,18 +257,33 @@ export default function ScreenBooking() {
         </div>
 
         {/* Map controls */}
-        <div className="absolute top-3 right-3 flex flex-col gap-1">
-          {["+","−"].map(c => (
-            <button key={c}
-              className="w-8 h-8 bg-white rounded-lg shadow text-slate-700 font-extrabold text-base flex items-center justify-center hover:bg-slate-50 active:scale-95 transition-all">
-              {c}
-            </button>
-          ))}
+        <div className="absolute top-3 right-3 flex flex-col gap-1.5 z-10">
+          <button
+            onClick={() => leafletMapRef.current?.zoomIn()}
+            title="Zoom in"
+            aria-label="Zoom in"
+            className="w-8 h-8 bg-white/95 hover:bg-white active:scale-90 rounded-lg shadow text-slate-700 font-extrabold text-base flex items-center justify-center hover:text-blue-600 transition-all cursor-pointer select-none"
+          >
+            +
+          </button>
+          <button
+            onClick={() => leafletMapRef.current?.zoomOut()}
+            title="Zoom out"
+            aria-label="Zoom out"
+            className="w-8 h-8 bg-white/95 hover:bg-white active:scale-90 rounded-lg shadow text-slate-700 font-extrabold text-base flex items-center justify-center hover:text-blue-600 transition-all cursor-pointer select-none"
+          >
+            −
+          </button>
         </div>
 
-        {/* My location button */}
-        <button className="absolute bottom-3 right-3 w-10 h-10 bg-white rounded-xl shadow-lg flex items-center justify-center text-lg hover:bg-slate-50 active:scale-95 transition-all">
-          🎯
+        {/* My location button — re-centers map to real GPS */}
+        <button
+          onClick={recenterToMyLocation}
+          title="Center map on my location"
+          className={`absolute bottom-3 right-3 w-10 h-10 rounded-xl shadow-lg flex items-center justify-center text-lg active:scale-95 transition-all ${
+            myCoords ? "bg-white hover:bg-blue-50" : "bg-white/50 cursor-not-allowed"
+          }`}>
+          {geoLoading ? "⏳" : "🎯"}
         </button>
       </div>
 
@@ -396,15 +470,20 @@ export default function ScreenBooking() {
                 </Btn>
               )}
               {step === "searching" && (
-                <Btn v="secondary" size="lg" full disabled>
-                  <span className="flex items-center gap-1">
-                    {[0,1,2].map(i => (
-                      <span key={i} className="w-1.5 h-1.5 bg-blue-500 rounded-full ws-dot"
-                            style={{ animationDelay: `${i * 0.18}s` }} />
-                    ))}
-                  </span>
-                  Searching for drivers…
-                </Btn>
+                <div className="space-y-2">
+                  <Btn v="secondary" size="lg" full disabled>
+                    <span className="flex items-center gap-1">
+                      {[0,1,2].map(i => (
+                        <span key={i} className="w-1.5 h-1.5 bg-blue-500 rounded-full ws-dot"
+                              style={{ animationDelay: `${i * 0.18}s` }} />
+                      ))}
+                    </span>
+                    Searching for drivers…
+                  </Btn>
+                  <Btn v="ghost" size="sm" full onClick={handleCancelTrip}>
+                    ✕ Cancel Search
+                  </Btn>
+                </div>
               )}
               {step === "matched" && (
                 <div className="space-y-2">
@@ -412,7 +491,7 @@ export default function ScreenBooking() {
                     // Navigate to Payment screen via custom event
                     window.dispatchEvent(new CustomEvent('navigate', { detail: { screen: 'payment' } }));
                   }}>💳 Go to Payment →</Btn>
-                  <Btn v="danger" size="lg" full onClick={() => { setStep("idle"); setMatch(null); localStorage.removeItem('active_trip'); }}>
+                  <Btn v="danger" size="lg" full onClick={handleCancelTrip}>
                     Cancel Ride
                   </Btn>
                 </div>

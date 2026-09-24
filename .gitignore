@@ -1,0 +1,45 @@
+# ==========================================
+# Root .gitignore for Streetify Monorepo
+# ==========================================
+
+# Node / Frontend
+node_modules/
+dist/
+dist-ssr/
+*.local
+.npm/
+
+# Java / Spring Boot (Maven)
+target/
+streetify-backend/target/
+*.class
+*.jar
+*.war
+*.ear
+
+# IDE & Editor files
+.idea/
+.vscode/
+.vs/
+**/.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs & temp
+*.log
+logs/
+temp/
+tmp/

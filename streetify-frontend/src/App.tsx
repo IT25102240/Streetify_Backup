@@ -1,5 +1,5 @@
 /**
- * Streetify MVP — Application Shell
+ * Streetify v1.0 — Application Shell
  *
  * Navigation bar wires all 7 screens. In production, replace this with
  * React Router (react-router-dom) and protect routes with a JWT guard:
@@ -20,28 +20,34 @@ import ScreenPayment from "./screens/Payment";
 import ScreenReview  from "./screens/Review";
 import ScreenAdmin   from "./screens/Admin";
 import ScreenHistory from "./screens/History";
+import ScreenSupport from "./screens/Support";
+import ScreenProfile from "./screens/Profile";
 
-type Screen = "login" | "booking" | "driver" | "payment" | "review" | "admin" | "history";
+type Screen = "login" | "booking" | "driver" | "payment" | "review" | "admin" | "history" | "support" | "profile";
 
-const NAV: { key: Screen; label: string; icon: string; group: "passenger" | "driver" | "admin" }[] = [
-  { key: "login",   label: "Driver Login",     icon: "🔐", group: "driver"     },
-  { key: "booking", label: "Booking",          icon: "📍", group: "passenger"  },
-  { key: "driver",  label: "Driver Dashboard", icon: "🚗", group: "driver"     },
-  { key: "payment", label: "Payment",          icon: "💳", group: "passenger"  },
-  { key: "review",  label: "Review",           icon: "⭐", group: "passenger"  },
-  { key: "history", label: "Trip History",     icon: "📋", group: "passenger"  },
-  { key: "admin",   label: "Admin Panel",      icon: "🛡️", group: "admin"     },
+const NAV: { key: Screen; label: string; icon: string; group: "passenger" | "driver" | "admin" | "support" }[] = [
+  { key: "login",   label: "Login / Register",  icon: "🔐", group: "driver"     },
+  { key: "booking", label: "Book Ride",         icon: "📍", group: "passenger"  },
+  { key: "payment", label: "Payment",           icon: "💳", group: "passenger"  },
+  { key: "review",  label: "Rate Trip",         icon: "⭐", group: "passenger"  },
+  { key: "history", label: "Trip History",      icon: "📋", group: "passenger"  },
+  { key: "profile", label: "My Profile",        icon: "👤", group: "passenger"  },
+  { key: "driver",  label: "Driver Dashboard",  icon: "🚗", group: "driver"     },
+  { key: "admin",   label: "Admin Panel",       icon: "🛡️", group: "admin"     },
+  { key: "support", label: "Support Portal",    icon: "🎧", group: "support"    },
 ];
 
 const GROUP_LABEL: Record<string, string> = {
   passenger: "Passenger",
   driver:    "Driver",
   admin:     "Admin",
+  support:   "Support",
 };
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("login");
   const [role, setRole] = useState<string | null>(localStorage.getItem("jwt_token") ? "unknown" : null);
+  const adminRole = localStorage.getItem("admin_role") || "";
 
   useEffect(() => {
     const handleAuthSuccess = (e: any) => {
@@ -94,16 +100,18 @@ export default function App() {
             <span className="text-sm">🚖</span>
           </div>
           <span className="text-white text-sm font-extrabold tracking-tight">Streetify</span>
-          <span className="text-slate-600 text-xs font-mono">MVP</span>
+          <span className="text-slate-400 text-xs font-mono font-medium bg-slate-800/80 px-1.5 py-0.5 rounded">v1.0</span>
         </div>
 
         {/* Screen buttons grouped by role */}
-        {(["passenger", "driver", "admin"] as const).map((group, gi) => {
+        {(["passenger", "driver", "admin", "support"] as const).map((group, gi) => {
           // Hide navigation groups that don't belong to the current user role
           if (role && role !== 'admin' && role !== group) return null;
           if (!role && group !== 'driver') return null; // Only show driver login when logged out (for MVP)
 
           const items = NAV.filter(n => n.group === group);
+          // Show support tab to admin users, show passenger/driver groups based on role
+          if (group === "support" && role !== "admin" && adminRole !== "SUPER_ADMIN") return null;
           return (
             <div key={group} className={`flex items-center gap-1 ${gi > 0 ? "border-l border-slate-800 pl-2 ml-1" : ""}`}>
               <span className="text-slate-600 text-xs font-mono mr-1 hidden sm:block">{GROUP_LABEL[group]}</span>
@@ -147,6 +155,8 @@ export default function App() {
         {screen === "review"  && <ScreenReview />}
         {screen === "history" && <ScreenHistory />}
         {screen === "admin"   && <ScreenAdmin />}
+        {screen === "support" && <ScreenSupport />}
+        {screen === "profile" && <ScreenProfile />}
       </div>
     </div>
   );

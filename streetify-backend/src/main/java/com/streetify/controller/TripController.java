@@ -13,6 +13,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+import com.streetify.entity.Trip;
 
 /**
  * TripController — Ride booking and dispatch REST endpoints.
@@ -156,6 +158,31 @@ public class TripController {
         Long driverId = extractUserId(authorization);
         List<java.util.Map<String, Object>> history = dispatchService.getDriverHistory(driverId);
         return ResponseEntity.ok(history);
+    }
+
+    // ─── Cancel Trip ──────────────────────────────────────────────────────────
+
+    /**
+     * POST /api/rides/{tripId}/cancel
+     *
+     * Cancels an active or requested trip (by passenger or driver).
+     * Frontend: Booking.tsx "Cancel Ride" or "Cancel Search".
+     */
+    @PostMapping("/{tripId}/cancel")
+    @PreAuthorize("hasAnyRole('PASSENGER','DRIVER','ADMIN')")
+    public ResponseEntity<Map<String, Object>> cancelTrip(
+            @PathVariable Long tripId,
+            @RequestBody(required = false) Map<String, String> body,
+            @RequestHeader("Authorization") String authorization
+    ) {
+        Long userId = extractUserId(authorization);
+        String reason = (body != null && body.containsKey("reason")) ? body.get("reason") : "PASSENGER_CANCELLED";
+        Trip cancelled = dispatchService.cancelTrip(userId, tripId, reason);
+        return ResponseEntity.ok(Map.of(
+                "tripId", cancelled.getId(),
+                "status", "CANCELLED",
+                "message", "Trip cancelled successfully"
+        ));
     }
 
     // ─── Helper ───────────────────────────────────────────────────────────────

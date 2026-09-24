@@ -1,0 +1,17 @@
+{
+  "name": "streetify-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Streetify - Sri Lankan Urban Ride-Hailing Platform",
+  "scripts": {
+    "frontend": "npm run dev --prefix streetify-frontend",
+    "backend": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$env:JAVA_HOME='C:\\Program Files\\Java\\jdk-24'; cd streetify-backend; .\\mvnw.cmd spring-boot:run\"",
+    "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"cyan.bold,magenta.bold\" \"npm run backend\" \"npm run frontend\"",
+    "build:frontend": "npm run build --prefix streetify-frontend",
+    "build:backend": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$env:JAVA_HOME='C:\\Program Files\\Java\\jdk-24'; cd streetify-backend; .\\mvnw.cmd clean package -DskipTests\"",
+    "install:frontend": "npm install --prefix streetify-frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

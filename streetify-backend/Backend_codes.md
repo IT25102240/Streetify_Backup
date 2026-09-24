@@ -40,7 +40,11 @@ $env:JAVA_HOME="C:\Program Files\Java\jdk-24"; & "$env:JAVA_HOME\bin\java.exe" -
 # 🎨 Streetify Frontend Server Commands (React / Vite)
 This section covers how to manage the React frontend built with Vite.
 
-> **IMPORTANT:** Ensure your terminal or PowerShell window is inside the `Streetify MVP Prototype Design` frontend folder before running any of these commands!
+> **IMPORTANT:** Ensure your terminal or PowerShell window is inside the `streetify-frontend` folder before running any of these commands!
+> 
+> ```powershell
+> cd streetify-frontend
+> ```
 
 ### 1. Start the Frontend Server (Development Mode)
 *Use this command to start the Vite development server. It runs extremely fast and instantly updates the UI in your browser whenever you save a file. Make sure your Spring Boot backend is ALSO running in a separate terminal so they can talk to each other!*

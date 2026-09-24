@@ -1,4 +1,5 @@
 {
+  "title": "Streetify - Web Based Transportation System",
   "description": "A user-friendly ride-hailing platform for passengers and drivers, offering real-time tracking, seamless bookings, and efficient payment processing.",
   "robots": {
     "index": false

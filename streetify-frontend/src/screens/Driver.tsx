@@ -11,9 +11,11 @@
  *   WS    /ws/trips                → incoming trip assignments
  */
 import { useState, useEffect, useRef } from "react";
+import type L from "leaflet";
 import OsmMap, { DriverPin } from "../OsmMap";
 import { Btn, Card, Pill, WsLive } from "../ui";
 import { apiClient } from "../api/apiClient";
+import { useGeolocation } from "../hooks/useGeolocation";
 
 type TripState = "idle" | "assigned" | "en_route" | "arrived" | "in_trip" | "completed";
 
@@ -63,13 +65,20 @@ export default function ScreenDriver() {
   const [activeTripDbId, setActiveTripDbId] = useState<string | null>(null);
   const [tripsToday, setTripsToday] = useState(0);
   const [stateError, setStateError] = useState("");
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState("Vehicle breakdown / technical issue");
+  const [cancelling, setCancelling] = useState(false);
 
   const driverName = localStorage.getItem("user_name") || "Kasun Perera";
   const driverInitials = driverName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
   const vehicleInfo = localStorage.getItem("vehicle_info") || "CAB-4821 · Toyota Prius";
 
+  /* Real GPS location for driver position on map */
+  const { coords: myCoords } = useGeolocation();
+
   const tripTimer    = useRef<ReturnType<typeof setInterval> | null>(null);
   const arrivedTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mapRef       = useRef<L.Map | null>(null);
 
   /* Poll for available trips when online */
   useEffect(() => {
@@ -196,9 +205,42 @@ export default function ScreenDriver() {
     }
   }
 
-  function cancelNoShow() {
+  async function cancelNoShow() {
+    if (activeTripDbId) {
+      try {
+        await apiClient(`/trips/${activeTripDbId}/noshow`, { method: 'POST' });
+      } catch (err: any) {
+        console.error("No-show cancel error:", err);
+      }
+    }
     setState("idle");
     setIncoming(false);
+    setActiveTripDbId(null);
+    localStorage.removeItem('driver_trip_id');
+  }
+
+  async function handleDriverCancel() {
+    setCancelling(true);
+    if (activeTripDbId) {
+      try {
+        await apiClient(`/trips/${activeTripDbId}/status`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            tripId: Number(activeTripDbId),
+            status: "CANCELLED",
+            cancellationReason: cancelReason
+          })
+        });
+      } catch (err: any) {
+        console.error("Driver cancel error:", err);
+      }
+    }
+    setCancelling(false);
+    setShowCancelModal(false);
+    setState("idle");
+    setIncoming(false);
+    setActiveTripDbId(null);
+    localStorage.removeItem('driver_trip_id');
   }
 
   function goOffline() {
@@ -251,17 +293,40 @@ export default function ScreenDriver() {
       </header>
 
       {/* ── Map strip ── */}
-      <div className="flex-none" style={{ height: "26dvh" }}>
+      <div className="flex-none relative" style={{ height: "26dvh" }}>
         <OsmMap
           height="100%"
           dark
           animate={tripActive}
           showPickup={tripActive}
           showDropoff={tripState === "in_trip" || tripState === "completed"}
+          myLat={myCoords?.lat}
+          myLng={myCoords?.lng}
+          onMapReady={(map) => { mapRef.current = map; }}
           className="w-full h-full"
         >
           {online && <DriverPin top="52%" left="30%" label="You" online />}
         </OsmMap>
+
+        {/* Zoom controls */}
+        <div className="absolute top-2 right-2 flex flex-col gap-1 z-10">
+          <button
+            onClick={() => mapRef.current?.zoomIn()}
+            title="Zoom in"
+            aria-label="Zoom in"
+            className="w-7 h-7 bg-white/95 hover:bg-white active:scale-90 rounded-md shadow text-slate-700 font-extrabold text-sm flex items-center justify-center hover:text-blue-600 transition-all cursor-pointer select-none"
+          >
+            +
+          </button>
+          <button
+            onClick={() => mapRef.current?.zoomOut()}
+            title="Zoom out"
+            aria-label="Zoom out"
+            className="w-7 h-7 bg-white/95 hover:bg-white active:scale-90 rounded-md shadow text-slate-700 font-extrabold text-sm flex items-center justify-center hover:text-blue-600 transition-all cursor-pointer select-none"
+          >
+            −
+          </button>
+        </div>
       </div>
 
       {/* ── Content ── */}
@@ -509,6 +574,16 @@ export default function ScreenDriver() {
               </Btn>
             )}
 
+            {/* Driver cancellation with reason (UC22) */}
+            {tripState !== "in_trip" && (
+              <button
+                onClick={() => setShowCancelModal(true)}
+                className="w-full text-xs text-red-400 hover:text-red-300 hover:bg-red-950/40 border border-red-800/40 py-2.5 rounded-xl font-bold transition-all"
+              >
+                ✕ Cancel Trip with Reason
+              </button>
+            )}
+
             {/* Quick actions */}
             <div className="grid grid-cols-3 gap-2">
               {[
@@ -583,6 +658,57 @@ export default function ScreenDriver() {
           </div>
         )}
       </div>
+
+      {/* ── Cancel Trip Modal (UC22) ── */}
+      {showCancelModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <p className="font-extrabold text-white text-base">Cancel Accepted Trip</p>
+              <button onClick={() => setShowCancelModal(false)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <p className="text-xs text-slate-400">
+              Please specify the cancellation reason. Frequent cancellations impact your driver acceptance metrics.
+            </p>
+            <div className="space-y-2">
+              {[
+                "Vehicle breakdown / technical issue",
+                "Severe traffic congestion / blocked road",
+                "Passenger requested cancellation via call",
+                "Safety concern / bad weather",
+                "Personal emergency"
+              ].map(reason => (
+                <label key={reason} className="flex items-center gap-2.5 p-2.5 bg-slate-800 rounded-xl cursor-pointer hover:bg-slate-700/80 transition-colors border border-slate-700">
+                  <input
+                    type="radio"
+                    name="driverCancelReason"
+                    value={reason}
+                    checked={cancelReason === reason}
+                    onChange={() => setCancelReason(reason)}
+                    className="accent-blue-500"
+                  />
+                  <span className="text-xs text-slate-200 font-medium">{reason}</span>
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => setShowCancelModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs hover:bg-slate-700"
+              >
+                Back
+              </button>
+              <button
+                onClick={handleDriverCancel}
+                disabled={cancelling}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-lg transition-all"
+              >
+                {cancelling ? "Cancelling..." : "Confirm Cancel"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

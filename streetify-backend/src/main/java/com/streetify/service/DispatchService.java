@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.streetify.dto.AvailableTripDTO;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -284,6 +285,28 @@ public class DispatchService {
             m.put("commission", "LKR " + Math.round(commission));
             return m;
         }).toList();
+    }
+
+    /**
+     * Cancel an active or requested trip (by passenger or driver).
+     */
+    @Transactional
+    public Trip cancelTrip(Long userId, Long tripId, String reason) {
+        Trip trip = tripDAO.findById(tripId)
+                .orElseThrow(() -> new IllegalArgumentException("Trip not found with id: " + tripId));
+        trip.setStatus(TripStatus.CANCELLED);
+        trip.setCancellationReason(reason != null && !reason.isBlank() ? reason : "PASSENGER_CANCELLED");
+        trip.setCancelledAt(LocalDateTime.now());
+        tripDAO.save(trip);
+
+        if (trip.getPassenger() != null) {
+            messagingTemplate.convertAndSendToUser(
+                    trip.getPassenger().getEmail(),
+                    "/queue/trip/" + trip.getId(),
+                    Map.of("tripId", trip.getId(), "status", "CANCELLED")
+            );
+        }
+        return trip;
     }
 
     // ─── Haversine Distance Formula ───────────────────────────────────────────
