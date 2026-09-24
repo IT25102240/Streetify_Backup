@@ -24,8 +24,8 @@ VALUES
 -- 2. Insert Dummy Users (Passengers)
 INSERT INTO users (dtype, active, suspended, email, first_name, last_name, password_hash, phone, role, created_at, updated_at, wallet_balance, is_online)
 VALUES 
-('PASSENGER', 1, 0, 'passenger1@test.com', 'John', 'Doe', 'hashedpass', '+94771111111', 'PASSENGER', GETDATE(), GETDATE(), 5000.0, 0),
-('PASSENGER', 1, 0, 'passenger2@test.com', 'Jane', 'Smith', 'hashedpass', '+94772222222', 'PASSENGER', GETDATE(), GETDATE(), 150.0, 1);
+('PASSENGER', 1, 0, 'passenger1@test.com', 'Lahiru', 'Peris', 'hashedpass', '+94771111111', 'PASSENGER', GETDATE(), GETDATE(), 5000.0, 0),
+('PASSENGER', 1, 0, 'passenger2@test.com', 'Gihan', 'Devis', 'hashedpass', '+94772222222', 'PASSENGER', GETDATE(), GETDATE(), 150.0, 1);
 
 -- 3. Insert Dummy Users (Drivers)
 INSERT INTO users (dtype, active, suspended, email, first_name, last_name, password_hash, phone, role, created_at, updated_at, wallet_balance, average_rating, license_number, nic, total_trips, verification_status, is_online)
