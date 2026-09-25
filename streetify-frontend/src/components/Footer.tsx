@@ -213,6 +213,15 @@ export default function Footer({ onNavigate }: FooterProps) {
                   </span>
                   <span className="text-slate-500 group-hover:text-blue-400 text-[10px] font-mono">→</span>
                 </button>
+                <button
+                  onClick={() => handleQuickNav("kiosk")}
+                  className="flex items-center justify-between text-left px-3 py-2 rounded-lg bg-amber-950/30 hover:bg-amber-900/40 text-amber-300 hover:text-amber-100 border border-amber-800/60 transition-all group"
+                >
+                  <span className="flex items-center gap-2">
+                    <span>🏢</span> Branch Walk-in Counter
+                  </span>
+                  <span className="text-amber-500 group-hover:text-amber-300 text-[10px] font-mono">→</span>
+                </button>
               </div>
             </div>
 

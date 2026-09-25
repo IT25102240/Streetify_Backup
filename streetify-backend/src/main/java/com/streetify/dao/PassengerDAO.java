@@ -18,6 +18,8 @@ public interface PassengerDAO extends JpaRepository<Passenger, Long> {
 
     Optional<Passenger> findByEmail(String email);
 
+    Optional<Passenger> findByPhone(String phone);
+
     boolean existsByEmail(String email);
 
     /**

@@ -26,6 +26,8 @@ public class ModuleAdminController {
     private final AuditLogDAO auditLogDAO;
     private final DisputeDAO disputeDAO;
     private final AdminGovernanceService adminGovernanceService;
+    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+    private final com.streetify.service.DispatchService dispatchService;
 
     public ModuleAdminController(UserDAO userDAO,
                                  PassengerDAO passengerDAO,
@@ -35,7 +37,9 @@ public class ModuleAdminController {
                                  ReviewDAO reviewDAO,
                                  AuditLogDAO auditLogDAO,
                                  DisputeDAO disputeDAO,
-                                 AdminGovernanceService adminGovernanceService) {
+                                 AdminGovernanceService adminGovernanceService,
+                                 org.springframework.security.crypto.password.PasswordEncoder passwordEncoder,
+                                 com.streetify.service.DispatchService dispatchService) {
         this.userDAO = userDAO;
         this.passengerDAO = passengerDAO;
         this.driverDAO = driverDAO;
@@ -45,6 +49,8 @@ public class ModuleAdminController {
         this.auditLogDAO = auditLogDAO;
         this.disputeDAO = disputeDAO;
         this.adminGovernanceService = adminGovernanceService;
+        this.passwordEncoder = passwordEncoder;
+        this.dispatchService = dispatchService;
     }
 
     private void logAdminAction(String action, String desc, Long targetId, String targetType) {
@@ -678,5 +684,279 @@ public class ModuleAdminController {
         }
         auditLogDAO.deleteById(id);
         return ResponseEntity.ok(Map.of("status", "ok", "message", "Audit log " + id + " deleted."));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    //  🏢 BRANCH WALK-IN OFFICE KIOSK & COUNTER BOOKING MODULE
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Search passengers by phone number, email, or name for quick walk-in counter lookup.
+     */
+    @GetMapping("/branch/passengers/search")
+    public ResponseEntity<List<Map<String, Object>>> searchBranchPassengers(@RequestParam(value = "query", defaultValue = "") String query) {
+        if (query == null || query.trim().length() < 2) {
+            return ResponseEntity.ok(List.of());
+        }
+        List<User> users = userDAO.searchPassengers(query.trim());
+        List<Map<String, Object>> result = users.stream().map(u -> {
+            Map<String, Object> map = new java.util.HashMap<>();
+            map.put("id", u.getId());
+            map.put("fullName", u.getFullName());
+            map.put("firstName", u.getFirstName());
+            map.put("lastName", u.getLastName());
+            map.put("phone", u.getPhone());
+            map.put("email", u.getEmail());
+            map.put("walletBalance", u.getWalletBalance());
+            map.put("active", u.isActive());
+            map.put("suspended", u.isSuspended());
+            if (u instanceof Passenger p) {
+                map.put("averageRating", p.getAverageRating());
+                map.put("totalTrips", p.getTotalTrips());
+            } else {
+                map.put("averageRating", 5.0);
+                map.put("totalTrips", 0);
+            }
+            return map;
+        }).toList();
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Fast in-office customer registration for walk-in commuters without a pre-existing account.
+     */
+    @PostMapping("/branch/passengers/quick-register")
+    public ResponseEntity<Map<String, Object>> quickRegisterWalkInPassenger(@RequestBody Map<String, String> data) {
+        String firstName = data.getOrDefault("firstName", "").trim();
+        String lastName = data.getOrDefault("lastName", "").trim();
+        String phone = data.getOrDefault("phone", "").trim();
+        String email = data.getOrDefault("email", "").trim();
+
+        if (firstName.isEmpty() || phone.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "First Name and Contact Phone are required."));
+        }
+
+        // Auto-generate unique email if walk-in passenger doesn't have an email
+        if (email.isEmpty()) {
+            email = "walkin." + phone.replaceAll("[^0-9]", "") + "@streetify.lk";
+        }
+
+        if (userDAO.existsByEmail(email)) {
+            User existing = userDAO.findByEmail(email).orElse(null);
+            Map<String, Object> m = new java.util.HashMap<>();
+            m.put("status", "exists");
+            m.put("message", "Passenger already registered.");
+            m.put("id", existing != null ? existing.getId() : 0);
+            m.put("fullName", existing != null ? existing.getFullName() : "");
+            m.put("phone", existing != null ? existing.getPhone() : phone);
+            m.put("email", email);
+            m.put("walletBalance", existing != null ? existing.getWalletBalance() : 0.0);
+            return ResponseEntity.ok(m);
+        }
+
+        Passenger passenger = new Passenger();
+        passenger.setFirstName(firstName);
+        passenger.setLastName(lastName.isEmpty() ? "Commuter" : lastName);
+        passenger.setPhone(phone);
+        passenger.setEmail(email);
+        passenger.setPasswordHash(passwordEncoder.encode("streetify123"));
+        passenger.setRole(UserRole.PASSENGER);
+        passenger.setActive(true);
+        passenger.setSuspended(false);
+        passenger.setWalletBalance(0.0);
+        passenger.setAverageRating(5.0);
+        passenger.setTotalTrips(0);
+
+        Passenger saved = passengerDAO.save(passenger);
+        logAdminAction("BRANCH_WALKIN_REGISTER", "Registered walk-in passenger: " + saved.getFullName() + " (" + phone + ")", saved.getId(), "PASSENGER");
+
+        Map<String, Object> resp = new java.util.HashMap<>();
+        resp.put("status", "created");
+        resp.put("id", saved.getId());
+        resp.put("fullName", saved.getFullName());
+        resp.put("firstName", saved.getFirstName());
+        resp.put("lastName", saved.getLastName());
+        resp.put("phone", saved.getPhone());
+        resp.put("email", saved.getEmail());
+        resp.put("walletBalance", saved.getWalletBalance());
+        resp.put("message", "Walk-in passenger successfully registered.");
+        return ResponseEntity.ok(resp);
+    }
+
+    /**
+     * In-office walk-in ride booking & dispatch console.
+     */
+    @PostMapping("/branch/book")
+    public ResponseEntity<Map<String, Object>> bookBranchWalkInTrip(@RequestBody Map<String, Object> data) {
+        Long passengerId = Long.valueOf(data.get("passengerId").toString());
+        Passenger passenger = passengerDAO.findById(passengerId)
+                .orElseThrow(() -> new IllegalArgumentException("Passenger not found: " + passengerId));
+
+        String pickup = (String) data.getOrDefault("pickupAddress", "Streetify Central Branch — Fort Station");
+        Double pickupLat = Double.valueOf(data.getOrDefault("pickupLat", 6.9344).toString());
+        Double pickupLng = Double.valueOf(data.getOrDefault("pickupLng", 79.8428).toString());
+
+        String dropoff = (String) data.getOrDefault("dropoffAddress", "Colombo City Center");
+        Double dropoffLat = Double.valueOf(data.getOrDefault("dropoffLat", 6.9150).toString());
+        Double dropoffLng = Double.valueOf(data.getOrDefault("dropoffLng", 79.8580).toString());
+
+        String rideType = (String) data.getOrDefault("rideType", "CAR");
+        String paymentMethod = (String) data.getOrDefault("paymentMethod", "CASH_COUNTER");
+        String branchName = (String) data.getOrDefault("branchName", "Streetify Colombo Central Hub");
+        String counterAgent = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        // Calculate distance and fare
+        double distanceKm = Math.max(1.5, Math.round(dispatchService.estimateFare(
+            com.streetify.dto.TripRequestDTO.builder()
+                .pickupLat(pickupLat).pickupLng(pickupLng)
+                .dropoffLat(dropoffLat).dropoffLng(dropoffLng)
+                .rideType(rideType)
+                .build()
+        ).getDistanceKm() * 10.0) / 10.0);
+
+        double baseFare = rideType.equalsIgnoreCase("TUK") ? 75.0 : rideType.equalsIgnoreCase("VAN") ? 280.0 : 120.0;
+        double perKmRate = rideType.equalsIgnoreCase("TUK") ? 65.0 : rideType.equalsIgnoreCase("VAN") ? 140.0 : 85.0;
+        double totalFare = Math.round(baseFare + (distanceKm * perKmRate) + 4.0);
+        double platformCommission = Math.round(totalFare * 0.15 * 100.0) / 100.0;
+        double driverNet = Math.round(totalFare * 0.85 * 100.0) / 100.0;
+
+        // Auto-assign available driver or prioritize standby fleet
+        Driver assignedDriver = null;
+        if (data.containsKey("driverId") && data.get("driverId") != null && !data.get("driverId").toString().isEmpty()) {
+            Long driverId = Long.valueOf(data.get("driverId").toString());
+            assignedDriver = driverDAO.findById(driverId).orElse(null);
+        }
+        if (assignedDriver == null) {
+            List<Driver> activeDrivers = driverDAO.findAll().stream()
+                    .filter(d -> d.isActive() && !d.isSuspended())
+                    .toList();
+            if (!activeDrivers.isEmpty()) {
+                assignedDriver = activeDrivers.get(0);
+            }
+        }
+
+        Trip trip = new Trip();
+        trip.setPassenger(passenger);
+        trip.setPickupAddress(pickup);
+        trip.setPickupLat(pickupLat);
+        trip.setPickupLng(pickupLng);
+        trip.setDropoffAddress(dropoff);
+        trip.setDropoffLat(dropoffLat);
+        trip.setDropoffLng(dropoffLng);
+        trip.setRideType(rideType);
+        trip.setDistanceKm(distanceKm);
+        trip.setBaseFare(baseFare);
+        trip.setPerKmRate(perKmRate);
+        trip.setPlatformFee(4.0);
+        trip.setTotalFare(totalFare);
+        trip.setPlatformCommission(platformCommission);
+        trip.setDriverNet(driverNet);
+        trip.setPaymentMethod(paymentMethod);
+
+        if (paymentMethod.equals("CASH_COUNTER") || paymentMethod.equals("CARD_COUNTER")) {
+            trip.setPaid(true);
+        } else if (paymentMethod.equals("WALLET")) {
+            if (passenger.getWalletBalance() >= totalFare) {
+                passenger.setWalletBalance(passenger.getWalletBalance() - totalFare);
+                passengerDAO.save(passenger);
+                trip.setPaid(true);
+            } else {
+                return ResponseEntity.badRequest().body(Map.of("error", "Insufficient wallet balance (LKR " + passenger.getWalletBalance() + "). Please collect cash at counter."));
+            }
+        }
+
+        if (assignedDriver != null) {
+            trip.setDriver(assignedDriver);
+            trip.setStatus(TripStatus.ACCEPTED);
+            trip.setAcceptedAt(java.time.LocalDateTime.now());
+        } else {
+            trip.setStatus(TripStatus.REQUESTED);
+        }
+
+        Trip savedTrip = tripDAO.save(trip);
+
+        // Record counter payment into Payment ledger
+        Payment payment = new Payment();
+        payment.setTrip(savedTrip);
+        payment.setPassenger(passenger);
+        payment.setDriver(assignedDriver);
+        payment.setGrossAmount(totalFare);
+        payment.setPlatformCommission(platformCommission);
+        payment.setDriverNet(driverNet);
+        payment.setPaymentMethod(paymentMethod);
+        payment.setStatus(PaymentStatus.SUCCESS);
+        paymentDAO.save(payment);
+
+        logAdminAction("BRANCH_WALKIN_BOOK", "Walk-in ride booked for " + passenger.getFullName() + " (Trip #" + savedTrip.getId() + " - LKR " + totalFare + ")", savedTrip.getId(), "TRIP");
+
+        // Format boarding pass response
+        String bookingRef = "ST-BRN-" + String.format("%05d", savedTrip.getId());
+        String boardingPin = String.valueOf(1000 + (savedTrip.getId() % 9000));
+
+        Map<String, Object> resp = new java.util.HashMap<>();
+        resp.put("tripId", savedTrip.getId());
+        resp.put("bookingRef", bookingRef);
+        resp.put("boardingPin", boardingPin);
+        resp.put("status", savedTrip.getStatus().name());
+        resp.put("passengerName", passenger.getFullName());
+        resp.put("passengerPhone", passenger.getPhone());
+        resp.put("pickupAddress", pickup);
+        resp.put("dropoffAddress", dropoff);
+        resp.put("rideType", rideType);
+        resp.put("distanceKm", distanceKm);
+        resp.put("totalFare", totalFare);
+        resp.put("paymentMethod", paymentMethod);
+        resp.put("isPaid", savedTrip.isPaid());
+        resp.put("branchName", branchName);
+        resp.put("counterAgent", counterAgent);
+        resp.put("issuedAt", java.time.LocalDateTime.now().toString());
+
+        if (assignedDriver != null) {
+            resp.put("driverId", assignedDriver.getId());
+            resp.put("driverName", assignedDriver.getFullName());
+            resp.put("driverPhone", assignedDriver.getPhone());
+            resp.put("driverRating", assignedDriver.getAverageRating());
+            resp.put("vehiclePlate", assignedDriver.getVehicle() != null ? assignedDriver.getVehicle().getNumberPlate() : "CAB-1234");
+            resp.put("vehicleModel", assignedDriver.getVehicle() != null ? assignedDriver.getVehicle().getModel() : "Toyota Prius");
+            resp.put("pickupBay", "Office Terminal Bay 2");
+            resp.put("etaMinutes", 3);
+        } else {
+            resp.put("pickupBay", "Main Street Dispatch Curb");
+            resp.put("etaMinutes", 5);
+        }
+
+        return ResponseEntity.ok(resp);
+    }
+
+    /**
+     * Get recent branch walk-in bookings for front desk log and receipt re-printing.
+     */
+    @GetMapping("/branch/recent")
+    public ResponseEntity<List<Map<String, Object>>> getRecentBranchBookings() {
+        List<Trip> recentTrips = tripDAO.findAll().stream()
+                .filter(t -> t.getPaymentMethod() != null && t.getPaymentMethod().contains("COUNTER"))
+                .sorted((a, b) -> b.getId().compareTo(a.getId()))
+                .limit(20)
+                .toList();
+
+        List<Map<String, Object>> list = recentTrips.stream().map(t -> {
+            Map<String, Object> m = new java.util.HashMap<>();
+            m.put("tripId", t.getId());
+            m.put("bookingRef", "ST-BRN-" + String.format("%05d", t.getId()));
+            m.put("passengerName", t.getPassenger() != null ? t.getPassenger().getFullName() : "Walk-in Commuter");
+            m.put("passengerPhone", t.getPassenger() != null ? t.getPassenger().getPhone() : "N/A");
+            m.put("pickupAddress", t.getPickupAddress());
+            m.put("dropoffAddress", t.getDropoffAddress());
+            m.put("rideType", t.getRideType());
+            m.put("totalFare", t.getTotalFare());
+            m.put("paymentMethod", t.getPaymentMethod());
+            m.put("status", t.getStatus().name());
+            m.put("createdAt", t.getCreatedAt() != null ? t.getCreatedAt().toString() : "");
+            m.put("driverName", t.getDriver() != null ? t.getDriver().getFullName() : "Searching...");
+            m.put("vehiclePlate", t.getDriver() != null && t.getDriver().getVehicle() != null ? t.getDriver().getVehicle().getNumberPlate() : "N/A");
+            return m;
+        }).toList();
+
+        return ResponseEntity.ok(list);
     }
 }

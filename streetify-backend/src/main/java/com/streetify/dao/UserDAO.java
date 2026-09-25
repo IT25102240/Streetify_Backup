@@ -49,6 +49,21 @@ public interface UserDAO extends JpaRepository<User, Long> {
     boolean existsByPhone(String phone);
 
     /**
+     * Find user by phone number.
+     */
+    Optional<User> findByPhone(String phone);
+
+    /**
+     * Search passengers by phone, email, or name (for branch walk-in counter lookup).
+     */
+    @Query("SELECT u FROM User u WHERE u.role = com.streetify.entity.UserRole.PASSENGER AND " +
+           "(LOWER(u.email) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+           "LOWER(u.phone) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+           "LOWER(u.firstName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+           "LOWER(u.lastName) LIKE LOWER(CONCAT('%', :query, '%')))")
+    List<User> searchPassengers(@Param("query") String query);
+
+    /**
      * Find all users with a specific role.
      * Admin use: list all drivers, all passengers, etc.
      */

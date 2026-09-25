@@ -85,6 +85,13 @@ export default function AdminDashboard() {
               MSSQL · /api/module-admin/{tab}
             </p>
           </div>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("navigate", { detail: { screen: "kiosk" } }))}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-50 to-amber-100 hover:from-amber-100 hover:to-amber-200 text-amber-900 border border-amber-300 text-xs font-bold shadow-sm transition-all"
+            title="Open Front-Desk Walk-In Passenger Onboarding & Counter Booking Kiosk"
+          >
+            <span>🏢</span> Branch Walk-In Kiosk
+          </button>
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-5">

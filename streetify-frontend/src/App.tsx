@@ -22,11 +22,12 @@ import ScreenAdmin   from "./screens/Admin";
 import ScreenHistory from "./screens/History";
 import ScreenSupport from "./screens/Support";
 import ScreenProfile from "./screens/Profile";
+import ScreenBranchKiosk from "./screens/BranchKiosk";
 import NotificationCenter from "./components/NotificationCenter";
 import Footer from "./components/Footer";
 import DemoSwitcher from "./components/DemoSwitcher";
 
-type Screen = "login" | "booking" | "driver" | "payment" | "review" | "admin" | "history" | "support" | "profile";
+type Screen = "login" | "booking" | "driver" | "payment" | "review" | "admin" | "history" | "support" | "profile" | "kiosk";
 
 const NAV: { key: Screen; label: string; icon: string; group: "passenger" | "driver" | "admin" | "support" }[] = [
   { key: "login",   label: "Login / Register",  icon: "🔐", group: "driver"     },
@@ -37,6 +38,7 @@ const NAV: { key: Screen; label: string; icon: string; group: "passenger" | "dri
   { key: "profile", label: "My Profile",        icon: "👤", group: "passenger"  },
   { key: "driver",  label: "Driver Dashboard",  icon: "🚗", group: "driver"     },
   { key: "admin",   label: "Admin Panel",       icon: "🛡️", group: "admin"     },
+  { key: "kiosk",   label: "Branch Walk-in Desk", icon: "🏢", group: "admin"   },
   { key: "support", label: "Support Portal",    icon: "🎧", group: "support"    },
 ];
 
@@ -185,6 +187,7 @@ export default function App() {
         {screen === "review"  && <ScreenReview />}
         {screen === "history" && <ScreenHistory />}
         {screen === "admin"   && <ScreenAdmin />}
+        {screen === "kiosk"   && <ScreenBranchKiosk />}
         {screen === "support" && <ScreenSupport />}
         {screen === "profile" && <ScreenProfile />}
       </main>
