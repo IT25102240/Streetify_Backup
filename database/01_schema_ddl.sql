@@ -73,15 +73,14 @@ GO
 -- ════════════════════════════════════════════════════════════════════════════════
 CREATE TABLE vehicles (
     id                      BIGINT IDENTITY(1,1) PRIMARY KEY,
-    driver_id               BIGINT NOT NULL FOREIGN KEY REFERENCES users(id) ON DELETE CASCADE,
-    make                    NVARCHAR(50) NOT NULL,
-    model                   NVARCHAR(50) NOT NULL,
-    year                    INT NOT NULL,
-    color                   NVARCHAR(30) NOT NULL,
-    license_plate           NVARCHAR(20) NOT NULL UNIQUE,
+    driver_id               BIGINT NOT NULL UNIQUE FOREIGN KEY REFERENCES users(id) ON DELETE CASCADE,
     vehicle_type            VARCHAR(20) NOT NULL,               -- 'TUK', 'CAR', 'VAN', 'BIKE'
-    capacity                INT NOT NULL,
-    is_active               BIT NOT NULL DEFAULT 1
+    number_plate            NVARCHAR(20) NOT NULL UNIQUE,
+    year_of_manufacture     INT NOT NULL,
+    make                    NVARCHAR(100) NULL,
+    model                   NVARCHAR(100) NULL,
+    color                   NVARCHAR(20) NULL,
+    created_at              DATETIME2 NOT NULL DEFAULT GETDATE()
 );
 CREATE INDEX idx_vehicles_driver ON vehicles(driver_id);
 GO
@@ -92,13 +91,15 @@ GO
 CREATE TABLE driver_documents (
     id                      BIGINT IDENTITY(1,1) PRIMARY KEY,
     driver_id               BIGINT NOT NULL FOREIGN KEY REFERENCES users(id) ON DELETE CASCADE,
-    document_type           VARCHAR(50) NOT NULL,               -- 'DRIVING_LICENSE', 'REVENUE_LICENSE', 'VEHICLE_INSURANCE', 'NIC_FRONT', 'NIC_BACK'
+    doc_type                VARCHAR(30) NOT NULL,               -- 'license', 'reg', 'insurance'
+    original_filename       NVARCHAR(255) NOT NULL,
     file_path               NVARCHAR(500) NOT NULL,
-    status                  VARCHAR(30) NOT NULL DEFAULT 'PENDING', -- 'PENDING', 'VERIFIED', 'REJECTED'
-    rejection_reason        NVARCHAR(500) NULL,
+    file_size_bytes         BIGINT NULL,
+    content_type            VARCHAR(50) NULL,
+    status                  VARCHAR(20) NOT NULL DEFAULT 'PENDING', -- 'PENDING', 'APPROVED', 'REJECTED'
+    reviewer_note           NVARCHAR(500) NULL,
     uploaded_at             DATETIME2 NOT NULL DEFAULT GETDATE(),
-    verified_at             DATETIME2 NULL,
-    verified_by             BIGINT NULL FOREIGN KEY REFERENCES users(id)
+    reviewed_at             DATETIME2 NULL
 );
 CREATE INDEX idx_driver_docs_driver ON driver_documents(driver_id);
 GO
@@ -110,29 +111,32 @@ CREATE TABLE trips (
     id                      BIGINT IDENTITY(1,1) PRIMARY KEY,
     passenger_id            BIGINT NOT NULL FOREIGN KEY REFERENCES users(id),
     driver_id               BIGINT NULL FOREIGN KEY REFERENCES users(id),
-    vehicle_id              BIGINT NULL FOREIGN KEY REFERENCES vehicles(id),
-    pickup_address          NVARCHAR(255) NOT NULL,
+    pickup_address          NVARCHAR(500) NOT NULL,
     pickup_lat              FLOAT NOT NULL,
     pickup_lng              FLOAT NOT NULL,
-    dropoff_address         NVARCHAR(255) NOT NULL,
+    dropoff_address         NVARCHAR(500) NOT NULL,
     dropoff_lat             FLOAT NOT NULL,
     dropoff_lng             FLOAT NOT NULL,
-    distance_km             DECIMAL(6,2) NOT NULL,
+    distance_km             FLOAT NULL,
     ride_type               VARCHAR(20) NOT NULL,               -- 'TUK', 'CAR', 'VAN', 'BIKE'
-    base_fare               DECIMAL(10,2) NOT NULL,
-    per_km_rate             DECIMAL(10,2) NOT NULL,
-    platform_fee            DECIMAL(10,2) NOT NULL,
-    total_fare              DECIMAL(10,2) NOT NULL,
-    platform_commission     DECIMAL(10,2) NOT NULL,             -- 15% platform commission
-    driver_net              DECIMAL(10,2) NOT NULL,             -- 85% driver earnings
-    status                  VARCHAR(30) NOT NULL,               -- 'REQUESTED', 'ACCEPTED', 'DRIVER_ARRIVED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'
-    payment_method          VARCHAR(20) NOT NULL,               -- 'CASH', 'CARD', 'WALLET'
+    base_fare               FLOAT NULL,
+    per_km_rate             FLOAT NULL,
+    platform_fee            FLOAT NULL DEFAULT 4.0,
+    total_fare              FLOAT NULL,
+    platform_commission     FLOAT NULL,                         -- 15% platform commission
+    driver_net              FLOAT NULL,                         -- 85% driver earnings
+    status                  VARCHAR(20) NOT NULL DEFAULT 'REQUESTED', -- 'REQUESTED', 'ACCEPTED', 'EN_ROUTE', 'ARRIVED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'
+    accepted_at             DATETIME2 NULL,
+    arrived_at              DATETIME2 NULL,
+    started_at              DATETIME2 NULL,
+    completed_at            DATETIME2 NULL,
+    cancelled_at            DATETIME2 NULL,
+    cancellation_reason     NVARCHAR(300) NULL,
+    no_show_fee             FLOAT NULL,
+    payment_method          VARCHAR(30) NULL,                   -- 'CASH', 'CARD', 'WALLET'
     is_paid                 BIT NOT NULL DEFAULT 0,
-    cancellation_reason     NVARCHAR(500) NULL,
-    cancelled_by            VARCHAR(20) NULL,
     created_at              DATETIME2 NOT NULL DEFAULT GETDATE(),
-    updated_at              DATETIME2 NOT NULL DEFAULT GETDATE(),
-    completed_at            DATETIME2 NULL
+    updated_at              DATETIME2 NOT NULL DEFAULT GETDATE()
 );
 CREATE INDEX idx_trips_passenger ON trips(passenger_id);
 CREATE INDEX idx_trips_driver ON trips(driver_id);
@@ -145,18 +149,19 @@ GO
 -- ════════════════════════════════════════════════════════════════════════════════
 CREATE TABLE payments (
     id                      BIGINT IDENTITY(1,1) PRIMARY KEY,
-    trip_id                 BIGINT NOT NULL FOREIGN KEY REFERENCES trips(id),
+    trip_id                 BIGINT NOT NULL UNIQUE FOREIGN KEY REFERENCES trips(id),
     passenger_id            BIGINT NOT NULL FOREIGN KEY REFERENCES users(id),
-    driver_id               BIGINT NULL FOREIGN KEY REFERENCES users(id),
-    gross_amount            DECIMAL(10,2) NOT NULL,
-    platform_commission     DECIMAL(10,2) NOT NULL,
-    driver_net              DECIMAL(10,2) NOT NULL,
+    driver_id               BIGINT NOT NULL FOREIGN KEY REFERENCES users(id),
+    gross_amount            FLOAT NOT NULL,
+    platform_commission     FLOAT NOT NULL,
+    driver_net              FLOAT NOT NULL,
     payment_method          VARCHAR(20) NOT NULL,               -- 'CASH', 'CARD', 'WALLET'
-    status                  VARCHAR(30) NOT NULL,               -- 'PENDING', 'SUCCESS', 'FAILED', 'REFUNDED'
-    transaction_ref         NVARCHAR(100) NULL,
+    status                  VARCHAR(20) NOT NULL DEFAULT 'PENDING', -- 'PENDING', 'SUCCESS', 'FAILED', 'REFUNDED'
     retry_count             INT NOT NULL DEFAULT 0,
-    processed_at            DATETIME2 NULL,
-    created_at              DATETIME2 NOT NULL DEFAULT GETDATE()
+    failure_reason          NVARCHAR(200) NULL,
+    transaction_ref         NVARCHAR(100) NULL,
+    created_at              DATETIME2 NOT NULL DEFAULT GETDATE(),
+    processed_at            DATETIME2 NULL
 );
 CREATE INDEX idx_payments_trip ON payments(trip_id);
 CREATE INDEX idx_payments_status ON payments(status);
@@ -167,7 +172,7 @@ GO
 -- ════════════════════════════════════════════════════════════════════════════════
 CREATE TABLE reviews (
     id                      BIGINT IDENTITY(1,1) PRIMARY KEY,
-    trip_id                 BIGINT NOT NULL FOREIGN KEY REFERENCES trips(id),
+    trip_id                 BIGINT NOT NULL UNIQUE FOREIGN KEY REFERENCES trips(id),
     passenger_id            BIGINT NOT NULL FOREIGN KEY REFERENCES users(id),
     driver_id               BIGINT NOT NULL FOREIGN KEY REFERENCES users(id),
     rating                  INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
@@ -183,17 +188,21 @@ GO
 -- ════════════════════════════════════════════════════════════════════════════════
 CREATE TABLE dispute_tickets (
     id                      BIGINT IDENTITY(1,1) PRIMARY KEY,
+    passenger_id            BIGINT NOT NULL FOREIGN KEY REFERENCES users(id),
     trip_id                 BIGINT NULL FOREIGN KEY REFERENCES trips(id),
-    reported_by_id          BIGINT NOT NULL FOREIGN KEY REFERENCES users(id),
-    category                VARCHAR(50) NOT NULL,               -- 'OVERCHARGED', 'DRIVER_BEHAVIOR', 'LOST_ITEM', 'VEHICLE_CONDITION', 'CANCELLATION_FEE'
-    description             NVARCHAR(1000) NOT NULL,
-    status                  VARCHAR(30) NOT NULL DEFAULT 'OPEN', -- 'OPEN', 'UNDER_INVESTIGATION', 'RESOLVED', 'REJECTED'
-    resolution_notes        NVARCHAR(1000) NULL,
-    refund_amount           DECIMAL(10,2) NULL,
-    resolved_by_id          BIGINT NULL FOREIGN KEY REFERENCES users(id),
+    subject                 NVARCHAR(200) NOT NULL,
+    description             NVARCHAR(2000) NOT NULL,
+    dispute_type            VARCHAR(50) NOT NULL,               -- 'OVERCHARGED', 'DRIVER_BEHAVIOR', 'LOST_ITEM', 'VEHICLE_CONDITION', 'CANCELLATION_FEE'
+    requested_refund_amount FLOAT NULL,
+    status                  VARCHAR(20) NOT NULL DEFAULT 'OPEN', -- 'OPEN', 'UNDER_REVIEW', 'RESOLVED', 'REJECTED'
+    resolution_note         NVARCHAR(1000) NULL,
+    approved_refund_amount  FLOAT NULL,
+    resolved_by_staff_id    BIGINT NULL FOREIGN KEY REFERENCES users(id),
     created_at              DATETIME2 NOT NULL DEFAULT GETDATE(),
+    updated_at              DATETIME2 NOT NULL DEFAULT GETDATE(),
     resolved_at             DATETIME2 NULL
 );
+CREATE INDEX idx_disputes_passenger ON dispute_tickets(passenger_id);
 CREATE INDEX idx_disputes_status ON dispute_tickets(status);
 GO
 
@@ -202,16 +211,18 @@ GO
 -- ════════════════════════════════════════════════════════════════════════════════
 CREATE TABLE audit_logs (
     id                      BIGINT IDENTITY(1,1) PRIMARY KEY,
-    action                  NVARCHAR(100) NOT NULL,
-    entity_type             NVARCHAR(50) NOT NULL,
-    entity_id               BIGINT NULL,
-    performed_by_id         BIGINT NULL FOREIGN KEY REFERENCES users(id),
-    details                 NVARCHAR(MAX) NULL,
-    ip_address              NVARCHAR(50) NULL,
-    timestamp               DATETIME2 NOT NULL DEFAULT GETDATE()
+    performed_by_staff_id   BIGINT NOT NULL,
+    performed_by_email      NVARCHAR(255) NOT NULL,
+    action_type             VARCHAR(50) NOT NULL,
+    description             NVARCHAR(1000) NOT NULL,
+    target_user_id          BIGINT NULL,
+    target_entity_type      VARCHAR(50) NULL,
+    target_entity_id        BIGINT NULL,
+    created_at              DATETIME2 NOT NULL DEFAULT GETDATE()
 );
-CREATE INDEX idx_audit_logs_action ON audit_logs(action);
-CREATE INDEX idx_audit_logs_timestamp ON audit_logs(timestamp);
+CREATE INDEX idx_audit_logs_staff ON audit_logs(performed_by_staff_id);
+CREATE INDEX idx_audit_logs_action ON audit_logs(action_type);
+CREATE INDEX idx_audit_logs_created ON audit_logs(created_at);
 GO
 
 PRINT '===================================================================';

@@ -66,11 +66,11 @@ DECLARE @Driver1_Id BIGINT = (SELECT TOP 1 id FROM users WHERE email = 'driver1@
 DECLARE @Driver2_Id BIGINT = (SELECT TOP 1 id FROM users WHERE email = 'driver2@streetify.com');
 DECLARE @Driver3_Id BIGINT = (SELECT TOP 1 id FROM users WHERE email = 'driver3@streetify.com');
 
-INSERT INTO vehicles (driver_id, make, model, year, color, license_plate, vehicle_type, capacity, is_active)
+INSERT INTO vehicles (driver_id, make, model, year_of_manufacture, color, number_plate, vehicle_type, created_at)
 VALUES
-(@Driver1_Id, 'Toyota', 'Prius', 2018, 'Pearl White', 'WP CAB-1234', 'CAR', 4, 1),
-(@Driver2_Id, 'Bajaj',  'RE 4S', 2021, 'Black/Yellow', 'WP ABF-5678', 'TUK', 3, 1),
-(@Driver3_Id, 'Nissan', 'Caravan', 2019, 'Silver',     'WP ND-9012',  'VAN', 8, 1);
+(@Driver1_Id, 'Toyota', 'Prius', 2018, 'Pearl White', 'WP CAB-1234', 'CAR', GETDATE()),
+(@Driver2_Id, 'Bajaj',  'RE 4S', 2021, 'Black/Yellow', 'WP ABF-5678', 'TUK', GETDATE()),
+(@Driver3_Id, 'Nissan', 'Caravan', 2019, 'Silver',     'WP ND-9012',  'VAN', GETDATE());
 GO
 
 -- ════════════════════════════════════════════════════════════════════════════════
@@ -81,22 +81,20 @@ DECLARE @Pass2_Id BIGINT = (SELECT TOP 1 id FROM users WHERE email = 'passenger2
 DECLARE @Pass3_Id BIGINT = (SELECT TOP 1 id FROM users WHERE email = 'kasun@streetify.com');
 DECLARE @D1_Id    BIGINT = (SELECT TOP 1 id FROM users WHERE email = 'driver1@streetify.com');
 DECLARE @D2_Id    BIGINT = (SELECT TOP 1 id FROM users WHERE email = 'driver2@streetify.com');
-DECLARE @Veh1_Id  BIGINT = (SELECT TOP 1 id FROM vehicles WHERE driver_id = @D1_Id);
-DECLARE @Veh2_Id  BIGINT = (SELECT TOP 1 id FROM vehicles WHERE driver_id = @D2_Id);
 
-INSERT INTO trips (passenger_id, driver_id, vehicle_id, pickup_address, pickup_lat, pickup_lng, dropoff_address, dropoff_lat, dropoff_lng, distance_km, ride_type, base_fare, per_km_rate, platform_fee, total_fare, platform_commission, driver_net, status, payment_method, is_paid, created_at, updated_at, completed_at)
+INSERT INTO trips (passenger_id, driver_id, pickup_address, pickup_lat, pickup_lng, dropoff_address, dropoff_lat, dropoff_lng, distance_km, ride_type, base_fare, per_km_rate, platform_fee, total_fare, platform_commission, driver_net, status, payment_method, is_paid, created_at, updated_at, completed_at)
 VALUES
 -- Trip 1: Completed Car Trip
-(@Pass1_Id, @D1_Id, @Veh1_Id, 'Colombo Fort', 6.9344, 79.8428, 'Nugegoda Junction', 6.8649, 79.8997, 10.5, 'CAR', 300.00, 150.00, 50.00, 1925.00, 288.75, 1636.25, 'COMPLETED', 'CARD', 1, DATEADD(hour, -3, GETDATE()), DATEADD(hour, -2, GETDATE()), DATEADD(hour, -2, GETDATE())),
+(@Pass1_Id, @D1_Id, 'Colombo Fort', 6.9344, 79.8428, 'Nugegoda Junction', 6.8649, 79.8997, 10.5, 'CAR', 300.00, 150.00, 50.00, 1925.00, 288.75, 1636.25, 'COMPLETED', 'CARD', 1, DATEADD(hour, -3, GETDATE()), DATEADD(hour, -2, GETDATE()), DATEADD(hour, -2, GETDATE())),
 
 -- Trip 2: Completed Tuk Trip
-(@Pass2_Id, @D2_Id, @Veh2_Id, 'SLIIT Malabe', 6.9147, 79.9729, 'Kottawa Bus Stand', 6.8415, 79.9654, 11.2, 'TUK', 150.00, 80.00,  30.00, 1076.00, 161.40, 914.60,  'COMPLETED', 'WALLET', 1, DATEADD(hour, -1, GETDATE()), GETDATE(), GETDATE()),
+(@Pass2_Id, @D2_Id, 'SLIIT Malabe', 6.9147, 79.9729, 'Kottawa Bus Stand', 6.8415, 79.9654, 11.2, 'TUK', 150.00, 80.00,  30.00, 1076.00, 161.40, 914.60,  'COMPLETED', 'WALLET', 1, DATEADD(hour, -1, GETDATE()), GETDATE(), GETDATE()),
 
 -- Trip 3: Active Ongoing Trip
-(@Pass3_Id, @D1_Id, @Veh1_Id, 'Bambalapitiya', 6.8938, 79.8558, 'Dehiwala Zoo', 6.8573, 79.8732, 5.0,  'CAR', 300.00, 150.00, 50.00, 1100.00, 165.00, 935.00,  'IN_PROGRESS', 'CASH', 0, DATEADD(minute, -15, GETDATE()), GETDATE(), NULL),
+(@Pass3_Id, @D1_Id, 'Bambalapitiya', 6.8938, 79.8558, 'Dehiwala Zoo', 6.8573, 79.8732, 5.0,  'CAR', 300.00, 150.00, 50.00, 1100.00, 165.00, 935.00,  'IN_PROGRESS', 'CASH', 0, DATEADD(minute, -15, GETDATE()), GETDATE(), NULL),
 
 -- Trip 4: Requested Trip Waiting for Driver
-(@Pass1_Id, NULL, NULL, 'Mount Lavinia Hotel', 6.8301, 79.8639, 'Galle Face Green', 6.9271, 79.8428, 12.0, 'CAR', 300.00, 150.00, 50.00, 2150.00, 322.50, 1827.50, 'REQUESTED', 'CARD', 0, GETDATE(), GETDATE(), NULL);
+(@Pass1_Id, NULL, 'Mount Lavinia Hotel', 6.8301, 79.8639, 'Galle Face Green', 6.9271, 79.8428, 12.0, 'CAR', 300.00, 150.00, 50.00, 2150.00, 322.50, 1827.50, 'REQUESTED', 'CARD', 0, GETDATE(), GETDATE(), NULL);
 GO
 
 -- ════════════════════════════════════════════════════════════════════════════════
@@ -138,14 +136,14 @@ DECLARE @DisputeTrip_Id BIGINT = (SELECT TOP 1 id FROM trips WHERE dropoff_addre
 DECLARE @DisputeUser_Id BIGINT = (SELECT TOP 1 passenger_id FROM trips WHERE id = @DisputeTrip_Id);
 DECLARE @Admin_Id       BIGINT = (SELECT TOP 1 id FROM users WHERE email = 'admin@streetify.com');
 
-INSERT INTO dispute_tickets (trip_id, reported_by_id, category, description, status, resolution_notes, refund_amount, resolved_by_id, created_at, resolved_at)
+INSERT INTO dispute_tickets (passenger_id, trip_id, subject, description, dispute_type, requested_refund_amount, status, resolution_note, approved_refund_amount, resolved_by_staff_id, created_at, resolved_at)
 VALUES
-(@DisputeTrip_Id, @DisputeUser_Id, 'OVERCHARGED', 'Driver took a longer scenic route near Malabe.', 'RESOLVED', 'Refunded 100 LKR wallet credit to passenger.', 100.00, @Admin_Id, DATEADD(day, -1, GETDATE()), GETDATE());
+(@DisputeUser_Id, @DisputeTrip_Id, 'Overcharged Fare', 'Driver took a longer scenic route near Malabe.', 'OVERCHARGED', 100.00, 'RESOLVED', 'Refunded 100 LKR wallet credit to passenger.', 100.00, @Admin_Id, DATEADD(day, -1, GETDATE()), GETDATE());
 
-INSERT INTO audit_logs (action, entity_type, entity_id, performed_by_id, details, ip_address, timestamp)
+INSERT INTO audit_logs (performed_by_staff_id, performed_by_email, action_type, description, target_user_id, target_entity_type, target_entity_id, created_at)
 VALUES
-('ADMIN_LOGIN', 'USER', @Admin_Id, @Admin_Id, 'Super Admin logged in successfully.', '127.0.0.1', GETDATE()),
-('DISPUTE_RESOLVED', 'DISPUTE_TICKET', 1, @Admin_Id, 'Approved partial refund of 100 LKR.', '127.0.0.1', GETDATE());
+(@Admin_Id, 'admin@streetify.com', 'ADMIN_LOGIN', 'Super Admin logged in successfully.', @Admin_Id, 'USER', @Admin_Id, GETDATE()),
+(@Admin_Id, 'admin@streetify.com', 'DISPUTE_RESOLVED', 'Approved partial refund of 100 LKR.', @DisputeUser_Id, 'DISPUTE_TICKET', 1, GETDATE());
 GO
 
 PRINT '===================================================================';

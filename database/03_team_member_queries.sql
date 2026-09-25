@@ -114,7 +114,7 @@ SELECT
     u.average_rating, 
     u.total_trips, 
     u.is_online,
-    v.make + ' ' + v.model + ' (' + v.license_plate + ')' AS assigned_vehicle
+    v.make + ' ' + v.model + ' (' + v.number_plate + ')' AS assigned_vehicle
 FROM users u
 LEFT JOIN vehicles v ON v.driver_id = u.id
 WHERE u.dtype = 'DRIVER' AND u.verification_status = 'APPROVED';
@@ -136,10 +136,10 @@ WHERE dtype = 'DRIVER' AND verification_status = 'PENDING_VERIFICATION';
 SELECT 
     d.id AS doc_id, 
     u.first_name + ' ' + u.last_name AS driver_name, 
-    d.document_type, 
+    d.doc_type, 
     d.file_path, 
     d.status, 
-    d.rejection_reason, 
+    d.reviewer_note, 
     d.uploaded_at
 FROM driver_documents d
 INNER JOIN users u ON d.driver_id = u.id
@@ -263,26 +263,30 @@ WHERE status = 'COMPLETED'
 -- 6.4 Inspect Customer Dispute Tickets and resolutions
 SELECT 
     dt.id AS dispute_id, 
-    dt.category, 
+    dt.subject,
+    dt.dispute_type, 
     dt.description, 
     dt.status, 
-    dt.refund_amount, 
-    dt.resolution_notes, 
+    dt.requested_refund_amount,
+    dt.approved_refund_amount, 
+    dt.resolution_note, 
     reporter.email AS reported_by, 
     dt.created_at
 FROM dispute_tickets dt
-INNER JOIN users reporter ON dt.reported_by_id = reporter.id
+INNER JOIN users reporter ON dt.passenger_id = reporter.id
 ORDER BY dt.id DESC;
 
 -- 6.5 View System Audit Logs (Security & Compliance trail)
 SELECT TOP 20 
     id, 
-    action, 
-    entity_type, 
-    entity_id, 
-    ip_address, 
-    details, 
-    timestamp
+    performed_by_staff_id,
+    performed_by_email,
+    action_type, 
+    description, 
+    target_user_id,
+    target_entity_type, 
+    target_entity_id, 
+    created_at
 FROM audit_logs
-ORDER BY timestamp DESC;
+ORDER BY created_at DESC;
 GO

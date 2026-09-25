@@ -24,6 +24,7 @@ public class ModuleAdminController {
     private final PaymentDAO paymentDAO;
     private final ReviewDAO reviewDAO;
     private final AuditLogDAO auditLogDAO;
+    private final DisputeDAO disputeDAO;
     private final AdminGovernanceService adminGovernanceService;
 
     public ModuleAdminController(UserDAO userDAO,
@@ -33,6 +34,7 @@ public class ModuleAdminController {
                                  PaymentDAO paymentDAO,
                                  ReviewDAO reviewDAO,
                                  AuditLogDAO auditLogDAO,
+                                 DisputeDAO disputeDAO,
                                  AdminGovernanceService adminGovernanceService) {
         this.userDAO = userDAO;
         this.passengerDAO = passengerDAO;
@@ -41,6 +43,7 @@ public class ModuleAdminController {
         this.paymentDAO = paymentDAO;
         this.reviewDAO = reviewDAO;
         this.auditLogDAO = auditLogDAO;
+        this.disputeDAO = disputeDAO;
         this.adminGovernanceService = adminGovernanceService;
     }
 
@@ -49,6 +52,30 @@ public class ModuleAdminController {
         User admin = userDAO.findByEmail(email).orElse(null);
         Long adminId = admin != null ? admin.getId() : 0L;
         adminGovernanceService.writeAuditLog(adminId, email, action, desc, targetId, targetType, targetId);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    //  📊 PLATFORM ANALYTICS & KPIS
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    @GetMapping("/stats")
+    public ResponseEntity<Map<String, Object>> getPlatformStats() {
+        long totalUsers = userDAO.count();
+        long totalDrivers = driverDAO.count();
+        long totalTrips = tripDAO.count();
+        Double totalRevenue = paymentDAO.findAll().stream()
+                .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+                .mapToDouble(Payment::getGrossAmount)
+                .sum();
+        long openDisputes = disputeDAO.countOpenDisputes();
+
+        return ResponseEntity.ok(Map.of(
+            "totalUsers", totalUsers,
+            "totalDrivers", totalDrivers,
+            "totalTrips", totalTrips,
+            "totalRevenue", totalRevenue,
+            "openDisputes", openDisputes
+        ));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════════

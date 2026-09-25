@@ -23,6 +23,8 @@ import ScreenHistory from "./screens/History";
 import ScreenSupport from "./screens/Support";
 import ScreenProfile from "./screens/Profile";
 import NotificationCenter from "./components/NotificationCenter";
+import Footer from "./components/Footer";
+import DemoSwitcher from "./components/DemoSwitcher";
 
 type Screen = "login" | "booking" | "driver" | "payment" | "review" | "admin" | "history" | "support" | "profile";
 
@@ -47,8 +49,9 @@ const GROUP_LABEL: Record<string, string> = {
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("login");
-  const [role, setRole] = useState<string | null>(localStorage.getItem("jwt_token") ? "unknown" : null);
+  const [role, setRole] = useState<string | null>(localStorage.getItem("jwt_token") ? (localStorage.getItem("user_role")?.toLowerCase() || "passenger") : null);
   const adminRole = localStorage.getItem("admin_role") || "";
+  const userName = localStorage.getItem("user_name") || "";
 
   useEffect(() => {
     const handleAuthSuccess = (e: any) => {
@@ -89,41 +92,48 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-slate-900 text-slate-100">
       {/* ── Top navigation bar ── */}
       <nav
-        className="bg-slate-950 px-4 py-2.5 flex items-center gap-1 overflow-x-auto flex-none border-b border-slate-800 sticky top-0 z-50"
+        className="bg-slate-950/95 backdrop-blur-md px-4 py-2.5 flex items-center gap-1.5 overflow-x-auto flex-none border-b border-slate-800 sticky top-0 z-50 shadow-md"
         style={{ scrollbarWidth: "none" }}
       >
         {/* Wordmark */}
-        <div className="flex items-center gap-2 mr-3 pr-3 border-r border-slate-800 flex-none">
-          <div className="w-7 h-7 bg-blue-700 rounded-lg flex items-center justify-center shadow">
-            <span className="text-sm">🚖</span>
+        <div 
+          onClick={() => setScreen(role === 'driver' ? 'driver' : role === 'admin' ? 'admin' : 'booking')}
+          className="flex items-center gap-2 mr-3 pr-3 border-r border-slate-800 flex-none cursor-pointer group"
+        >
+          <div className="w-8 h-8 bg-gradient-to-tr from-blue-700 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-700/30 group-hover:scale-105 transition-transform">
+            <span className="text-base">🚖</span>
           </div>
-          <span className="text-white text-sm font-extrabold tracking-tight">Streetify</span>
-          <span className="text-slate-400 text-xs font-mono font-medium bg-slate-800/80 px-1.5 py-0.5 rounded">v1.0</span>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-white text-sm font-extrabold tracking-tight">Streetify</span>
+              <span className="text-slate-400 text-[10px] font-mono font-bold bg-slate-800/80 border border-slate-700/60 px-1.5 py-0.2 rounded">
+                v1.0
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Screen buttons grouped by role */}
         {(["passenger", "driver", "admin", "support"] as const).map((group, gi) => {
-          // Hide navigation groups that don't belong to the current user role
           if (role && role !== 'admin' && role !== group) return null;
-          if (!role && group !== 'driver') return null; // Only show driver login when logged out (for MVP)
+          if (!role && group !== 'driver') return null;
 
           const items = NAV.filter(n => n.group === group);
-          // Show support tab to admin users, show passenger/driver groups based on role
           if (group === "support" && role !== "admin" && adminRole !== "SUPER_ADMIN") return null;
           return (
             <div key={group} className={`flex items-center gap-1 ${gi > 0 ? "border-l border-slate-800 pl-2 ml-1" : ""}`}>
-              <span className="text-slate-600 text-xs font-mono mr-1 hidden sm:block">{GROUP_LABEL[group]}</span>
+              <span className="text-slate-500 text-[11px] font-mono mr-1 hidden lg:block uppercase tracking-wider">{GROUP_LABEL[group]}</span>
               {items.map(({ key, label, icon }) => (
                 <button
                   key={key}
                   onClick={() => setScreen(key)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all flex-none
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex-none
                     ${screen === key
-                      ? "bg-blue-700 text-white shadow"
-                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                      ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
+                      : "text-slate-400 hover:text-white hover:bg-slate-800/80"
                     }`}
                 >
                   <span>{icon}</span>
@@ -134,13 +144,31 @@ export default function App() {
           );
         })}
 
-        {/* Right side items: Notification Center & Logout */}
-        <div className="ml-auto flex items-center gap-2">
+        {/* Right side items: User Chip, Notification Center & Logout */}
+        <div className="ml-auto flex items-center gap-2.5">
+          {role && (
+            <div 
+              onClick={() => setScreen("profile")}
+              className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 cursor-pointer transition-all"
+            >
+              <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold">
+                {userName ? userName.charAt(0).toUpperCase() : "U"}
+              </div>
+              <span className="text-xs font-semibold text-slate-200 truncate max-w-[110px]">
+                {userName || "Active User"}
+              </span>
+              <span className="text-[9px] font-mono font-bold bg-blue-950 text-blue-400 px-1.5 py-0.2 rounded border border-blue-800/50 uppercase">
+                {role}
+              </span>
+            </div>
+          )}
+
           <NotificationCenter />
+
           {role && (
             <button
               onClick={handleLogout}
-              className="px-3 py-1.5 rounded-lg text-xs font-bold text-red-400 hover:text-white hover:bg-red-600 transition-all"
+              className="px-3 py-1.5 rounded-xl text-xs font-bold text-red-400 hover:text-white hover:bg-red-600/80 border border-red-500/30 transition-all shadow-sm"
             >
               Logout
             </button>
@@ -149,7 +177,7 @@ export default function App() {
       </nav>
 
       {/* ── Active screen ── */}
-      <div className="flex-1">
+      <main className="flex-1">
         {screen === "login"   && <ScreenLogin />}
         {screen === "booking" && <ScreenBooking />}
         {screen === "driver"  && <ScreenDriver />}
@@ -159,7 +187,14 @@ export default function App() {
         {screen === "admin"   && <ScreenAdmin />}
         {screen === "support" && <ScreenSupport />}
         {screen === "profile" && <ScreenProfile />}
-      </div>
+      </main>
+
+      {/* ── Modern Finished Product Footer ── */}
+      <Footer onNavigate={(s: any) => setScreen(s)} />
+
+      {/* ── Fast Role Switcher for 1-Click Multi-Actor Testing ── */}
+      <DemoSwitcher />
     </div>
   );
 }
+

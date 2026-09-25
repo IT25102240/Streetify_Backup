@@ -42,6 +42,11 @@ public interface DisputeDAO extends JpaRepository<DisputeTicket, Long> {
     List<DisputeTicket> findByStatus(DisputeStatus status);
 
     /**
+     * Count disputes by status.
+     */
+    long countByStatus(DisputeStatus status);
+
+    /**
      * Find the dispute for a specific trip.
      */
     List<DisputeTicket> findByTripId(Long tripId);
