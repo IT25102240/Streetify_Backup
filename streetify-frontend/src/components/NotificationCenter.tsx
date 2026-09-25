@@ -54,7 +54,10 @@ export default function NotificationCenter() {
               NotificationService.markAllAsRead();
             }
           }}
-          className="relative p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-all flex items-center justify-center"
+          className="relative p-2 rounded-xl transition-all flex items-center justify-center"
+          style={{ color: "#64748b" }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#4ade80"; (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.1)"; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#64748b"; (e.currentTarget as HTMLElement).style.background = "transparent"; }}
           title="Notification Center"
         >
           <span className="text-base">🔔</span>

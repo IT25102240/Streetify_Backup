@@ -1,105 +1,102 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..800;1,14..32,300..800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..900;1,14..32,300..900&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
 @import 'tailwindcss';
 
+/* ─────────────────────────────────────────────
+   STREETIFY — ECO DRIVE DESIGN SYSTEM v2.0
+   Palette: Dark Navy · Midnight Blue · Ash · Green
+   ───────────────────────────────────────────── */
+
 @theme {
-  --color-navy: #1D4ED8;
-  --color-navy-dark: #1e3a8a;
-  --color-navy-light: #3b82f6;
-  --color-success: #22c55e;
-  --color-success-bg: #f0fdf4;
-  --color-warning: #f97316;
-  --color-danger: #ef4444;
-  --color-ash: #f1f5f9;
-  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  /* Brand greens — eco-friendly accent */
+  --color-eco:       #22c55e;
+  --color-eco-dark:  #16a34a;
+  --color-eco-dim:   #15803d;
+  --color-eco-glow:  #4ade80;
+  --color-eco-faint: #052e16;
+
+  /* Navy blues — primary palette */
+  --color-navy:      #1e3a5f;
+  --color-navy-dark: #0f2440;
+  --color-navy-deep: #060e1e;
+  --color-navy-mid:  #1a2f50;
+  --color-navy-light:#2a4a73;
+
+  /* Midnight blues */
+  --color-mid:       #162240;
+  --color-mid-dark:  #0d1829;
+  --color-mid-light: #1e3058;
+
+  /* Ash / neutral */
+  --color-ash:       #94a3b8;
+  --color-ash-light: #cbd5e1;
+  --color-ash-dark:  #64748b;
+  --color-ash-faint: #1e293b;
+
+  /* Status */
+  --color-success:   #22c55e;
+  --color-warning:   #f59e0b;
+  --color-danger:    #ef4444;
+  --color-info:      #38bdf8;
+
+  /* Fonts */
+  --font-sans: 'Outfit', 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'DM Mono', ui-monospace, monospace;
 }
 
-* {
+/* ── Reset & Base ── */
+*, *::before, *::after {
   box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   font-family: var(--font-sans);
-  background-color: #f1f5f9;
-  color: #0f172a;
+  background-color: #060e1e;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(34, 197, 94, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 80%, rgba(30, 58, 95, 0.4) 0%, transparent 60%);
+  color: #e2e8f0;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
 }
 
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+/* ── Custom Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #0f2440; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #22c55e40, #1e3a5f80);
+  border-radius: 3px;
 }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+::-webkit-scrollbar-thumb:hover { background: #22c55e60; }
+
+/* ─────────────────────────────────────────────
+   KEYFRAMES
+   ───────────────────────────────────────────── */
 
 @keyframes pulse-ring {
-  0% { transform: scale(1); opacity: 1; }
+  0%   { transform: scale(1); opacity: 1; }
   100% { transform: scale(2.5); opacity: 0; }
 }
 
 @keyframes blink {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+  50%       { opacity: 0.3; }
 }
 
 @keyframes skeleton-shimmer {
-  0% { background-position: -200% 0; }
+  0%   { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
 
 @keyframes slide-in {
   from { transform: translateY(16px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.skeleton {
-  background: linear-gradient(90deg, #e2e8f0 25%, #f8fafc 50%, #e2e8f0 75%);
-  background-size: 200% 100%;
-  animation: skeleton-shimmer 1.5s infinite;
-}
-
-.pulse-dot::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: inherit;
-  animation: pulse-ring 1.5s ease-out infinite;
-}
-
-.ws-dot {
-  animation: blink 1.2s ease-in-out infinite;
-}
-
-.toast-enter {
-  animation: slide-in 0.3s ease-out;
-}
-
-.spinner {
-  border: 2px solid #e2e8f0;
-  border-top-color: #1D4ED8;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
-
-@keyframes route-draw {
-  to { stroke-dashoffset: 0; }
-}
-
-@keyframes route-dash {
-  from { stroke-dashoffset: 0; }
-  to   { stroke-dashoffset: -28; }
-}
-
-@keyframes fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  to   { transform: translateY(0);    opacity: 1; }
 }
 
 @keyframes slide-up {
@@ -112,8 +109,242 @@ body {
   to   { transform: translateY(0);     opacity: 1; }
 }
 
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 @keyframes pop-in {
   0%   { transform: scale(0.92); opacity: 0; }
   60%  { transform: scale(1.02); opacity: 1; }
   100% { transform: scale(1);    opacity: 1; }
 }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes route-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes route-dash {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -28; }
+}
+
+@keyframes eco-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.4); }
+  50%       { box-shadow: 0 0 0 10px rgba(34,197,94,0); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-6px); }
+}
+
+@keyframes gradient-x {
+  0%, 100% { background-position: 0% 50%; }
+  50%       { background-position: 100% 50%; }
+}
+
+@keyframes shimmer-eco {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ─────────────────────────────────────────────
+   UTILITY CLASSES
+   ───────────────────────────────────────────── */
+
+/* Skeleton loading */
+.skeleton {
+  background: linear-gradient(90deg, #1e3a5f 25%, #2a4a73 50%, #1e3a5f 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  border-radius: 0.5rem;
+}
+
+/* Eco skeleton */
+.skeleton-eco {
+  background: linear-gradient(90deg, #052e16 25%, #15803d30 50%, #052e16 75%);
+  background-size: 200% 100%;
+  animation: shimmer-eco 1.5s infinite;
+  border-radius: 0.5rem;
+}
+
+/* Live pulse dot */
+.pulse-dot::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: inherit;
+  animation: pulse-ring 1.5s ease-out infinite;
+}
+
+/* WebSocket live indicator */
+.ws-dot {
+  animation: blink 1.2s ease-in-out infinite;
+}
+
+/* Toast entry */
+.toast-enter {
+  animation: slide-in 0.3s ease-out;
+}
+
+/* Spinner */
+.spinner {
+  border: 2px solid rgba(34,197,94,0.2);
+  border-top-color: #22c55e;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+/* Eco pulse button */
+.eco-pulse {
+  animation: eco-pulse 2s ease-in-out infinite;
+}
+
+/* Floating element */
+.float-anim {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Animated gradient text */
+.gradient-text-eco {
+  background: linear-gradient(135deg, #22c55e, #4ade80, #38bdf8, #22c55e);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradient-x 4s ease infinite;
+}
+
+/* ─────────────────────────────────────────────
+   GLASS MORPHISM PANELS
+   ───────────────────────────────────────────── */
+
+.glass {
+  background: rgba(15, 36, 64, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(34,197,94,0.12);
+}
+
+.glass-darker {
+  background: rgba(6, 14, 30, 0.75);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(30,58,95,0.5);
+}
+
+.glass-eco {
+  background: rgba(5, 46, 22, 0.35);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(34,197,94,0.25);
+}
+
+/* ─────────────────────────────────────────────
+   ECO CARD — main card style
+   ───────────────────────────────────────────── */
+
+.eco-card {
+  background: rgba(15, 36, 64, 0.55);
+  border: 1px solid rgba(34,197,94,0.15);
+  border-radius: 1.25rem;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow:
+    0 4px 24px rgba(0,0,0,0.3),
+    inset 0 1px 0 rgba(255,255,255,0.04);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.eco-card:hover {
+  border-color: rgba(34,197,94,0.3);
+  box-shadow:
+    0 8px 32px rgba(0,0,0,0.4),
+    0 0 0 1px rgba(34,197,94,0.1);
+}
+
+/* ─────────────────────────────────────────────
+   ECO INPUT — dark-mode aware form fields
+   ───────────────────────────────────────────── */
+
+.eco-input {
+  background: rgba(6, 14, 30, 0.6);
+  border: 1px solid rgba(30, 58, 95, 0.8);
+  color: #e2e8f0;
+  border-radius: 0.75rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.eco-input::placeholder {
+  color: #4a6580;
+}
+
+.eco-input:focus {
+  outline: none;
+  border-color: rgba(34,197,94,0.5);
+  box-shadow: 0 0 0 3px rgba(34,197,94,0.12);
+}
+
+/* ─────────────────────────────────────────────
+   PILL — status tags
+   ───────────────────────────────────────────── */
+
+.pill-eco   { background: rgba(34,197,94,0.12); color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
+.pill-blue  { background: rgba(56,189,248,0.1);  color: #7dd3fc; border: 1px solid rgba(56,189,248,0.2); }
+.pill-red   { background: rgba(239,68,68,0.12); color: #fca5a5; border: 1px solid rgba(239,68,68,0.25); }
+.pill-amber { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25); }
+.pill-ash   { background: rgba(100,116,139,0.15); color: #94a3b8; border: 1px solid rgba(100,116,139,0.25); }
+
+/* ─────────────────────────────────────────────
+   NAVIGATION ACTIVE STATE
+   ───────────────────────────────────────────── */
+
+.nav-active {
+  background: linear-gradient(135deg, rgba(34,197,94,0.18), rgba(22,163,74,0.1));
+  color: #4ade80;
+  border: 1px solid rgba(34,197,94,0.3);
+  box-shadow: 0 0 12px rgba(34,197,94,0.1);
+}
+
+/* ─────────────────────────────────────────────
+   HERO SECTION
+   ───────────────────────────────────────────── */
+
+.hero-section {
+  background-image: url('/hero-bg.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  position: relative;
+}
+
+.hero-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(6,14,30,0.72) 0%,
+    rgba(6,14,30,0.55) 40%,
+    rgba(6,14,30,0.85) 100%
+  );
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+}
+
+/* ─────────────────────────────────────────────
+   SCROLLBAR (Webkit)
+   ───────────────────────────────────────────── */
+
+.thin-scroll::-webkit-scrollbar { width: 3px; }
+.thin-scroll::-webkit-scrollbar-track { background: transparent; }
+.thin-scroll::-webkit-scrollbar-thumb { background: rgba(34,197,94,0.3); border-radius: 2px; }

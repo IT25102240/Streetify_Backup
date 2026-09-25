@@ -240,19 +240,26 @@ export default function ScreenBooking() {
           {/* Searching overlay */}
           {step === "searching" && (
             <div className="absolute inset-0 bg-[#0f1923]/70 flex items-center justify-center">
-              <div className="bg-white rounded-2xl px-7 py-6 text-center shadow-2xl"
-                   style={{ animation: "pop-in .4s cubic-bezier(.22,1,.36,1) both" }}>
+              <div
+                className="rounded-2xl px-7 py-6 text-center shadow-2xl"
+                style={{
+                  animation: "pop-in .4s cubic-bezier(.22,1,.36,1) both",
+                  background: "rgba(15,36,64,0.95)",
+                  border: "1px solid rgba(34,197,94,0.3)",
+                  backdropFilter: "blur(16px)",
+                }}
+              >
                 <div className="flex justify-center gap-1.5 mb-3">
                   {[0,1,2].map(i => (
                     <span
                       key={i}
-                      className="w-2.5 h-2.5 bg-blue-700 rounded-full"
-                      style={{ animation: `blink 1.2s ease-in-out ${i * 0.22}s infinite` }}
+                      className="w-2.5 h-2.5 rounded-full"
+                      style={{ background: "#22c55e", animation: `blink 1.2s ease-in-out ${i * 0.22}s infinite` }}
                     />
                   ))}
                 </div>
-                <p className="font-extrabold text-slate-900">Finding your driver{"."[searchDots % 4] ?? "..."}</p>
-                <p className="text-xs text-slate-500 mt-1 font-mono">WS /ws/drivers · Colombo Metro</p>
+                <p className="font-extrabold text-white">Finding your driver{"."[searchDots % 4] ?? "..."}</p>
+                <p className="text-xs mt-1 font-mono" style={{ color: "#4ade80" }}>WS /ws/drivers · Colombo Metro</p>
               </div>
             </div>
           )}
@@ -295,7 +302,7 @@ export default function ScreenBooking() {
       </div>
 
       {/* ── BOOKING CARD (bottom 42%) ── */}
-      <div className="flex-1 bg-slate-100 rounded-t-3xl -mt-5 overflow-y-auto">
+      <div className="flex-1 rounded-t-3xl -mt-5 overflow-y-auto" style={{ background: "rgba(9,20,40,0.97)", borderTop: "1px solid rgba(34,197,94,0.15)" }}>
         <div className="px-4 pt-5 pb-8 space-y-3">
 
           {/* Driver matched banner */}
@@ -329,18 +336,19 @@ export default function ScreenBooking() {
                   value={pickup}
                   onChange={e => setPickup(e.target.value)}
                   placeholder="Pickup location"
-                  className="w-full px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-slate-800 font-semibold placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  className="w-full px-3 py-2 eco-input text-sm font-semibold"
                 />
                 <input
                   value={dropoff}
                   onChange={e => { setDropoff(e.target.value); if (e.target.value.length > 2) setStep("selecting"); }}
                   placeholder="Where to? — type or pick below"
-                  className="w-full px-3 py-2 bg-white border-2 border-blue-500 rounded-xl text-sm text-slate-800 font-semibold placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  className="w-full px-3 py-2 eco-input text-sm font-semibold"
+                  style={{ borderColor: "rgba(34,197,94,0.4)" }}
                 />
               </div>
               {dropoff && (
                 <button onClick={() => { setDropoff(""); setStep("idle"); }}
-                  className="text-slate-400 hover:text-slate-600 text-lg flex-none transition-colors">✕</button>
+                  className="text-ash-dark hover:text-white text-lg flex-none transition-colors">✕</button>
               )}
             </div>
 
@@ -350,11 +358,12 @@ export default function ScreenBooking() {
                 <button
                   key={p.label}
                   onClick={() => pickSavedPlace(p.addr)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all flex-none border
-                    ${dropoff === p.addr
-                      ? "bg-blue-700 text-white border-blue-700"
-                      : "bg-slate-100 text-slate-600 border-slate-200 hover:border-blue-300 hover:bg-blue-50"
-                    }`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all flex-none"
+                  style={{
+                    background: dropoff === p.addr ? "rgba(34,197,94,0.2)" : "rgba(15,36,64,0.6)",
+                    border: dropoff === p.addr ? "1px solid rgba(34,197,94,0.5)" : "1px solid rgba(30,58,95,0.5)",
+                    color: dropoff === p.addr ? "#4ade80" : "#94a3b8",
+                  }}
                 >
                   <span>{p.icon}</span>{p.label}
                 </button>
@@ -367,26 +376,28 @@ export default function ScreenBooking() {
             <div className="space-y-2" style={{ animation: "slide-up .38s cubic-bezier(.22,1,.36,1) both" }}>
               {RIDE_TYPES.map(r => {
                 const f = Math.round(r.base + (estimatedDistance > 0 ? estimatedDistance : DISTANCE) * r.perKm);
+                const isSelected = rideType === r.key;
                 return (
                   <button
                     key={r.key}
                     onClick={() => { setRide(r.key); if (step === "confirm") setStep("selecting"); }}
-                    className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border-2 text-left transition-all
-                      ${rideType === r.key
-                        ? "border-blue-700 bg-blue-50 shadow-sm"
-                        : "border-slate-200 bg-white hover:border-slate-300"
-                      }`}
+                    className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-left transition-all"
+                    style={{
+                      background: isSelected ? "rgba(34,197,94,0.1)" : "rgba(15,36,64,0.5)",
+                      border: isSelected ? "2px solid rgba(34,197,94,0.4)" : "1px solid rgba(30,58,95,0.5)",
+                      boxShadow: isSelected ? "0 0 16px rgba(34,197,94,0.1)" : "none",
+                    }}
                   >
                     <span className="text-2xl flex-none">{r.icon}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="font-extrabold text-slate-900 text-sm">{r.label}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">{r.desc}</p>
+                      <p className="font-extrabold text-white text-sm">{r.label}</p>
+                      <p className="text-xs mt-0.5" style={{ color: "#64748b" }}>{r.desc}</p>
                     </div>
                     <div className="text-right flex-none">
-                      <p className={`font-extrabold font-mono text-sm ${rideType === r.key ? "text-blue-700" : "text-slate-700"}`}>
+                      <p className="font-extrabold font-mono text-sm" style={{ color: isSelected ? "#4ade80" : "#94a3b8" }}>
                         LKR {f.toLocaleString()}
                       </p>
-                      <p className="text-[10px] text-slate-400 font-mono">{estimatedDistance > 0 ? estimatedDistance.toFixed(1) : DISTANCE} km est.</p>
+                      <p className="text-[10px] font-mono" style={{ color: "#4a6580" }}>{estimatedDistance > 0 ? estimatedDistance.toFixed(1) : DISTANCE} km est.</p>
                     </div>
                   </button>
                 );
@@ -412,27 +423,27 @@ export default function ScreenBooking() {
           {(step === "confirm" || step === "searching" || step === "matched") && (
             <Card className="p-4" style={{ animation: "slide-up .38s cubic-bezier(.22,1,.36,1) both" }}>
               <div className="flex items-center justify-between mb-3">
-                <p className="font-extrabold text-slate-900">Fare Estimate</p>
-                <Pill color="green">Confirmed</Pill>
+                <p className="font-extrabold text-white">Fare Estimate</p>
+                <Pill color="eco">Confirmed</Pill>
               </div>
 
               <div className="space-y-2 mb-3">
                 {FARE_ROWS.map(({ label, value }) => (
                   <div key={label} className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500">{label}</span>
-                    <span className="font-mono font-bold text-slate-700">{value}</span>
+                    <span style={{ color: "#64748b" }}>{label}</span>
+                    <span className="font-mono font-bold" style={{ color: "#94a3b8" }}>{value}</span>
                   </div>
                 ))}
-                <div className="border-t border-slate-200 pt-2 flex items-center justify-between">
-                  <span className="font-extrabold text-slate-900 text-sm">Total</span>
-                  <span className="font-extrabold font-mono text-blue-700 text-lg">LKR {fare.toLocaleString()}</span>
+                <div className="flex items-center justify-between pt-2" style={{ borderTop: "1px solid rgba(34,197,94,0.12)" }}>
+                  <span className="font-extrabold text-white text-sm">Total</span>
+                  <span className="font-extrabold font-mono text-lg" style={{ color: "#4ade80" }}>LKR {fare.toLocaleString()}</span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 rounded-xl px-3 py-2 mb-3">
+              <div className="flex items-center gap-2 text-xs rounded-xl px-3 py-2 mb-3" style={{ background: "rgba(15,36,64,0.5)", border: "1px solid rgba(30,58,95,0.4)", color: "#64748b" }}>
                 <span>💳</span>
                 <span className="font-mono flex-1">Visa ···· 4821</span>
-                <button className="text-blue-600 font-semibold hover:underline">Change</button>
+                <button className="font-semibold hover:underline" style={{ color: "#4ade80" }}>Change</button>
               </div>
 
               {bookingError && (
@@ -516,9 +527,9 @@ export default function ScreenBooking() {
 
           {/* Empty state */}
           {step === "idle" && (
-            <div className="text-center py-8 text-slate-400">
+            <div className="text-center py-8" style={{ color: "#4a6580" }}>
               <p className="text-5xl mb-3">📍</p>
-              <p className="font-extrabold text-slate-600 text-base">Where are you going?</p>
+              <p className="font-extrabold text-lg" style={{ color: "#94a3b8" }}>Where are you going?</p>
               <p className="text-sm mt-1">Type a destination or choose a saved place above</p>
             </div>
           )}

@@ -1,13 +1,11 @@
 /**
- * Screen A — Driver Onboarding & Login
+ * Screen A — Driver Onboarding & Login (Eco Drive Dark Theme v2.0)
  *
  * API hooks:
- *   POST /api/auth/login        { email, password }    → { jwt, refreshToken, expiresIn }
- *   POST /api/auth/register     { ...fields }          → { driverId, pending: true }
- *   POST /api/docs/upload       FormData               → { docId, status: "pending" }
- *   GET  /api/drivers/:id/status                       → { approved, pending, rejectedDocs }
- *
- * JWT: RS256 · 15-min access token · refresh via POST /api/auth/refresh
+ *   POST /api/auth/login              { email, password }    → { jwt, ... }
+ *   POST /api/auth/register/driver    { ...fields }          → { driverId, pending: true }
+ *   POST /api/auth/register/passenger { ...fields }          → { accessToken, ... }
+ *   POST /api/docs/upload             FormData               → { docId, status: "pending" }
  */
 import { useState, useRef, DragEvent, ChangeEvent } from "react";
 import { Btn, Card, Field, HR, PwStrength, Pill } from "../ui";
@@ -25,6 +23,7 @@ interface AuthResponseDTO {
   verificationStatus: string;
   message: string;
   adminRole?: string;
+  vehicleInfo?: string;
 }
 
 type Tab  = "login" | "register-driver" | "register-passenger";
@@ -73,10 +72,17 @@ const DOC_LABEL: Record<DocKey, { title: string; hint: string; icon: string }> =
   insurance: { title:"Insurance Certificate",  hint:"Must be valid and not expired",  icon:"🛡️" },
 };
 
+/* ── Hero Feature Cards ── */
+const FEATURES = [
+  { icon: "📍", title: "Smart Booking",    desc: "GPS-powered live trip booking with real-time driver tracking" },
+  { icon: "🌿", title: "Eco Drive",        desc: "Carbon-conscious routing to reduce your environmental impact" },
+  { icon: "💳", title: "Secure Payments",  desc: "PayHere & Stripe with 3D-Secure for safe transactions" },
+  { icon: "🛡️", title: "Verified Drivers", desc: "All drivers are background checked and document verified" },
+];
+
 export default function ScreenLogin() {
   const [tab, setTab]           = useState<Tab>("login");
   const [step, setStep]         = useState<Step>(1);
-  const [jwtBanner, setJwt]     = useState(true);
 
   /* Login state */
   const [loginEmail, setEmail]  = useState("");
@@ -141,27 +147,16 @@ export default function ScreenLogin() {
     setLErr("");
     if (!loginEmail || !loginPw) { setLErr("Enter your email and password to continue."); return; }
     setLLoad(true);
-    
     try {
       const response = await apiClient<AuthResponseDTO>('/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email: loginEmail, password: loginPw })
       });
-      
       localStorage.setItem("jwt_token", response.accessToken);
-      if (response.fullName) {
-        localStorage.setItem("user_name", response.fullName);
-      }
-      if (response.vehicleInfo) {
-        localStorage.setItem("vehicle_info", response.vehicleInfo);
-      }
-      if (response.role) {
-        localStorage.setItem("user_role", response.role.toLowerCase());
-      }
-      if (response.adminRole) {
-        localStorage.setItem("admin_role", response.adminRole);
-      }
-      // Dispatch event to app to navigate to the correct dashboard
+      if (response.fullName)    localStorage.setItem("user_name",    response.fullName);
+      if (response.vehicleInfo) localStorage.setItem("vehicle_info", response.vehicleInfo);
+      if (response.role)        localStorage.setItem("user_role",    response.role.toLowerCase());
+      if (response.adminRole)   localStorage.setItem("admin_role",   response.adminRole);
       window.dispatchEvent(new CustomEvent("auth-success", { detail: { role: response.role, adminRole: response.adminRole } }));
       setLLoad(false);
     } catch (e: any) {
@@ -206,465 +201,619 @@ export default function ScreenLogin() {
     { n: 3 as Step, label:"Documents"           },
   ];
 
+  const tabStyles = (t: Tab) =>
+    tab === t
+      ? "flex-1 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-gradient-to-r from-eco-dark to-eco text-white shadow-md shadow-eco/25"
+      : "flex-1 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all text-ash hover:text-white hover:bg-navy/40";
+
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col items-center py-10 px-4">
-
-      {/* JWT session-expired banner */}
-      {jwtBanner && (
-        <div
-          className="w-full max-w-md mb-5 bg-orange-50 border border-orange-300 rounded-2xl px-5 py-3.5 flex items-start gap-3 shadow-sm"
-          style={{ animation: "slide-in .4s cubic-bezier(.22,1,.36,1) both" }}
-        >
-          <span className="text-orange-500 text-xl flex-none mt-0.5">⚠️</span>
-          <div className="flex-1">
-            <p className="font-extrabold text-orange-700 text-sm">Session Expired</p>
-            <p className="text-xs text-orange-600 mt-0.5 font-mono leading-relaxed">
-              Your RS256 JWT token has expired. Please sign in again to continue.
-              Access tokens expire after 15 minutes for security.
-            </p>
-          </div>
-          <button
-            onClick={() => setJwt(false)}
-            className="text-orange-400 hover:text-orange-600 transition-colors flex-none text-xl leading-none ml-1"
-          >
-            &times;
-          </button>
-        </div>
-      )}
-
-      <div className="w-full max-w-md">
-        {/* Wordmark */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-700 rounded-2xl shadow-lg mb-3">
-            <span className="text-2xl">🚖</span>
-          </div>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Streetify</h1>
-          <p className="text-sm text-slate-500 mt-1">User Portal</p>
-        </div>
-
-        {/* Tab switcher */}
-        <div className="flex bg-white border border-slate-200 rounded-2xl p-1 gap-1 mb-5 shadow-sm">
-          {(["login", "register-passenger", "register-driver"] as Tab[]).map(t => (
-            <button key={t} onClick={() => { setTab(t); setStep(1); setS1Err(""); setS2Err(""); }}
-              className={`flex-1 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all
-                ${tab === t ? "bg-blue-700 text-white shadow" : "text-slate-500 hover:text-slate-700"}`}>
-              {t === "login" ? "🔐 Sign In" : t === "register-passenger" ? "🧍 Passenger" : "🚗 Driver"}
-            </button>
-          ))}
-        </div>
-
-        {/* ── LOGIN ── */}
-        {tab === "login" && (
-          <Card className="p-6 space-y-4">
-            <Field
-              label="Email Address"
-              type="email"
-              placeholder="driver@example.com"
-              value={loginEmail}
-              onChange={e => setEmail(e.target.value)}
-              autoComplete="username"
-            />
-
+    <div
+      className="min-h-screen flex"
+      style={{
+        background: "linear-gradient(135deg, #060e1e 0%, #0f2440 50%, #060e1e 100%)",
+      }}
+    >
+      {/* ── Left: Hero Panel ── */}
+      <div
+        className="hidden lg:flex flex-col justify-between flex-1 p-10 relative overflow-hidden hero-section"
+        style={{ maxWidth: "50vw" }}
+      >
+        <div className="hero-content">
+          {/* Brand */}
+          <div className="flex items-center gap-3 mb-12">
+            <div
+              className="w-10 h-10 rounded-2xl flex items-center justify-center"
+              style={{
+                background: "linear-gradient(135deg, #16a34a, #22c55e)",
+                boxShadow: "0 0 24px rgba(34,197,94,0.4)",
+              }}
+            >
+              <span className="text-xl font-black text-white" style={{ fontFamily: "Outfit, sans-serif" }}>S</span>
+            </div>
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1.5">Password</label>
-              <div className="relative">
-                <input
-                  type={showPw ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={loginPw}
-                  onChange={e => setLPw(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && handleLogin()}
-                  autoComplete="current-password"
-                  className="w-full px-4 py-2.5 pr-16 bg-white border border-slate-300 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPw(p => !p)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] font-extrabold text-slate-400 hover:text-slate-600 tracking-wider transition-colors"
-                >
-                  {showPw ? "HIDE" : "SHOW"}
-                </button>
-              </div>
+              <p className="text-2xl font-black text-white" style={{ fontFamily: "Outfit, sans-serif", letterSpacing: "-0.03em" }}>
+                Streetify
+              </p>
+              <p className="text-xs font-bold tracking-widest" style={{ color: "#22c55e" }}>ECO DRIVE PLATFORM</p>
             </div>
+          </div>
 
-            {loginErr && (
-              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex gap-2.5 items-start"
-                   style={{ animation: "slide-up .3s cubic-bezier(.22,1,.36,1) both" }}>
-                <span className="text-red-500 flex-none mt-0.5">⚠</span>
-                <p className="text-sm text-red-700 font-semibold leading-snug">{loginErr}</p>
-              </div>
-            )}
-
-            <Btn v="primary" size="lg" full onClick={handleLogin} loading={loginLoading}>
-              Sign In to User Portal
-            </Btn>
-
-            <div className="flex items-center justify-between text-xs pb-4">
-              <button className="text-slate-400 hover:text-blue-600 hover:underline transition-colors">Forgot password?</button>
-              <button className="text-slate-400 hover:text-blue-600 hover:underline transition-colors">Resend activation email</button>
-            </div>
-
-            <p className="text-center text-[10px] text-slate-400 font-mono pt-1 leading-relaxed border-t border-slate-100 mt-4">
-              Protected by RS256 JWT · 15-min access tokens · TLS 1.3
+          {/* Headline */}
+          <div className="mb-10">
+            <h1 className="text-4xl xl:text-5xl font-black text-white leading-tight mb-4" style={{ fontFamily: "Outfit, sans-serif", letterSpacing: "-0.03em" }}>
+              Smarter rides.<br />
+              <span className="gradient-text-eco">Greener cities.</span>
+            </h1>
+            <p className="text-ash-light text-lg leading-relaxed max-w-sm">
+              Sri Lanka's first eco-conscious transportation platform. Book rides, earn green points, and reduce your carbon footprint.
             </p>
-          </Card>
-        )}
+          </div>
 
-        {/* ── REGISTER DRIVER ── */}
-        {tab === "register-driver" && (
-          <>
-            {/* Step progress */}
-            <div className="flex items-center mb-5">
-              {STEPS.map(({ n, label }, i) => (
-                <div key={n} className={`flex items-center ${i < STEPS.length - 1 ? "flex-1" : ""}`}>
-                  <div className="flex items-center gap-2 flex-none">
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-extrabold transition-all
-                      ${step === n ? "bg-blue-700 text-white shadow-md shadow-blue-700/30" : step > n ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-400"}`}>
-                      {step > n ? "✓" : n}
-                    </div>
-                    <span className={`text-xs font-semibold hidden sm:block ${step === n ? "text-slate-800" : "text-slate-400"}`}>
-                      {label}
-                    </span>
-                  </div>
-                  {i < STEPS.length - 1 && (
-                    <div className={`flex-1 h-0.5 mx-2 rounded-full transition-colors ${step > n ? "bg-emerald-400" : "bg-slate-200"}`} />
-                  )}
-                </div>
-              ))}
-            </div>
+          {/* Feature cards */}
+          <div className="grid grid-cols-2 gap-3">
+            {FEATURES.map(f => (
+              <div
+                key={f.title}
+                className="rounded-2xl p-4"
+                style={{
+                  background: "rgba(15,36,64,0.5)",
+                  border: "1px solid rgba(34,197,94,0.15)",
+                  backdropFilter: "blur(12px)",
+                }}
+              >
+                <p className="text-xl mb-2">{f.icon}</p>
+                <p className="text-white font-bold text-sm mb-1">{f.title}</p>
+                <p className="text-ash-dark text-xs leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
 
-            {/* Step 1 — Personal info */}
-            {step === 1 && (
-              <Card className="p-6 space-y-4" style={{ animation: "slide-up .35s cubic-bezier(.22,1,.36,1) both" }}>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="First Name" placeholder="Kasun"  value={firstName} onChange={e => setFirst(e.target.value)} />
-                  <Field label="Last Name"  placeholder="Perera" value={lastName}  onChange={e => setLast(e.target.value)} />
-                </div>
-                <Field
-                  label="Mobile Number" type="tel"
-                  placeholder="+94 77 123 4567"
-                  value={phone} onChange={e => setPhone(e.target.value)}
-                  hint="Used for trip notifications and OTP"
-                />
-                <Field
-                  label="Email Address" type="email"
-                  placeholder="driver@example.com"
-                  value={email} onChange={e => setRegEmail(e.target.value)}
-                />
-                <Field
-                  label="National ID / NIC"
-                  placeholder="199012345678"
-                  value={nic} onChange={e => setNic(e.target.value)}
-                  hint="12-digit NIC · used for identity verification"
-                />
-                {s1Err && (
-                  <p className="text-sm text-red-600 font-semibold bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">{s1Err}</p>
-                )}
-                <Btn v="primary" size="lg" full onClick={() => { if (validateStep1()) setStep(2); }}>
-                  Continue to Vehicle Details →
-                </Btn>
-              </Card>
-            )}
+        {/* Bottom trust badges */}
+        <div className="hero-content flex items-center gap-4 mt-8">
+          <div className="flex items-center gap-1.5 text-xs text-ash-dark">
+            <span>🔒</span> RS256 JWT Auth
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-ash-dark">
+            <span>🌿</span> Carbon Neutral
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-ash-dark">
+            <span>🇱🇰</span> Made in Sri Lanka
+          </div>
+        </div>
+      </div>
 
-            {/* Step 2 — Vehicle & security */}
-            {step === 2 && (
-              <Card className="p-6 space-y-4" style={{ animation: "slide-up .35s cubic-bezier(.22,1,.36,1) both" }}>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Vehicle Type</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {VEHICLE_TYPES.map(vt => (
-                      <button key={vt.k} onClick={() => setVehicle(vt.k)}
-                        className={`py-2.5 px-2 rounded-xl text-xs font-bold border-2 transition-all text-center flex flex-col items-center gap-1
-                          ${vehicle === vt.k
-                            ? "border-blue-700 bg-blue-50 text-blue-700"
-                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"}`}>
-                        <span className="text-xl">{vt.icon}</span>
-                        {vt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+      {/* ── Right: Auth Panel ── */}
+      <div
+        className="flex-1 flex flex-col items-center justify-center py-10 px-5 min-h-screen"
+        style={{
+          background: "rgba(6,14,30,0.85)",
+          backdropFilter: "blur(20px)",
+          borderLeft: "1px solid rgba(34,197,94,0.08)",
+        }}
+      >
+        {/* Mobile logo */}
+        <div className="lg:hidden flex items-center gap-3 mb-8">
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center"
+            style={{ background: "linear-gradient(135deg, #16a34a, #22c55e)", boxShadow: "0 0 20px rgba(34,197,94,0.35)" }}
+          >
+            <span className="text-lg font-black text-white" style={{ fontFamily: "Outfit, sans-serif" }}>S</span>
+          </div>
+          <div>
+            <p className="text-xl font-black text-white" style={{ fontFamily: "Outfit, sans-serif" }}>Streetify</p>
+            <p className="text-[10px] font-bold tracking-widest" style={{ color: "#22c55e" }}>ECO DRIVE</p>
+          </div>
+        </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <Field
-                    label="Number Plate"
-                    placeholder="CAB-4821"
-                    value={plate}
-                    onChange={e => setPlate(e.target.value.toUpperCase())}
-                    className="font-mono tracking-widest"
-                  />
-                  <Field
-                    label="Year of Manufacture"
-                    type="number" placeholder="2019"
-                    value={year}
-                    onChange={e => setYear(e.target.value)}
-                  />
-                </div>
+        <div className="w-full" style={{ maxWidth: "420px" }}>
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-black text-white mb-1.5" style={{ fontFamily: "Outfit, sans-serif" }}>
+              {tab === "login" ? "Welcome back" : tab === "register-passenger" ? "Join as Passenger" : "Drive with Us"}
+            </h2>
+            <p className="text-sm text-ash-dark">
+              {tab === "login" ? "Sign in to your Streetify account" : tab === "register-passenger" ? "Create your free passenger account" : "Register as a verified Streetify driver"}
+            </p>
+          </div>
 
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1.5">Create Password</label>
+          {/* Tab switcher */}
+          <div
+            className="flex p-1 gap-1 mb-5 rounded-2xl"
+            style={{ background: "rgba(15,36,64,0.6)", border: "1px solid rgba(34,197,94,0.1)" }}
+          >
+            {(["login", "register-passenger", "register-driver"] as Tab[]).map(t => (
+              <button
+                key={t}
+                onClick={() => { setTab(t); setStep(1); setS1Err(""); setS2Err(""); setLErr(""); }}
+                className={tabStyles(t)}
+              >
+                {t === "login" ? "🔐 Sign In" : t === "register-passenger" ? "🧍 Passenger" : "🚗 Driver"}
+              </button>
+            ))}
+          </div>
+
+          {/* ── LOGIN ── */}
+          {tab === "login" && (
+            <Card className="p-6 space-y-4" style={{ animation: "slide-up .35s cubic-bezier(.22,1,.36,1) both" }}>
+              <Field
+                label="Email Address"
+                type="email"
+                placeholder="you@example.com"
+                value={loginEmail}
+                onChange={e => setEmail(e.target.value)}
+                autoComplete="username"
+              />
+
+              <div>
+                <label className="block text-sm font-semibold text-ash-light mb-1.5">Password</label>
+                <div className="relative">
                   <input
-                    type="password"
-                    placeholder="Minimum 8 characters"
-                    value={pw}
-                    onChange={e => setPw(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    type={showPw ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={loginPw}
+                    onChange={e => setLPw(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && handleLogin()}
+                    autoComplete="current-password"
+                    className="w-full px-4 py-2.5 pr-16 eco-input text-sm"
                   />
-                  <PwStrength password={pw} />
+                  <button
+                    type="button"
+                    onClick={() => setShowPw(p => !p)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] font-extrabold text-ash-dark hover:text-white tracking-wider transition-colors"
+                  >
+                    {showPw ? "HIDE" : "SHOW"}
+                  </button>
                 </div>
+              </div>
 
-                <Field
-                  label="Confirm Password"
-                  type="password"
-                  placeholder="Repeat your password"
-                  value={pwConfirm}
-                  onChange={e => setPwConf(e.target.value)}
-                  error={pwConfirm && pw !== pwConfirm ? "Passwords do not match" : undefined}
-                />
-
-                {s2Err && (
-                  <p className="text-sm text-red-600 font-semibold bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">{s2Err}</p>
-                )}
-
-                <div className="flex gap-3">
-                  <Btn v="ghost" size="lg" onClick={() => setStep(1)}>← Back</Btn>
-                  <Btn v="primary" size="lg" full onClick={() => { if (validateStep2()) setStep(3); }}>
-                    Continue to Documents →
-                  </Btn>
+              {loginErr && (
+                <div
+                  className="rounded-xl px-4 py-3 flex gap-2.5 items-start"
+                  style={{
+                    background: "rgba(239,68,68,0.1)",
+                    border: "1px solid rgba(239,68,68,0.25)",
+                    animation: "slide-up .3s cubic-bezier(.22,1,.36,1) both",
+                  }}
+                >
+                  <span className="text-red-400 flex-none mt-0.5">⚠</span>
+                  <p className="text-sm text-red-300 font-semibold leading-snug">{loginErr}</p>
                 </div>
-              </Card>
-            )}
+              )}
 
-            {/* Step 3 — Document upload */}
-            {step === 3 && (
-              <Card className="p-6 space-y-5" style={{ animation: "slide-up .35s cubic-bezier(.22,1,.36,1) both" }}>
-                <div>
-                  <p className="font-extrabold text-slate-900">Upload Required Documents</p>
-                  <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
-                    PDF or JPEG · max 10 MB each · encrypted at rest · reviewed within 1–2 business days
-                  </p>
-                </div>
+              <Btn v="eco" size="lg" full onClick={handleLogin} loading={loginLoading}>
+                Sign In to Streetify
+              </Btn>
 
-                {DOC_KEYS.map(key => {
-                  const doc  = docs[key];
-                  const meta = DOC_LABEL[key];
-                  const over = dragOver === key;
-                  return (
-                    <div key={key}>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className="text-base">{meta.icon}</span>
-                        <p className="text-sm font-bold text-slate-700">{meta.title}</p>
-                        <p className="text-xs text-slate-400 ml-auto">{meta.hint}</p>
+              <div className="flex items-center justify-between text-xs pb-2">
+                <button className="text-ash-dark hover:text-eco-glow transition-colors">Forgot password?</button>
+                <button className="text-ash-dark hover:text-eco-glow transition-colors">Resend activation email</button>
+              </div>
+
+              <p
+                className="text-center text-[10px] font-mono pt-3 leading-relaxed"
+                style={{ color: "rgba(100,116,139,0.6)", borderTop: "1px solid rgba(34,197,94,0.08)" }}
+              >
+                Protected by RS256 JWT · 15-min access tokens · TLS 1.3
+              </p>
+            </Card>
+          )}
+
+          {/* ── REGISTER DRIVER ── */}
+          {tab === "register-driver" && (
+            <>
+              {/* Step progress */}
+              <div className="flex items-center mb-5">
+                {STEPS.map(({ n, label }, i) => (
+                  <div key={n} className={`flex items-center ${i < STEPS.length - 1 ? "flex-1" : ""}`}>
+                    <div className="flex items-center gap-2 flex-none">
+                      <div
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-extrabold transition-all"
+                        style={{
+                          background: step === n
+                            ? "linear-gradient(135deg, #16a34a, #22c55e)"
+                            : step > n
+                              ? "rgba(34,197,94,0.3)"
+                              : "rgba(30,58,95,0.6)",
+                          color: step === n ? "#fff" : step > n ? "#4ade80" : "#4a6580",
+                          boxShadow: step === n ? "0 0 12px rgba(34,197,94,0.4)" : "none",
+                        }}
+                      >
+                        {step > n ? "✓" : n}
                       </div>
+                      <span
+                        className="text-xs font-semibold hidden sm:block"
+                        style={{ color: step === n ? "#e2e8f0" : "#4a6580" }}
+                      >
+                        {label}
+                      </span>
+                    </div>
+                    {i < STEPS.length - 1 && (
+                      <div
+                        className="flex-1 h-px mx-2 rounded-full transition-all"
+                        style={{ background: step > n ? "rgba(34,197,94,0.4)" : "rgba(30,58,95,0.4)" }}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
 
-                      {!doc ? (
-                        <div
-                          onDragOver={e => { e.preventDefault(); setDragOver(key); }}
-                          onDragLeave={() => setDragOver(null)}
-                          onDrop={e => onDrop(key, e)}
-                          onClick={() => fileRefs[key].current?.click()}
-                          className={`border-2 border-dashed rounded-xl py-5 px-4 text-center cursor-pointer transition-all
-                            ${over ? "border-blue-500 bg-blue-50 scale-[1.01]" : "border-slate-300 hover:border-blue-400 hover:bg-slate-50"}`}
+              {/* Step 1 — Personal info */}
+              {step === 1 && (
+                <Card className="p-6 space-y-4" style={{ animation: "slide-up .35s cubic-bezier(.22,1,.36,1) both" }}>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="First Name" placeholder="Kasun"  value={firstName} onChange={e => setFirst(e.target.value)} />
+                    <Field label="Last Name"  placeholder="Perera" value={lastName}  onChange={e => setLast(e.target.value)} />
+                  </div>
+                  <Field
+                    label="Mobile Number" type="tel"
+                    placeholder="+94 77 123 4567"
+                    value={phone} onChange={e => setPhone(e.target.value)}
+                    hint="Used for trip notifications and OTP"
+                  />
+                  <Field
+                    label="Email Address" type="email"
+                    placeholder="driver@example.com"
+                    value={email} onChange={e => setRegEmail(e.target.value)}
+                  />
+                  <Field
+                    label="National ID / NIC"
+                    placeholder="199012345678"
+                    value={nic} onChange={e => setNic(e.target.value)}
+                    hint="12-digit NIC · used for identity verification"
+                  />
+                  {s1Err && (
+                    <div
+                      className="rounded-xl px-4 py-3 text-sm font-semibold"
+                      style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171" }}
+                    >
+                      ⚠ {s1Err}
+                    </div>
+                  )}
+                  <Btn v="eco" size="lg" full onClick={() => { if (validateStep1()) setStep(2); }}>
+                    Continue to Vehicle Details →
+                  </Btn>
+                </Card>
+              )}
+
+              {/* Step 2 — Vehicle & security */}
+              {step === 2 && (
+                <Card className="p-6 space-y-4" style={{ animation: "slide-up .35s cubic-bezier(.22,1,.36,1) both" }}>
+                  <div>
+                    <label className="block text-sm font-semibold text-ash-light mb-2">Vehicle Type</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {VEHICLE_TYPES.map(vt => (
+                        <button
+                          key={vt.k}
+                          onClick={() => setVehicle(vt.k)}
+                          className="py-2.5 px-2 rounded-xl text-xs font-bold transition-all text-center flex flex-col items-center gap-1"
+                          style={{
+                            background: vehicle === vt.k ? "rgba(34,197,94,0.15)" : "rgba(15,36,64,0.5)",
+                            border: vehicle === vt.k ? "2px solid rgba(34,197,94,0.5)" : "1px solid rgba(30,58,95,0.5)",
+                            color: vehicle === vt.k ? "#4ade80" : "#64748b",
+                            boxShadow: vehicle === vt.k ? "0 0 12px rgba(34,197,94,0.15)" : "none",
+                          }}
                         >
-                          <p className="text-2xl mb-1">{over ? "📂" : "📎"}</p>
-                          <p className="text-sm font-semibold text-slate-600">
-                            {over ? "Release to upload" : "Drag & drop or click to browse"}
-                          </p>
-                          <p className="text-xs text-slate-400 mt-0.5">PDF · JPEG · PNG · max 10 MB</p>
-                          <input
-                            ref={fileRefs[key]}
-                            type="file"
-                            accept=".pdf,.jpg,.jpeg,.png"
-                            className="hidden"
-                            onChange={e => onFileInput(key, e)}
-                          />
+                          <span className="text-xl">{vt.icon}</span>
+                          {vt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field
+                      label="Number Plate"
+                      placeholder="CAB-4821"
+                      value={plate}
+                      onChange={e => setPlate(e.target.value.toUpperCase())}
+                      className="font-mono tracking-widest"
+                    />
+                    <Field
+                      label="Year of Manufacture"
+                      type="number" placeholder="2019"
+                      value={year}
+                      onChange={e => setYear(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-ash-light mb-1.5">Create Password</label>
+                    <input
+                      type="password"
+                      placeholder="Minimum 8 characters"
+                      value={pw}
+                      onChange={e => setPw(e.target.value)}
+                      className="w-full px-4 py-2.5 eco-input text-sm"
+                    />
+                    <PwStrength password={pw} />
+                  </div>
+
+                  <Field
+                    label="Confirm Password"
+                    type="password"
+                    placeholder="Repeat your password"
+                    value={pwConfirm}
+                    onChange={e => setPwConf(e.target.value)}
+                    error={pwConfirm && pw !== pwConfirm ? "Passwords do not match" : undefined}
+                  />
+
+                  {s2Err && (
+                    <div
+                      className="rounded-xl px-4 py-3 text-sm font-semibold"
+                      style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171" }}
+                    >
+                      ⚠ {s2Err}
+                    </div>
+                  )}
+
+                  <div className="flex gap-3">
+                    <Btn v="ghost" size="lg" onClick={() => setStep(1)}>← Back</Btn>
+                    <Btn v="eco" size="lg" full onClick={() => { if (validateStep2()) setStep(3); }}>
+                      Continue to Documents →
+                    </Btn>
+                  </div>
+                </Card>
+              )}
+
+              {/* Step 3 — Document upload */}
+              {step === 3 && (
+                <Card className="p-6 space-y-5" style={{ animation: "slide-up .35s cubic-bezier(.22,1,.36,1) both" }}>
+                  <div>
+                    <p className="font-extrabold text-white text-base">Upload Required Documents</p>
+                    <p className="text-xs text-ash-dark mt-1 leading-relaxed">
+                      PDF or JPEG · max 10 MB each · encrypted at rest · reviewed within 1–2 business days
+                    </p>
+                  </div>
+
+                  {DOC_KEYS.map(key => {
+                    const doc  = docs[key];
+                    const meta = DOC_LABEL[key];
+                    const over = dragOver === key;
+                    return (
+                      <div key={key}>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="text-base">{meta.icon}</span>
+                          <p className="text-sm font-bold text-ash-light">{meta.title}</p>
+                          <p className="text-xs text-ash-dark ml-auto">{meta.hint}</p>
                         </div>
-                      ) : doc.error ? (
-                        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center gap-3">
-                          <span className="text-red-500 text-lg">⚠</span>
-                          <p className="text-sm text-red-700 font-semibold flex-1">{doc.error}</p>
-                          <button
-                            onClick={() => setDocs(d => ({ ...d, [key]: null }))}
-                            className="text-xs text-red-500 hover:underline font-bold"
+
+                        {!doc ? (
+                          <div
+                            onDragOver={e => { e.preventDefault(); setDragOver(key); }}
+                            onDragLeave={() => setDragOver(null)}
+                            onDrop={e => onDrop(key, e)}
+                            onClick={() => fileRefs[key].current?.click()}
+                            className="rounded-xl py-5 px-4 text-center cursor-pointer transition-all"
+                            style={{
+                              border: over ? "2px solid rgba(34,197,94,0.6)" : "2px dashed rgba(30,58,95,0.6)",
+                              background: over ? "rgba(34,197,94,0.08)" : "rgba(6,14,30,0.4)",
+                            }}
                           >
-                            Retry
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
-                          <div className="flex items-center gap-2 mb-1.5">
-                            <span className="text-base">{doc.done ? "✅" : "⏳"}</span>
-                            <p className="text-sm font-semibold text-slate-700 truncate flex-1 min-w-0" title={doc.file}>
-                              {doc.file}
+                            <p className="text-2xl mb-1">{over ? "📂" : "📎"}</p>
+                            <p className="text-sm font-semibold text-ash">
+                              {over ? "Release to upload" : "Drag & drop or click to browse"}
                             </p>
-                            {doc.done
-                              ? <Pill color="green">Uploaded</Pill>
-                              : <span className="text-xs font-mono text-blue-600 font-bold">{Math.round(doc.progress)}%</span>
-                            }
-                            {doc.done && (
-                              <button
-                                onClick={() => setDocs(d => ({ ...d, [key]: null }))}
-                                className="text-slate-400 hover:text-red-500 text-sm leading-none transition-colors"
-                              >
-                                ✕
-                              </button>
+                            <p className="text-xs text-ash-dark mt-0.5">PDF · JPEG · PNG · max 10 MB</p>
+                            <input
+                              ref={fileRefs[key]}
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              className="hidden"
+                              onChange={e => onFileInput(key, e)}
+                            />
+                          </div>
+                        ) : doc.error ? (
+                          <div
+                            className="rounded-xl px-4 py-3 flex items-center gap-3"
+                            style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)" }}
+                          >
+                            <span className="text-red-400 text-lg">⚠</span>
+                            <p className="text-sm text-red-300 font-semibold flex-1">{doc.error}</p>
+                            <button
+                              onClick={() => setDocs(d => ({ ...d, [key]: null }))}
+                              className="text-xs text-red-400 hover:text-red-300 font-bold"
+                            >
+                              Retry
+                            </button>
+                          </div>
+                        ) : (
+                          <div
+                            className="rounded-xl px-4 py-3"
+                            style={{ background: "rgba(15,36,64,0.5)", border: "1px solid rgba(34,197,94,0.15)" }}
+                          >
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <span className="text-base">{doc.done ? "✅" : "⏳"}</span>
+                              <p className="text-sm font-semibold text-ash-light truncate flex-1 min-w-0" title={doc.file}>
+                                {doc.file}
+                              </p>
+                              {doc.done
+                                ? <Pill color="eco">Uploaded</Pill>
+                                : <span className="text-xs font-mono text-eco font-bold">{Math.round(doc.progress)}%</span>
+                              }
+                              {doc.done && (
+                                <button
+                                  onClick={() => setDocs(d => ({ ...d, [key]: null }))}
+                                  className="text-ash-dark hover:text-red-400 text-sm leading-none transition-colors"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </div>
+                            {!doc.done && (
+                              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(30,58,95,0.5)" }}>
+                                <div
+                                  className="h-full rounded-full transition-all"
+                                  style={{
+                                    width: `${doc.progress}%`,
+                                    background: "linear-gradient(to right, #16a34a, #22c55e)",
+                                  }}
+                                />
+                              </div>
                             )}
                           </div>
-                          {!doc.done && (
-                            <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-blue-600 rounded-full transition-all"
-                                style={{ width: `${doc.progress}%` }}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                        )}
+                      </div>
+                    );
+                  })}
 
-                {/* Upload progress summary */}
-                <div className="flex gap-1">
-                  {DOC_KEYS.map(k => (
-                    <div key={k} className={`flex-1 h-1 rounded-full ${docs[k]?.done ? "bg-emerald-500" : docs[k] && !docs[k]!.error ? "bg-blue-300" : "bg-slate-200"}`} />
-                  ))}
-                </div>
-
-                {allDocsUploaded && (
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex items-center gap-2.5">
-                    <span className="text-emerald-500 text-xl">✅</span>
-                    <div>
-                      <p className="text-sm font-extrabold text-emerald-700">All documents uploaded successfully!</p>
-                      <p className="text-xs text-emerald-600 mt-0.5 font-mono">POST /api/docs/upload · Verification in 1–2 business days</p>
-                    </div>
+                  {/* Progress bar summary */}
+                  <div className="flex gap-1">
+                    {DOC_KEYS.map(k => (
+                      <div
+                        key={k}
+                        className="flex-1 h-1 rounded-full transition-all"
+                        style={{
+                          background: docs[k]?.done
+                            ? "#22c55e"
+                            : docs[k] && !docs[k]!.error
+                              ? "rgba(34,197,94,0.3)"
+                              : "rgba(30,58,95,0.5)",
+                        }}
+                      />
+                    ))}
                   </div>
-                )}
 
-                {submitted && (
-                  <div
-                    className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-center"
-                    style={{ animation: "pop-in .4s cubic-bezier(.22,1,.36,1) both" }}
-                  >
-                    <p className="font-extrabold text-blue-800">Application Submitted!</p>
-                    <p className="text-xs text-blue-600 mt-1 font-mono">POST /api/auth/register → driverId pending verification</p>
+                  {allDocsUploaded && (
+                    <div
+                      className="rounded-xl px-4 py-3 flex items-center gap-2.5"
+                      style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)" }}
+                    >
+                      <span className="text-eco-glow text-xl">✅</span>
+                      <div>
+                        <p className="text-sm font-extrabold text-eco-glow">All documents uploaded!</p>
+                        <p className="text-xs text-eco/60 mt-0.5 font-mono">Verification in 1–2 business days</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {submitted && (
+                    <div
+                      className="rounded-xl px-4 py-3 text-center"
+                      style={{
+                        background: "rgba(34,197,94,0.1)",
+                        border: "1px solid rgba(34,197,94,0.3)",
+                        animation: "pop-in .4s cubic-bezier(.22,1,.36,1) both",
+                      }}
+                    >
+                      <p className="font-extrabold text-eco-glow">Application Submitted! 🎉</p>
+                      <p className="text-xs text-eco/60 mt-1 font-mono">Driver ID created · pending verification</p>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3">
+                    <Btn v="ghost" size="lg" onClick={() => setStep(2)}>← Back</Btn>
+                    <Btn
+                      v="eco" size="lg" full
+                      disabled={!allDocsUploaded || anyUploading || submitted}
+                      loading={anyUploading}
+                      onClick={async () => {
+                        setSubmitted(true);
+                        try {
+                          await apiClient('/auth/register/driver', {
+                            method: 'POST',
+                            body: JSON.stringify({
+                              firstName,
+                              lastName,
+                              email,
+                              password: pw,
+                              phone,
+                              nic,
+                              vehicleType: vehicle,
+                              numberPlate: plate,
+                              yearOfManufacture: parseInt(year)
+                            })
+                          });
+                        } catch (e: any) {
+                          alert("Registration failed: " + e.message);
+                          setSubmitted(false);
+                        }
+                      }}
+                    >
+                      {submitted ? "✓ Application Submitted" : allDocsUploaded ? "Submit Application →" : `Upload ${DOC_KEYS.filter(k => !docs[k]?.done).length} more document(s)`}
+                    </Btn>
                   </div>
-                )}
 
-                <div className="flex gap-3">
-                  <Btn v="ghost" size="lg" onClick={() => setStep(2)}>← Back</Btn>
-                  <Btn
-                    v="primary" size="lg" full
-                    disabled={!allDocsUploaded || anyUploading || submitted}
-                    loading={anyUploading}
-                    onClick={async () => {
-                      setSubmitted(true);
-                      try {
-                        // Register Driver Step 1 (Info)
-                        await apiClient('/auth/register/driver', {
-                          method: 'POST',
-                          body: JSON.stringify({
-                            firstName,
-                            lastName,
-                            email,
-                            password: pw,
-                            phone,
-                            nic: nic,
-                            vehicleType: vehicle,
-                            numberPlate: plate,
-                            yearOfManufacture: parseInt(year)
-                          })
-                        });
-                        // Documents upload simulation (Backend will have POST /api/driver/upload-documents)
-                      } catch (e: any) {
-                        alert("Registration failed: " + e.message);
-                        setSubmitted(false);
-                      }
-                    }}
-                  >
-                    {submitted ? "✓ Application Submitted" : allDocsUploaded ? "Submit Application →" : `Upload ${DOC_KEYS.filter(k => !docs[k]?.done).length} more document(s)`}
-                  </Btn>
+                  <p className="text-center text-[11px] text-ash-dark leading-relaxed">
+                    By submitting you agree to the Streetify Driver Terms of Service and Privacy Policy.
+                    Your data is encrypted in transit and at rest.
+                  </p>
+                </Card>
+              )}
+            </>
+          )}
+
+          {/* ── REGISTER PASSENGER ── */}
+          {tab === "register-passenger" && (
+            <Card className="p-6 space-y-4" style={{ animation: "slide-up .35s cubic-bezier(.22,1,.36,1) both" }}>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="First Name" placeholder="Kasun"  value={firstName} onChange={e => setFirst(e.target.value)} />
+                <Field label="Last Name"  placeholder="Perera" value={lastName}  onChange={e => setLast(e.target.value)} />
+              </div>
+              <Field
+                label="Mobile Number" type="tel"
+                placeholder="+94 77 123 4567"
+                value={phone} onChange={e => setPhone(e.target.value)}
+              />
+              <Field
+                label="Email Address" type="email"
+                placeholder="passenger@example.com"
+                value={email} onChange={e => setRegEmail(e.target.value)}
+              />
+              <div>
+                <label className="block text-sm font-semibold text-ash-light mb-1.5">Create Password</label>
+                <input
+                  type="password"
+                  placeholder="Minimum 8 characters"
+                  value={pw}
+                  onChange={e => setPw(e.target.value)}
+                  className="w-full px-4 py-2.5 eco-input text-sm"
+                />
+                <PwStrength password={pw} />
+              </div>
+              {s1Err && (
+                <div
+                  className="rounded-xl px-4 py-3 text-sm font-semibold"
+                  style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171" }}
+                >
+                  ⚠ {s1Err}
                 </div>
+              )}
+              <Btn
+                v="eco" size="lg" full
+                loading={loginLoading}
+                onClick={async () => {
+                  if (!validatePassenger()) return;
+                  setLLoad(true);
+                  try {
+                    const response = await apiClient<AuthResponseDTO>('/auth/register/passenger', {
+                      method: 'POST',
+                      body: JSON.stringify({ firstName, lastName, email, password: pw, phone })
+                    });
+                    localStorage.setItem("jwt_token", response.accessToken);
+                    if (response.fullName)    localStorage.setItem("user_name",    response.fullName);
+                    if (response.vehicleInfo) localStorage.setItem("vehicle_info", response.vehicleInfo);
+                    window.dispatchEvent(new CustomEvent("auth-success", { detail: { role: response.role } }));
+                  } catch (e: any) {
+                    setS1Err(e.message || "Failed to register.");
+                  } finally {
+                    setLLoad(false);
+                  }
+                }}
+              >
+                Create Passenger Account 🌿
+              </Btn>
 
-                <p className="text-center text-[11px] text-slate-400 leading-relaxed">
-                  By submitting you agree to the Streetify Driver Terms of Service and Privacy Policy.
-                  Your data is encrypted in transit and at rest.
-                </p>
-              </Card>
-            )}
-          </>
-        )}
+              <p className="text-center text-[10px] text-ash-dark font-mono leading-relaxed">
+                Free account · No hidden fees · Book rides instantly after sign-up
+              </p>
+            </Card>
+          )}
 
-        {/* ── REGISTER PASSENGER ── */}
-        {tab === "register-passenger" && (
-           <Card className="p-6 space-y-4" style={{ animation: "slide-up .35s cubic-bezier(.22,1,.36,1) both" }}>
-             <div className="grid grid-cols-2 gap-3">
-               <Field label="First Name" placeholder="Kasun"  value={firstName} onChange={e => setFirst(e.target.value)} />
-               <Field label="Last Name"  placeholder="Perera" value={lastName}  onChange={e => setLast(e.target.value)} />
-             </div>
-             <Field
-               label="Mobile Number" type="tel"
-               placeholder="+94 77 123 4567"
-               value={phone} onChange={e => setPhone(e.target.value)}
-             />
-             <Field
-               label="Email Address" type="email"
-               placeholder="passenger@example.com"
-               value={email} onChange={e => setRegEmail(e.target.value)}
-             />
-             <div>
-               <label className="block text-sm font-bold text-slate-700 mb-1.5">Create Password</label>
-               <input
-                 type="password"
-                 placeholder="Minimum 8 characters"
-                 value={pw}
-                 onChange={e => setPw(e.target.value)}
-                 className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-               />
-               <PwStrength password={pw} />
-             </div>
-             {s1Err && (
-               <p className="text-sm text-red-600 font-semibold bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">{s1Err}</p>
-             )}
-             <Btn
-               v="primary" size="lg" full
-               loading={loginLoading}
-               onClick={async () => {
-                 if (!validatePassenger()) {
-                    return;
-                 }
-                 setLLoad(true);
-                 try {
-                   const response = await apiClient<AuthResponseDTO>('/auth/register/passenger', {
-                     method: 'POST',
-                     body: JSON.stringify({
-                       firstName,
-                       lastName,
-                       email,
-                       password: pw,
-                       phone
-                     })
-                   });
-                   // Automatically log them in after registration by saving the token
-                   localStorage.setItem("jwt_token", response.accessToken);
-                   if (response.fullName) {
-                     localStorage.setItem("user_name", response.fullName);
-                   }
-                   if (response.vehicleInfo) {
-                     localStorage.setItem("vehicle_info", response.vehicleInfo);
-                   }
-                   window.dispatchEvent(new CustomEvent("auth-success", { detail: { role: response.role } }));
-                 } catch (e: any) {
-                   setS1Err(e.message || "Failed to register.");
-                 } finally {
-                   setLLoad(false);
-                 }
-               }}
-             >
-               Create Passenger Account
-             </Btn>
-           </Card>
-        )}
+          {/* Bottom eco tagline */}
+          <p className="text-center text-xs text-ash-dark mt-6">
+            🌿 Every ride counts — Streetify plants 1 tree per 100 trips completed
+          </p>
+        </div>
       </div>
     </div>
   );
