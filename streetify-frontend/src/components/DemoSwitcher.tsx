@@ -45,11 +45,11 @@ const DEMO_USERS: DemoUser[] = [
     label: "Super Admin",
     role: "ADMIN",
     adminRole: "SUPER_ADMIN",
-    email: "admin@streetify.com",
-    name: "System Administrator",
+    email: "vidura@streetify.lk",
+    name: "Vidura Rammandalagedara",
     avatar: "🛡️",
     badgeColor: "bg-rose-600",
-    details: "RBAC, User Suspension & Audit Logs",
+    details: "RBAC Governance, Suspension & Audit Logs",
   },
   {
     label: "Finance Manager",
@@ -64,12 +64,12 @@ const DEMO_USERS: DemoUser[] = [
   {
     label: "Customer Support",
     role: "ADMIN",
-    adminRole: "SUPER_ADMIN",
-    email: "vidura@streetify.lk",
-    name: "Vidura R.",
+    adminRole: "REVIEW_MGMT",
+    email: "mithun@streetify.lk",
+    name: "Mithun Weerasingha",
     avatar: "🎧",
     badgeColor: "bg-cyan-600",
-    details: "Dispute Tickets & Wallet Refund Desk",
+    details: "Dispute Tickets, Ratings & Wallet Refunds",
   },
 ];
 
@@ -80,15 +80,25 @@ export default function DemoSwitcher() {
   const handleQuickLogin = async (user: DemoUser) => {
     setSwitching(user.email);
     try {
-      // Direct login to backend MSSQL database
-      const password = user.email === "admin@streetify.com" || user.email.startsWith("passenger") || user.email.startsWith("driver")
+      // Direct login to backend MSSQL database - try primary seed password
+      let password = user.email.startsWith("passenger") || user.email.startsWith("driver")
         ? "1111"
         : "admin123";
 
-      const res: any = await apiClient("/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ email: user.email, password }),
-      });
+      let res: any = null;
+      try {
+        res = await apiClient("/auth/login", {
+          method: "POST",
+          body: JSON.stringify({ email: user.email, password }),
+        });
+      } catch {
+        // Try personal member password if custom seeded (e.g. vidura123, mithun123)
+        const prefix = user.email.split("@")[0];
+        res = await apiClient("/auth/login", {
+          method: "POST",
+          body: JSON.stringify({ email: user.email, password: prefix + "123" }),
+        });
+      }
 
       if (res && res.accessToken) {
         localStorage.setItem("jwt_token", res.accessToken);
