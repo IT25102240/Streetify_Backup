@@ -22,6 +22,7 @@ import ScreenAdmin   from "./screens/Admin";
 import ScreenHistory from "./screens/History";
 import ScreenSupport from "./screens/Support";
 import ScreenProfile from "./screens/Profile";
+import NotificationCenter from "./components/NotificationCenter";
 
 type Screen = "login" | "booking" | "driver" | "payment" | "review" | "admin" | "history" | "support" | "profile";
 
@@ -133,17 +134,18 @@ export default function App() {
           );
         })}
 
-        {/* Logout Button */}
-        {role && (
-          <div className="ml-auto">
+        {/* Right side items: Notification Center & Logout */}
+        <div className="ml-auto flex items-center gap-2">
+          <NotificationCenter />
+          {role && (
             <button
               onClick={handleLogout}
               className="px-3 py-1.5 rounded-lg text-xs font-bold text-red-400 hover:text-white hover:bg-red-600 transition-all"
             >
               Logout
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </nav>
 
       {/* ── Active screen ── */}

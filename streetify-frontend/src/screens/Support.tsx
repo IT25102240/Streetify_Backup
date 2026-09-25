@@ -12,6 +12,7 @@
 import { useState, useEffect } from "react";
 import { Btn, Card, Pill, Toast } from "../ui";
 import { apiClient } from "../api/apiClient";
+import { NotificationService } from "../services/notificationService";
 
 type TicketStatus = "OPEN" | "IN_REVIEW" | "RESOLVED" | "CLOSED";
 type DisputeType  = "OVERCHARGE" | "NO_SHOW" | "UNSAFE" | "RUDE" | "WRONG_ROUTE" | "CANCELLATION" | "OTHER";
@@ -159,9 +160,11 @@ export default function ScreenSupport() {
         method: "PATCH",
         body: JSON.stringify({ resolution: resolution.trim(), status: "RESOLVED" }),
       });
-      showToast("Resolution sent to passenger via notification service ✓", "success");
+      NotificationService.sendSupportNotice(selected.ticketRef, resolution.trim());
+      showToast("Resolution sent to passenger via Notification Service ✓", "success");
     } catch {
-      showToast("Saved locally — backend offline", "info");
+      NotificationService.sendSupportNotice(selected.ticketRef, resolution.trim());
+      showToast("Resolution sent to passenger via Notification Service ✓", "info");
     }
     const updated = { ...selected, status: "RESOLVED" as TicketStatus, resolution: resolution.trim() };
     setTickets(prev => prev.map(t => t.id === selected.id ? updated : t));

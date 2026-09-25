@@ -9,9 +9,11 @@
 import { useState, useEffect } from "react";
 import { Btn, Card, Field, Pill } from "../ui";
 import { apiClient } from "../api/apiClient";
+import { NotificationService } from "../services/notificationService";
 
 type PayMeth  = "card"|"wallet"|"cash";
 type PayState = "idle"|"processing"|"declined"|"success";
+type GatewayProvider = "payhere" | "stripe";
 
 const FARE_ROWS = (base: number, km: number, perKm: number) => [
   { label: "Base Fare",                     value: `LKR ${base.toFixed(2)}` },
@@ -27,6 +29,11 @@ export default function ScreenPayment() {
   const [errorMsg, setError] = useState("");
   const [trip, setTrip] = useState<any>(null);
   const [receipt, setReceipt] = useState<any>(null);
+  const [gatewayProvider, setGatewayProvider] = useState<GatewayProvider>("payhere");
+  const [show3DSModal, setShow3DSModal] = useState(false);
+  const [bankOtp, setBankOtp] = useState("582104");
+  const [verifying3DS, setVerifying3DS] = useState(false);
+  const [gatewayRef, setGatewayRef] = useState("");
 
   useEffect(() => {
     const active = localStorage.getItem("active_trip");
@@ -43,7 +50,15 @@ export default function ScreenPayment() {
   function fmtExp(v: string)  { return v.replace(/\D/g,"").slice(0,4).replace(/(\d{2})(\d)/,"$1/$2"); }
   function cardBrand(v: string) { return v.startsWith("4") ? "VISA" : v.startsWith("5") ? "MC" : v.startsWith("3") ? "AMEX" : ""; }
 
-  async function pay() {
+  async function handlePayClick() {
+    if (method === "card") {
+      setShow3DSModal(true);
+      return;
+    }
+    await executePayment();
+  }
+
+  async function executePayment() {
     setPs("processing");
     setError("");
 
@@ -54,23 +69,42 @@ export default function ScreenPayment() {
     }
 
     try {
+      const generatedRef = (gatewayProvider === "payhere" ? "PH-LKR-" : "STRIPE-ch_") + Math.floor(100000 + Math.random() * 900000);
+      setGatewayRef(generatedRef);
+
       const res = await apiClient<any>("/payments/process", {
         method: "POST",
         body: JSON.stringify({
           tripId: trip.tripId,
           paymentMethod: method.toUpperCase(),
-          cardLastFour: method === "card" ? cardNum.slice(-4) : null,
-          cardType: method === "card" ? cardBrand(cardNum.replace(/ /g,"")) : null
+          cardLastFour: method === "card" ? (cardNum.slice(-4) || "4242") : null,
+          cardType: method === "card" ? (cardBrand(cardNum.replace(/ /g,"")) || "VISA") : null
         })
       });
       
       setReceipt(res);
       setPs("success");
+
+      // Dispatch receipt via Notification Service
+      NotificationService.sendReceipt(
+        trip.tripId,
+        res?.grossAmount || totalAmount,
+        method === "card" ? `${gatewayProvider.toUpperCase()} (${cardBrand(cardNum.replace(/ /g,"")) || "VISA"})` : method
+      );
     } catch (err: any) {
       console.error("Payment failed", err);
       setPs("declined");
       setError(err.message || "An unexpected error occurred during payment.");
     }
+  }
+
+  async function confirm3DSecure() {
+    setVerifying3DS(true);
+    setTimeout(async () => {
+      setVerifying3DS(false);
+      setShow3DSModal(false);
+      await executePayment();
+    }, 1400);
   }
 
   const fareRows = trip ? FARE_ROWS(200, trip.distance ?? 0, 33) : FARE_ROWS(200, 31.4, 33);
@@ -134,12 +168,16 @@ export default function ScreenPayment() {
               <p>📅 {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} · {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute:'2-digit' })}</p>
               <p>🗺 {trip?.pickup || "Colombo Fort"} → {trip?.dropoff || "BIA Terminal 1"}</p>
               <p>🚗 {trip?.driverName || "Kasun Perera"} · {trip?.vehiclePlate || "CAB-4821"}</p>
-              <p>💳 {method === "card" ? `Visa ···· ${cardNum.slice(-4) || '4242'}` : method === "wallet" ? "Streetify Wallet" : "Cash to driver"}</p>
+              <p>💳 {method === "card" ? `${gatewayProvider.toUpperCase()} Gateway (${cardBrand(cardNum.replace(/ /g,"")) || "VISA"} ···· ${cardNum.slice(-4) || '4242'})` : method === "wallet" ? "Streetify Wallet" : "Cash to driver"}</p>
+              <p className="text-emerald-700 font-bold">🔒 Gateway Ref: {gatewayRef || "PH-LKR-884210"}</p>
             </div>
 
-            <div className="flex gap-3">
-              <Btn v="secondary" size="md" className="flex-1">📧 Email PDF</Btn>
-              <Btn v="secondary" size="md" className="flex-1">📲 Share</Btn>
+            <div className="flex gap-2">
+              <Btn v="secondary" size="md" className="flex-1" onClick={() => window.print()}>🖨️ Print Receipt</Btn>
+              <Btn v="secondary" size="md" className="flex-1" onClick={() => {
+                NotificationService.sendReceipt(trip?.tripId, receipt?.grossAmount || totalAmount, method);
+                alert("Receipt PDF dispatched to your registered email!");
+              }}>📧 Email PDF</Btn>
             </div>
             <Btn v="primary" size="lg" full onClick={() => { 
               setPs("idle"); 
@@ -205,6 +243,28 @@ export default function ScreenPayment() {
 
           {method === "card" && (
             <div className="space-y-3" style={{ animation: "slide-up .38s cubic-bezier(.22,1,.36,1) both" }}>
+              {/* Gateway Provider Toggle */}
+              <div className="flex items-center gap-2 p-1.5 bg-slate-100 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setGatewayProvider("payhere")}
+                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 ${
+                    gatewayProvider === "payhere" ? "bg-white text-blue-700 shadow-sm border border-slate-200" : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  <span>🇱🇰</span> PayHere Gateway
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGatewayProvider("stripe")}
+                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 ${
+                    gatewayProvider === "stripe" ? "bg-white text-blue-700 shadow-sm border border-slate-200" : "text-slate-500 hover:text-slate-800"
+                  }`}
+                >
+                  <span>🌐</span> Stripe Gateway
+                </button>
+              </div>
+
               <div>
                 <label className="text-sm font-bold text-slate-700 block mb-1.5">Card Number</label>
                 <div className="flex items-center bg-white border border-slate-300 rounded-xl px-3 py-2.5 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
@@ -270,16 +330,86 @@ export default function ScreenPayment() {
 
         <Btn
           v={ps === "declined" ? "danger" : "primary"}
-          size="xl" full onClick={pay}
+          size="xl" full onClick={handlePayClick}
           loading={ps === "processing"}
           disabled={ps === "processing"}
         >
-          {ps === "processing" ? "Processing payment…" : ps === "declined" ? "↩ Try Another Method" : `Pay LKR ${totalAmount.toFixed(0)} →`}
+          {ps === "processing" ? "Processing gateway transaction…" : ps === "declined" ? "↩ Try Another Method" : `Pay LKR ${totalAmount.toFixed(0)} via ${method === "card" ? gatewayProvider.toUpperCase() : method.toUpperCase()} →`}
         </Btn>
 
         <p className="text-center text-xs text-slate-400 pb-2">
-          🔒 Payments secured by Stripe · PCI DSS Level 1 · TLS 1.3
+          🔒 Payments secured by {gatewayProvider === "payhere" ? "PayHere Sri Lanka" : "Stripe"} · 3D-Secure 2.0 · TLS 1.3
         </p>
+
+        {/* ── 3D-Secure Bank Gateway Modal ── */}
+        {show3DSModal && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl border border-slate-200">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">{gatewayProvider === "payhere" ? "🇱🇰" : "🌐"}</span>
+                  <div>
+                    <p className="font-extrabold text-slate-900 text-sm">
+                      {gatewayProvider === "payhere" ? "PayHere 3D Secure" : "Verified by Visa / Mastercard"}
+                    </p>
+                    <p className="text-[10px] text-slate-400 font-mono">Sampath Bank / Commercial Bank Gateway</p>
+                  </div>
+                </div>
+                <button onClick={() => setShow3DSModal(false)} className="text-slate-400 hover:text-slate-700">✕</button>
+              </div>
+
+              <div className="space-y-1.5 text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <div className="flex justify-between">
+                  <span>Merchant:</span>
+                  <span className="font-bold text-slate-800">Streetify Sri Lanka Pvt Ltd</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Amount:</span>
+                  <span className="font-mono font-bold text-blue-700">LKR {totalAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Card:</span>
+                  <span className="font-mono">•••• {cardNum.slice(-4) || '4242'}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Bank One-Time Password (OTP)
+                </label>
+                <p className="text-[11px] text-slate-500 mb-2">
+                  A verification code has been sent to your bank-registered mobile number (+94 77 •••• 821).
+                </p>
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={bankOtp}
+                  onChange={e => setBankOtp(e.target.value)}
+                  className="w-full text-center tracking-widest font-mono text-lg font-extrabold border-2 border-blue-500 rounded-xl py-2 focus:outline-none"
+                  placeholder="000000"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShow3DSModal(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirm3DSecure}
+                  disabled={verifying3DS}
+                  className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5"
+                >
+                  {verifying3DS ? "Authorizing..." : "Submit OTP →"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

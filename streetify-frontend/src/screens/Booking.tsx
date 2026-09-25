@@ -14,6 +14,7 @@ import OsmMap, { DriverPin } from "../OsmMap";
 import { Btn, Card, Pill, WsLive } from "../ui";
 import { apiClient } from "../api/apiClient";
 import { useGeolocation, reverseGeocode } from "../hooks/useGeolocation";
+import { NotificationService } from "../services/notificationService";
 import type L from "leaflet";
 
 type RideType = "standard" | "xl" | "moto";
@@ -148,8 +149,13 @@ export default function ScreenBooking() {
       dotRef.current = setInterval(() => setDots(d => (d + 1) % 4), 500);
       const t = setTimeout(() => {
         if (dotRef.current) clearInterval(dotRef.current);
-        setMatch(drivers[0] ?? INITIAL_DRIVERS[0]);
+        const matchedDriver = drivers[0] ?? INITIAL_DRIVERS[0];
+        setMatch(matchedDriver);
         setStep("matched");
+        NotificationService.sendTripAlert(
+          "Driver Assigned! 🚖",
+          `${matchedDriver.name} is on the way in ${matchedDriver.plate} (ETA ${matchedDriver.eta}m)`
+        );
       }, 3200);
       return () => { clearTimeout(t); if (dotRef.current) clearInterval(dotRef.current); };
     }
@@ -178,6 +184,7 @@ export default function ScreenBooking() {
     if (dotRef.current) clearInterval(dotRef.current);
     setStep("idle");
     setMatch(null);
+    NotificationService.sendTripAlert("Trip Cancelled ✕", "Your ride request has been cancelled.");
   };
 
   const FARE_ROWS = [
@@ -436,6 +443,7 @@ export default function ScreenBooking() {
               {step === "confirm" && (
                 <Btn v="primary" size="lg" full onClick={async () => {
                   setStep("searching");
+                  NotificationService.sendTripAlert("Ride Requested 📍", `Searching for available ${selected.label} drivers near ${pickup.slice(0, 25)}…`);
                   const pCoords = getCoords(pickup);
                   const dCoords = getCoords(dropoff);
                   try {
