@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { Btn, Card, Pill } from "../ui";
 import { apiClient } from "../api/apiClient";
+import BranchKiosk from "./BranchKiosk";
 
-type AdminTab = "analytics" | "users" | "drivers" | "bookings" | "driver-trips" | "driver-docs" | "payments" | "reviews" | "cancellation" | "export" | "rbac" | "system";
+type AdminTab = "analytics" | "users" | "drivers" | "bookings" | "driver-trips" | "driver-docs" | "payments" | "reviews" | "cancellation" | "export" | "rbac" | "system" | "branch-kiosk";
 
 export default function AdminDashboard() {
   const adminRole = localStorage.getItem("admin_role") || "UNKNOWN";
@@ -18,6 +19,10 @@ export default function AdminDashboard() {
   }
   if (adminRole === "SUPER_ADMIN" || adminRole === "BOOKING_MGMT") {
     allowedTabs.push({ key: "bookings", icon: "🗺️", label: "Booking Management" });
+  }
+  // Official Branch Walk-in Counter & Commuter Kiosk Admin Module
+  if (adminRole === "SUPER_ADMIN" || adminRole === "BOOKING_MGMT" || adminRole === "USER_MGMT" || adminRole === "UNKNOWN") {
+    allowedTabs.push({ key: "branch-kiosk", icon: "🏢", label: "Branch Walk-in Desk" });
   }
   if (adminRole === "SUPER_ADMIN" || adminRole === "DRIVER_MGMT") {
     allowedTabs.push({ key: "drivers", icon: "👨‍✈️", label: "Driver Profiles" });
@@ -86,7 +91,7 @@ export default function AdminDashboard() {
             </p>
           </div>
           <button
-            onClick={() => window.dispatchEvent(new CustomEvent("navigate", { detail: { screen: "kiosk" } }))}
+            onClick={() => setTab("branch-kiosk")}
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-50 to-amber-100 hover:from-amber-100 hover:to-amber-200 text-amber-900 border border-amber-300 text-xs font-bold shadow-sm transition-all"
             title="Open Front-Desk Walk-In Passenger Onboarding & Counter Booking Kiosk"
           >
@@ -99,6 +104,7 @@ export default function AdminDashboard() {
           {tab === "users"       && <UsersPanel />}
           {tab === "drivers"     && <DriversPanel />}
           {tab === "bookings"    && <BookingsPanel />}
+          {tab === "branch-kiosk"&& <BranchKiosk />}
           {tab === "driver-trips" && <DriverTripsPanel />}
           {tab === "driver-docs" && <DriverDocsPanel />}
           {tab === "payments"    && <PaymentsPanel />}
