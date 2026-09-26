@@ -113,7 +113,9 @@ export default function ScreenReview() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-start justify-center py-10 px-4">
+    <div className="min-h-screen  flex items-start justify-center py-10 px-4 relative z-0" >
+      <div className="absolute inset-0 -z-10 bg-[url('/hero-bg.jpg')] bg-cover bg-center opacity-30" />
+      <div className="absolute inset-0 -z-10 bg-slate-950/70 backdrop-blur-[40px]" />
       <Toast
         message={errorToast ? "Failed to submit" : "Submitted successfully"}
         sub={errorToast || "Support responds within 24 hours if disputed"}
@@ -123,7 +125,7 @@ export default function ScreenReview() {
 
       <div className="w-full max-w-lg space-y-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900">Rate Your Trip</h1>
+          <h1 className="text-2xl font-extrabold text-white">Rate Your Trip</h1>
           <p className="text-sm text-slate-500 mt-0.5">Your feedback helps improve Streetify for all users</p>
         </div>
 
@@ -134,12 +136,12 @@ export default function ScreenReview() {
               {trip?.driverName?.slice(0, 2)?.toUpperCase() || "KP"}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-extrabold text-slate-900">{trip?.driverName || "Kasun Perera"}</p>
+              <p className="font-extrabold text-white">{trip?.driverName || "Kasun Perera"}</p>
               <p className="text-xs text-slate-500 font-mono mt-0.5">{trip?.vehiclePlate || "CAB-4821"} · {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</p>
               <p className="text-xs text-slate-400 mt-0.5 truncate">{trip?.pickup?.slice(0,10) || "Colombo"} → {trip?.dropoff?.slice(0,10) || "BIA"}</p>
             </div>
             <div className="text-right flex-none">
-              <p className="font-extrabold font-mono text-blue-700">LKR {trip?.fare?.toFixed(0) || "1,240"}</p>
+              <p className="font-extrabold font-mono text-eco">LKR {trip?.fare?.toFixed(0) || "1,240"}</p>
               <p className="text-xs text-slate-400 font-mono">{trip?.distance || 31.4} km</p>
             </div>
           </div>
@@ -147,7 +149,7 @@ export default function ScreenReview() {
 
         {/* Star rating */}
         <Card className="p-6 text-center">
-          <p className="text-sm font-semibold text-slate-600 mb-5">How was your overall experience?</p>
+          <p className="text-sm font-semibold text-slate-300 mb-5">How was your overall experience?</p>
           <div className="flex justify-center gap-3 mb-3">
             {[1,2,3,4,5].map(s => (
               <button key={s}
@@ -160,7 +162,7 @@ export default function ScreenReview() {
             ))}
           </div>
           {rating > 0 && (
-            <p className="text-lg font-extrabold text-slate-700" style={{ animation: "fade-in .25s ease both" }}>
+            <p className="text-lg font-extrabold text-slate-200" style={{ animation: "fade-in .25s ease both" }}>
               {EMOJI_LABEL[rating]}
             </p>
           )}
@@ -171,7 +173,7 @@ export default function ScreenReview() {
                  style={{ animation: "slide-up .38s cubic-bezier(.22,1,.36,1) both" }}>
               {availableTags.map(t => (
                 <button key={t} onClick={() => toggleTag(t)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-semibold border-2 transition-all ${tags.has(t) ? "border-blue-700 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"}`}>
+                  className={`px-3 py-1.5 rounded-full text-sm font-semibold border-2 transition-all ${tags.has(t) ? "border-eco bg-eco-dark/20 text-eco" : "border-slate-800 bg-navy border-eco/10 text-slate-300 hover:border-slate-700"}`}>
                   {t}
                 </button>
               ))}
@@ -182,15 +184,15 @@ export default function ScreenReview() {
         {/* Dispute / comments */}
         <Card className="p-5 space-y-4">
           <div>
-            <p className="font-extrabold text-slate-800">Report an Issue</p>
+            <p className="font-extrabold text-slate-100">Report an Issue</p>
             <p className="text-xs text-slate-500 mt-0.5">Optional — only complete if something went wrong</p>
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1.5">Dispute Type</label>
+            <label className="block text-sm font-bold text-slate-200 mb-1.5">Dispute Type</label>
             <div className="relative">
               <select value={dispute} onChange={e => setDispute(e.target.value)}
-                className="w-full appearance-none px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 pr-8">
+                className="w-full appearance-none px-4 py-2.5 bg-navy border-eco/10 border border-slate-700 rounded-xl text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-eco pr-8">
                 <option value="">Select a reason…</option>
                 {DISPUTE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
@@ -200,7 +202,7 @@ export default function ScreenReview() {
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-sm font-bold text-slate-700">Description</label>
+              <label className="text-sm font-bold text-slate-200">Description</label>
               <span className={`text-xs font-mono font-bold ${comment.length > MAX * 0.9 ? "text-orange-500" : "text-slate-400"}`}>
                 {comment.length} / {MAX}
               </span>
@@ -209,7 +211,7 @@ export default function ScreenReview() {
               value={comment} onChange={e => setComment(e.target.value.slice(0, MAX))}
               rows={4}
               placeholder="Describe what happened — time, location, and any relevant details. Our support team responds within 24 hours…"
-              className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none leading-relaxed"
+              className="w-full px-4 py-3 bg-navy border-eco/10 border border-slate-700 rounded-xl text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-eco resize-none leading-relaxed"
             />
             <div className="mt-1.5 h-1 bg-slate-200 rounded-full overflow-hidden">
               <div

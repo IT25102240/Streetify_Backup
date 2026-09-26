@@ -54,12 +54,12 @@ export default function Footer({ onNavigate }: FooterProps) {
   ];
 
   const TEAM = [
-    { no: "01", name: "Vidura Rammandalagedara", role: "System Architecture & Super Admin",     email: "vidura@streetify.lk",   color: "#22c55e",  badge: "SUPER ADMIN" },
-    { no: "02", name: "Lahiru Nayanamina",        role: "User Management & Security",           email: "lahiru@streetify.lk",   color: "#38bdf8",  badge: "SECURITY"   },
-    { no: "03", name: "Chanuka Dharmakeerthi",    role: "Booking, Dispatch & Telemetry",        email: "chanuka@streetify.lk",  color: "#f59e0b",  badge: "DISPATCH"   },
-    { no: "04", name: "Tharindu Senaka",          role: "Driver Verification & Fleet",          email: "tharindu@streetify.lk", color: "#a78bfa",  badge: "FLEET"      },
-    { no: "05", name: "Daham Edirisinghe",        role: "Payment Gateway & Settlements",        email: "daham@streetify.lk",    color: "#fb7185",  badge: "PAYMENTS"   },
-    { no: "06", name: "Mithun Weerasingha",       role: "Review, Ratings & Dispute Resolution", email: "mithun@streetify.lk",  color: "#34d399",  badge: "REVIEWS"    },
+    { no: "01", name: "Vidura Rammandalagedara", role: "Core Architecture & RBAC Admin",       email: "vidura@streetify.lk",   color: "#22c55e",  badge: "SYSTEM ARCHITECTURE" },
+    { no: "02", name: "Lahiru Nayanamina",        role: "Identity, JWT Auth & Data Privacy",    email: "lahiru@streetify.lk",   color: "#38bdf8",  badge: "IAM & SECURITY"      },
+    { no: "03", name: "Chanuka Dharmakeerthi",    role: "WebSocket Telemetry & Live Dispatch",  email: "chanuka@streetify.lk",  color: "#f59e0b",  badge: "REAL-TIME DISPATCH"  },
+    { no: "04", name: "Tharindu Senaka",          role: "Driver Onboarding & Fleet Operations", email: "tharindu@streetify.lk", color: "#a78bfa",  badge: "FLEET & VERIFICATION"},
+    { no: "05", name: "Daham Edirisinghe",        role: "3DS Gateways & Wallet Ledger",         email: "daham@streetify.lk",    color: "#fb7185",  badge: "FINANCE & PAYMENTS"  },
+    { no: "06", name: "Mithun Weerasingha",       role: "Customer Dispute & Ticket Resolution", email: "mithun@streetify.lk",  color: "#34d399",  badge: "SUPPORT & REVIEWS"   },
   ];
 
   const PORTALS = [
@@ -84,7 +84,7 @@ export default function Footer({ onNavigate }: FooterProps) {
 
   /* ── Shared modal base ── */
   const modalOverlay = (children: React.ReactNode) => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
       style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}>
       {children}
     </div>
@@ -120,12 +120,12 @@ export default function Footer({ onNavigate }: FooterProps) {
             <div className="space-y-5">
               {/* Wordmark */}
               <div className="flex items-center gap-3">
-                <div
-                  className="w-10 h-10 rounded-2xl flex items-center justify-center flex-none"
-                  style={{ background: "linear-gradient(135deg, #16a34a, #22c55e)", boxShadow: "0 0 20px rgba(34,197,94,0.3)" }}
-                >
-                  <span className="text-xl font-black text-white" style={{ fontFamily: "Outfit, sans-serif" }}>S</span>
-                </div>
+                <img
+                  src="/logo.png"
+                  alt="Streetify Logo"
+                  className="w-10 h-10 rounded-2xl flex-none"
+                  style={{ boxShadow: "0 0 20px rgba(34,197,94,0.3)" }}
+                />
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-white text-xl font-black tracking-tight" style={{ fontFamily: "Outfit, sans-serif" }}>
@@ -185,7 +185,7 @@ export default function Footer({ onNavigate }: FooterProps) {
               <h4 className="text-xs font-mono font-black uppercase tracking-widest flex items-center gap-2" style={{ color: "#4ade80" }}>
                 <span>👥</span> Developers & Project Owners
               </h4>
-              <p className="text-xs" style={{ color: "rgba(100,116,139,0.7)" }}>Software Engineering Capstone · Group 12</p>
+              <p className="text-xs" style={{ color: "rgba(100,116,139,0.7)" }}>Software Engineering Capstone · Group 24</p>
 
               <ul className="space-y-1.5">
                 {TEAM.map(m => (
@@ -255,7 +255,7 @@ export default function Footer({ onNavigate }: FooterProps) {
               >
                 <div>
                   <p className="text-xs font-bold text-white">Streetify — Web-Based Transportation System</p>
-                  <p className="text-xs mt-0.5" style={{ color: "#64748b" }}>SE Project · Group 12 · 2026</p>
+                  <p className="text-xs mt-0.5" style={{ color: "#64748b" }}>SE Project · Group 24 · 2026</p>
                 </div>
                 <div className="space-y-2 text-xs" style={{ borderTop: "1px solid rgba(34,197,94,0.08)", paddingTop: "10px" }}>
                   <div className="flex items-center gap-2" style={{ color: "#94a3b8" }}>

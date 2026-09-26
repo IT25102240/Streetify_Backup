@@ -106,15 +106,18 @@ public class ModuleAdminController {
 
     @GetMapping("/users")
     public ResponseEntity<List<Map<String, Object>>> getAllUsers() {
-        List<Map<String, Object>> result = userDAO.findAll().stream().map(u -> Map.<String, Object>of(
-            "id", u.getId(),
-            "firstName", u.getFirstName(),
-            "lastName", u.getLastName(),
-            "email", u.getEmail(),
-            "phone", u.getPhone() != null ? u.getPhone() : "",
-            "role", u.getRole().name(),
-            "active", u.isActive()
-        )).toList();
+        List<Map<String, Object>> result = userDAO.findAll().stream().map(u -> {
+            Map<String, Object> map = new java.util.HashMap<>();
+            map.put("id", u.getId());
+            map.put("firstName", u.getFirstName());
+            map.put("lastName", u.getLastName());
+            map.put("email", u.getEmail());
+            map.put("phone", u.getPhone() != null ? u.getPhone() : "");
+            map.put("role", u.getRole().name());
+            map.put("adminRole", u.getAdminRole());
+            map.put("active", u.isActive());
+            return map;
+        }).toList();
         return ResponseEntity.ok(result);
     }
 
@@ -139,9 +142,10 @@ public class ModuleAdminController {
         if (updates.containsKey("lastName"))   user.setLastName((String) updates.get("lastName"));
         if (updates.containsKey("phone"))      user.setPhone((String) updates.get("phone"));
         if (updates.containsKey("active"))     user.setActive((Boolean) updates.get("active"));
+        if (updates.containsKey("adminRole"))  user.setAdminRole((String) updates.get("adminRole"));
 
         User saved = userDAO.save(user);
-        logAdminAction("UPDATE_USER", "Updated user details for ID " + id, id, "USER");
+        logAdminAction("UPDATE_USER", "Updated user details (including roles) for ID " + id, id, "USER");
         return ResponseEntity.ok(Map.of("status", "ok", "id", saved.getId()));
     }
 

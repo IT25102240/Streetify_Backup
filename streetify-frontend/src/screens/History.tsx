@@ -84,17 +84,19 @@ export default function ScreenHistory() {
     .reduce((sum, t) => sum + (t.fareAmount || 0), 0);
 
   return (
-    <div className="min-h-screen bg-slate-100 py-10 px-4">
+    <div className="min-h-screen  py-10 px-4 relative z-0" >
+      <div className="absolute inset-0 -z-10 bg-[url('/hero-bg.jpg')] bg-cover bg-center opacity-30" />
+      <div className="absolute inset-0 -z-10 bg-slate-950/70 backdrop-blur-[40px]" />
       <div className="max-w-2xl mx-auto space-y-5">
         <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-extrabold text-slate-900">Trip History</h1>
+            <h1 className="text-2xl font-extrabold text-white">Trip History</h1>
             <p className="text-sm text-slate-500 mt-0.5">Browse past rides, download receipts, and re-book</p>
           </div>
-          <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-1">
+          <div className="flex bg-navy border-eco/10 border border-slate-800 rounded-xl p-1 gap-1">
             {(["passenger", "driver"] as ViewMode[]).map(m => (
               <button key={m} onClick={() => { setMode(m); setSearch(""); setSelected(null); }}
-                className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all capitalize ${mode === m ? "bg-blue-700 text-white" : "text-slate-500 hover:text-slate-700"}`}>
+                className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all capitalize ${mode === m ? "bg-blue-700 text-white" : "text-slate-500 hover:text-slate-200"}`}>
                 {m === "passenger" ? "🧍 As Passenger" : "🚗 As Driver"}
               </button>
             ))}
@@ -132,7 +134,7 @@ export default function ScreenHistory() {
               {stats.map(({ l, v, icon }) => (
                 <Card key={l} className="p-4 text-center">
                   <p className="text-2xl mb-1">{icon}</p>
-                  <p className="font-extrabold font-mono text-slate-900 text-sm">{v}</p>
+                  <p className="font-extrabold font-mono text-white text-sm">{v}</p>
                   <p className="text-xs text-slate-500 mt-0.5">{l}</p>
                 </Card>
               ))}
@@ -146,7 +148,7 @@ export default function ScreenHistory() {
           <input
             placeholder="Search by location or name…"
             value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-9 pr-4 py-2.5 bg-navy border-eco/10 border border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-eco"
           />
         </div>
 
@@ -167,11 +169,11 @@ export default function ScreenHistory() {
 
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-slate-500 font-mono">{t.from}</p>
-                      <p className="text-sm font-extrabold text-slate-900 mt-2">{t.to}</p>
+                      <p className="text-sm font-extrabold text-white mt-2">{t.to}</p>
                     </div>
 
                     <div className="text-right flex-none">
-                      <p className="font-extrabold font-mono text-blue-700">{t.fare}</p>
+                      <p className="font-extrabold font-mono text-eco">{t.fare}</p>
                       <Pill color={STATUS_COLOR[t.status]}>{t.status}</Pill>
                     </div>
                   </div>
@@ -207,7 +209,7 @@ export default function ScreenHistory() {
 
                 {/* Expanded detail */}
                 {isSelected && (
-                  <div className="border-t border-slate-100 px-4 py-3 bg-slate-50 flex items-center justify-between gap-3 flex-wrap"
+                  <div className="border-t border-slate-100 px-4 py-3 bg-slate-950 flex items-center justify-between gap-3 flex-wrap"
                        style={{ animation: "slide-up .3s cubic-bezier(.22,1,.36,1) both" }}>
                     <p className="text-xs text-slate-500 font-mono">{t.id}</p>
                     <div className="flex gap-2">

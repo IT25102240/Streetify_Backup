@@ -284,7 +284,7 @@ export default function ScreenDriver() {
             onClick={() => online ? goOffline() : setOnline(true)}
             className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${online ? "bg-emerald-500" : "bg-slate-700"}`}
           >
-            <span className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform duration-300 ${online ? "translate-x-7" : ""}`} />
+            <span className={`absolute top-0.5 left-0.5 w-6 h-6 bg-navy border-eco/10 rounded-full shadow-md transition-transform duration-300 ${online ? "translate-x-7" : ""}`} />
           </button>
           <span className={`text-xs font-extrabold tracking-wide ${online ? "text-emerald-400" : "text-slate-500"}`}>
             {online ? "ONLINE" : "OFFLINE"}
@@ -314,7 +314,7 @@ export default function ScreenDriver() {
             onClick={() => mapRef.current?.zoomIn()}
             title="Zoom in"
             aria-label="Zoom in"
-            className="w-7 h-7 bg-white/95 hover:bg-white active:scale-90 rounded-md shadow text-slate-700 font-extrabold text-sm flex items-center justify-center hover:text-blue-600 transition-all cursor-pointer select-none"
+            className="w-7 h-7 bg-navy border-eco/10/95 hover:bg-navy border-eco/10 active:scale-90 rounded-md shadow text-slate-200 font-extrabold text-sm flex items-center justify-center hover:text-blue-600 transition-all cursor-pointer select-none"
           >
             +
           </button>
@@ -322,7 +322,7 @@ export default function ScreenDriver() {
             onClick={() => mapRef.current?.zoomOut()}
             title="Zoom out"
             aria-label="Zoom out"
-            className="w-7 h-7 bg-white/95 hover:bg-white active:scale-90 rounded-md shadow text-slate-700 font-extrabold text-sm flex items-center justify-center hover:text-blue-600 transition-all cursor-pointer select-none"
+            className="w-7 h-7 bg-navy border-eco/10/95 hover:bg-navy border-eco/10 active:scale-90 rounded-md shadow text-slate-200 font-extrabold text-sm flex items-center justify-center hover:text-blue-600 transition-all cursor-pointer select-none"
           >
             −
           </button>
@@ -392,14 +392,14 @@ export default function ScreenDriver() {
             </div>
             <p className="font-extrabold text-white text-base">Waiting for a trip request…</p>
             <p className="text-sm text-slate-400 mt-1.5 font-mono">WS /ws/trips · Colombo Metro</p>
-            <p className="text-xs text-slate-600 mt-4">You will receive an audio + screen alert</p>
+            <p className="text-xs text-slate-300 mt-4">You will receive an audio + screen alert</p>
           </div>
         )}
 
         {/* ── INCOMING TRIP OFFER ── */}
         {showIncoming && tripState === "idle" && activeTrip && (
           <div
-            className="rounded-2xl bg-blue-950 border-2 border-blue-500 px-5 py-5 shadow-2xl"
+            className="rounded-2xl bg-blue-950 border-2 border-eco px-5 py-5 shadow-2xl"
             style={{ animation: "slide-in .35s cubic-bezier(.22,1,.36,1) both" }}
           >
             <div className="flex items-center justify-between mb-4">
@@ -644,14 +644,14 @@ export default function ScreenDriver() {
               <p className="text-xl font-extrabold font-mono text-emerald-400">
                 LKR {todayEarnings.toLocaleString()}
               </p>
-              <p className="text-[10px] text-slate-600 font-mono mt-0.5">net · {tripsToday} trips</p>
+              <p className="text-[10px] text-slate-300 font-mono mt-0.5">net · {tripsToday} trips</p>
             </div>
             <div className="bg-slate-800 rounded-2xl border border-slate-700 p-4">
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Commission Debt</p>
               <p className={`text-xl font-extrabold font-mono ${commDebt > 0 ? "text-orange-400" : "text-emerald-400"}`}>
                 LKR {commDebt.toLocaleString()}
               </p>
-              <p className="text-[10px] text-slate-600 font-mono mt-0.5">
+              <p className="text-[10px] text-slate-300 font-mono mt-0.5">
                 {commDebt > 0 ? "auto-deducted next trip" : "all clear ✓"}
               </p>
             </div>
@@ -661,7 +661,7 @@ export default function ScreenDriver() {
 
       {/* ── Cancel Trip Modal (UC22) ── */}
       {showCancelModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between">
               <p className="font-extrabold text-white text-base">Cancel Accepted Trip</p>

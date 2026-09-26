@@ -21,7 +21,6 @@ import DemoSwitcher      from "./components/DemoSwitcher";
 type Screen = "login" | "booking" | "driver" | "payment" | "review" | "admin" | "history" | "support" | "profile" | "kiosk";
 
 const NAV: { key: Screen; label: string; icon: string; group: "passenger" | "driver" | "admin" | "support" }[] = [
-  { key: "login",   label: "Sign In",           icon: "🔐", group: "driver"    },
   { key: "booking", label: "Book Ride",         icon: "📍", group: "passenger" },
   { key: "payment", label: "Payment",           icon: "💳", group: "passenger" },
   { key: "review",  label: "Rate Trip",         icon: "⭐", group: "passenger" },
@@ -41,7 +40,27 @@ const GROUP_LABEL: Record<string, string> = {
 };
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>("login");
+  const [screen, setScreenState] = useState<Screen>("login");
+  const [history, setHistory] = useState<Screen[]>([]);
+
+  const setScreen = (newScreen: Screen) => {
+    setScreenState((prev) => {
+      if (prev !== newScreen) {
+        setHistory((h) => [...h, prev]);
+      }
+      return newScreen;
+    });
+  };
+
+  const handleBack = () => {
+    setHistory((prevHistory) => {
+      if (prevHistory.length === 0) return prevHistory;
+      const newHistory = [...prevHistory];
+      const previousScreen = newHistory.pop()!;
+      setScreenState(previousScreen);
+      return newHistory;
+    });
+  };
   const [role, setRole] = useState<string | null>(
     localStorage.getItem("jwt_token")
       ? (localStorage.getItem("user_role")?.toLowerCase() || "passenger")
@@ -78,6 +97,7 @@ export default function App() {
     localStorage.removeItem("vehicle_info");
     localStorage.removeItem("admin_role");
     setRole(null);
+    setHistory([]);
     setScreen("login");
   };
 
@@ -103,20 +123,28 @@ export default function App() {
       >
         {/* ── Wordmark ── */}
         <div
-          onClick={() => setScreen(role === "driver" ? "driver" : role === "admin" ? "admin" : "booking")}
+          onClick={() => setScreen("login")}
           className="flex items-center gap-2.5 mr-4 pr-4 flex-none cursor-pointer group"
           style={{ borderRight: "1px solid rgba(34,197,94,0.12)" }}
         >
           {/* Logo mark */}
-          <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center flex-none group-hover:scale-105 transition-transform"
-            style={{
-              background: "linear-gradient(135deg, #16a34a, #22c55e)",
-              boxShadow: "0 0 16px rgba(34,197,94,0.35)",
-            }}
-          >
-            <span className="text-sm font-black text-white" style={{ fontFamily: "Outfit, sans-serif" }}>S</span>
-          </div>
+          {history.length > 0 && screen !== "login" && (
+            <button
+              onClick={handleBack}
+              className="mr-2 flex items-center justify-center w-8 h-8 rounded-full bg-slate-800/80 hover:bg-eco/20 text-slate-300 hover:text-eco transition-all border border-slate-700 hover:border-eco/50"
+              title="Go Back"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          )}
+          <img
+            src="/logo.png"
+            alt="Streetify Logo"
+            className="w-8 h-8 rounded-xl flex-none group-hover:scale-105 transition-transform"
+            style={{ boxShadow: "0 0 16px rgba(34,197,94,0.35)" }}
+          />
           <div>
             <div className="flex items-baseline gap-1.5">
               <span
@@ -144,8 +172,8 @@ export default function App() {
 
         {/* ── Screen buttons grouped by role ── */}
         {(["passenger", "driver", "admin", "support"] as const).map((group, gi) => {
-          if (role && role !== "admin" && role !== group) return null;
-          if (!role && group !== "driver") return null;
+          if (!role) return null; // Hide all navigation when logged out
+          if (role !== "admin" && role !== group) return null;
           if (group === "support" && role !== "admin" && adminRole !== "SUPER_ADMIN") return null;
 
           const items = NAV.filter(n => n.group === group);

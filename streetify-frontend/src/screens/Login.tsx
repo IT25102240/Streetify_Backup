@@ -7,7 +7,7 @@
  *   POST /api/auth/register/passenger { ...fields }          → { accessToken, ... }
  *   POST /api/docs/upload             FormData               → { docId, status: "pending" }
  */
-import { useState, useRef, DragEvent, ChangeEvent } from "react";
+import { useState, useRef, DragEvent, ChangeEvent, useEffect } from "react";
 import { Btn, Card, Field, HR, PwStrength, Pill } from "../ui";
 import { apiClient } from "../api/apiClient";
 
@@ -79,6 +79,48 @@ const FEATURES = [
   { icon: "💳", title: "Secure Payments",  desc: "PayHere & Stripe with 3D-Secure for safe transactions" },
   { icon: "🛡️", title: "Verified Drivers", desc: "All drivers are background checked and document verified" },
 ];
+
+function SystemStatusIndicator() {
+  const [backendAlive, setBackendAlive] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        await fetch('http://localhost:8080/api/auth/me', { method: 'OPTIONS' });
+        setBackendAlive(true);
+      } catch (e) {
+        setBackendAlive(false);
+      }
+    };
+    checkStatus();
+    const interval = setInterval(checkStatus, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="py-8 flex flex-col items-center justify-center gap-4 relative z-0" style={{ background: "#02050a", borderTop: "1px solid rgba(255,255,255,0.03)" }}>
+      <p className="text-[10px] font-mono font-bold tracking-widest text-slate-500 uppercase">System Status Monitor</p>
+      <div className="flex flex-wrap justify-center gap-4">
+        {/* Frontend Badge */}
+        <div className="flex items-center gap-2.5 px-4 py-2 rounded-xl" style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)" }}>
+          <span className="w-2.5 h-2.5 rounded-full animate-pulse bg-eco shadow-[0_0_8px_rgba(34,197,94,0.8)]"></span>
+          <span className="text-sm font-black text-eco tracking-wide">FRONTEND LIVE</span>
+        </div>
+        
+        {/* Backend Badge */}
+        <div className="flex items-center gap-2.5 px-4 py-2 rounded-xl transition-all" style={{ 
+          background: backendAlive ? "rgba(34,197,94,0.08)" : backendAlive === false ? "rgba(239,68,68,0.08)" : "rgba(255,255,255,0.02)",
+          border: backendAlive ? "1px solid rgba(34,197,94,0.25)" : backendAlive === false ? "1px solid rgba(239,68,68,0.25)" : "1px solid rgba(255,255,255,0.1)"
+        }}>
+          <span className={`w-2.5 h-2.5 rounded-full shadow-lg ${backendAlive ? "animate-pulse bg-eco shadow-[0_0_8px_rgba(34,197,94,0.8)]" : backendAlive === false ? "animate-pulse bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" : "bg-slate-500"}`}></span>
+          <span className={`text-sm font-black tracking-wide ${backendAlive ? "text-eco" : backendAlive === false ? "text-red-500" : "text-slate-400"}`}>
+            {backendAlive ? "BACKEND LIVE" : backendAlive === false ? "BACKEND OFFLINE" : "PINGING BACKEND..."}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function ScreenLogin() {
   const [tab, setTab]           = useState<Tab>("login");
@@ -207,12 +249,13 @@ export default function ScreenLogin() {
       : "flex-1 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all text-ash hover:text-white hover:bg-navy/40";
 
   return (
-    <div
-      className="min-h-screen flex"
-      style={{
-        background: "linear-gradient(135deg, #060e1e 0%, #0f2440 50%, #060e1e 100%)",
-      }}
-    >
+    <div className="flex flex-col">
+      <div
+        className="min-h-screen flex"
+        style={{
+          background: "linear-gradient(135deg, #060e1e 0%, #0f2440 50%, #060e1e 100%)",
+        }}
+      >
       {/* ── Left: Hero Panel ── */}
       <div
         className="hidden lg:flex flex-col justify-between flex-1 p-10 relative overflow-hidden hero-section"
@@ -221,15 +264,12 @@ export default function ScreenLogin() {
         <div className="hero-content">
           {/* Brand */}
           <div className="flex items-center gap-3 mb-12">
-            <div
-              className="w-10 h-10 rounded-2xl flex items-center justify-center"
-              style={{
-                background: "linear-gradient(135deg, #16a34a, #22c55e)",
-                boxShadow: "0 0 24px rgba(34,197,94,0.4)",
-              }}
-            >
-              <span className="text-xl font-black text-white" style={{ fontFamily: "Outfit, sans-serif" }}>S</span>
-            </div>
+            <img
+              src="/logo.png"
+              alt="Streetify Logo"
+              className="w-10 h-10 rounded-2xl"
+              style={{ boxShadow: "0 0 24px rgba(34,197,94,0.4)" }}
+            />
             <div>
               <p className="text-2xl font-black text-white" style={{ fontFamily: "Outfit, sans-serif", letterSpacing: "-0.03em" }}>
                 Streetify
@@ -294,12 +334,12 @@ export default function ScreenLogin() {
       >
         {/* Mobile logo */}
         <div className="lg:hidden flex items-center gap-3 mb-8">
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{ background: "linear-gradient(135deg, #16a34a, #22c55e)", boxShadow: "0 0 20px rgba(34,197,94,0.35)" }}
-          >
-            <span className="text-lg font-black text-white" style={{ fontFamily: "Outfit, sans-serif" }}>S</span>
-          </div>
+          <img
+            src="/logo.png"
+            alt="Streetify Logo"
+            className="w-9 h-9 rounded-xl"
+            style={{ boxShadow: "0 0 20px rgba(34,197,94,0.35)" }}
+          />
           <div>
             <p className="text-xl font-black text-white" style={{ fontFamily: "Outfit, sans-serif" }}>Streetify</p>
             <p className="text-[10px] font-bold tracking-widest" style={{ color: "#22c55e" }}>ECO DRIVE</p>
@@ -815,6 +855,47 @@ export default function ScreenLogin() {
           </p>
         </div>
       </div>
+    </div>
+
+    {/* ── Below Login: Project Vision & Mission ── */}
+      <div className="py-20 px-8 relative z-0" style={{ background: "#030810", borderTop: "1px solid rgba(34,197,94,0.15)" }}>
+        <div className="absolute inset-0 -z-10 bg-[url('/hero-bg.jpg')] bg-cover bg-center opacity-20" />
+        <div className="absolute inset-0 -z-10 bg-[#030810]/80 backdrop-blur-3xl" />
+        
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-16">
+          <div className="flex-1 space-y-6">
+            <h2 className="text-4xl lg:text-5xl font-black text-white leading-tight" style={{ fontFamily: "Outfit, sans-serif", letterSpacing: "-0.03em" }}>
+              The future of mobility.<br />
+              <span className="text-eco">Driven by nature.</span>
+            </h2>
+            <p className="text-slate-400 text-lg leading-relaxed max-w-xl">
+              Streetify is not just another ride-hailing app. <strong>The driver comes to you, and you will arrive at the destination you always want to go.</strong> It is a comprehensive ecosystem designed for the modern era, balancing operational excellence with environmental responsibility.
+            </p>
+          </div>
+
+          <div className="flex-1 space-y-6 w-full">
+            <div className="p-6 rounded-2xl transition-transform hover:-translate-y-1" style={{ background: "rgba(34,197,94,0.05)", border: "1px solid rgba(34,197,94,0.2)", borderLeft: "4px solid #22c55e" }}>
+              <h3 className="text-sm font-black text-eco mb-2 uppercase tracking-widest font-mono flex items-center gap-2">
+                <span>🌱</span> Our Vision
+              </h3>
+              <p className="text-slate-300 text-sm leading-relaxed">
+                To revolutionize Sri Lanka's transportation ecosystem by bridging advanced technology with environmental sustainability. <strong>The driver comes to you, taking you to the destination you always want to go</strong>, as we aim to create a unified platform that makes every journey a step towards a greener, smarter nation.
+              </p>
+            </div>
+            
+            <div className="p-6 rounded-2xl transition-transform hover:-translate-y-1" style={{ background: "rgba(56,189,248,0.05)", border: "1px solid rgba(56,189,248,0.2)", borderLeft: "4px solid #38bdf8" }}>
+              <h3 className="text-sm font-black text-sky-400 mb-2 uppercase tracking-widest font-mono flex items-center gap-2">
+                <span>⚡</span> Our Mission
+              </h3>
+              <p className="text-slate-300 text-sm leading-relaxed">
+                To deliver a seamless, highly secure, and real-time ride-hailing experience connecting passengers, drivers, and administrators. Because <strong>the driver comes to you, ensuring you reach the destination you always want to go</strong>. We implement robust RBAC governance, 3DS payments, and WebSocket telemetry to empower driver livelihoods while actively reducing carbon footprints.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <SystemStatusIndicator />
     </div>
   );
 }

@@ -276,7 +276,7 @@ export default function ScreenBooking() {
             onClick={() => leafletMapRef.current?.zoomIn()}
             title="Zoom in"
             aria-label="Zoom in"
-            className="w-8 h-8 bg-white/95 hover:bg-white active:scale-90 rounded-lg shadow text-slate-700 font-extrabold text-base flex items-center justify-center hover:text-blue-600 transition-all cursor-pointer select-none"
+            className="w-8 h-8 bg-navy border-eco/10/95 hover:bg-navy border-eco/10 active:scale-90 rounded-lg shadow text-slate-200 font-extrabold text-base flex items-center justify-center hover:text-blue-600 transition-all cursor-pointer select-none"
           >
             +
           </button>
@@ -284,7 +284,7 @@ export default function ScreenBooking() {
             onClick={() => leafletMapRef.current?.zoomOut()}
             title="Zoom out"
             aria-label="Zoom out"
-            className="w-8 h-8 bg-white/95 hover:bg-white active:scale-90 rounded-lg shadow text-slate-700 font-extrabold text-base flex items-center justify-center hover:text-blue-600 transition-all cursor-pointer select-none"
+            className="w-8 h-8 bg-navy border-eco/10/95 hover:bg-navy border-eco/10 active:scale-90 rounded-lg shadow text-slate-200 font-extrabold text-base flex items-center justify-center hover:text-blue-600 transition-all cursor-pointer select-none"
           >
             −
           </button>
@@ -295,7 +295,7 @@ export default function ScreenBooking() {
           onClick={recenterToMyLocation}
           title="Center map on my location"
           className={`absolute bottom-3 right-3 w-10 h-10 rounded-xl shadow-lg flex items-center justify-center text-lg active:scale-95 transition-all ${
-            myCoords ? "bg-white hover:bg-blue-50" : "bg-white/50 cursor-not-allowed"
+            myCoords ? "bg-navy border-eco/10 hover:bg-eco-dark/20" : "bg-navy border-eco/10/50 cursor-not-allowed"
           }`}>
           {geoLoading ? "⏳" : "🎯"}
         </button>
@@ -311,7 +311,7 @@ export default function ScreenBooking() {
               className="bg-emerald-600 rounded-2xl px-4 py-4 flex items-center gap-3 shadow-lg"
               style={{ animation: "slide-in .4s cubic-bezier(.22,1,.36,1) both" }}
             >
-              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-2xl flex-none">🚗</div>
+              <div className="w-12 h-12 bg-navy border-eco/10/20 rounded-2xl flex items-center justify-center text-2xl flex-none">🚗</div>
               <div className="flex-1 min-w-0">
                 <p className="font-extrabold text-white">Driver on the way!</p>
                 <p className="text-xs text-emerald-100 font-mono truncate">

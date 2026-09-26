@@ -32,6 +32,26 @@ const DEMO_USERS: DemoUser[] = [
     details: "Toyota Prius (CAB-1234) · Dispatch Console",
   },
   {
+    label: "User Manager",
+    role: "ADMIN",
+    adminRole: "USER_MGMT",
+    email: "lahiru@streetify.lk",
+    name: "Lahiru Nayanamina",
+    avatar: "👥",
+    badgeColor: "bg-indigo-600",
+    details: "Passenger & Driver Lifecycle Governance",
+  },
+  {
+    label: "Booking Manager",
+    role: "ADMIN",
+    adminRole: "BOOKING_MGMT",
+    email: "chanuka@streetify.lk",
+    name: "Chanuka Dharmakeerthi",
+    avatar: "🗺️",
+    badgeColor: "bg-teal-600",
+    details: "Trip Dispatch & Live Routing Engine",
+  },
+  {
     label: "Driver Coordinator",
     role: "ADMIN",
     adminRole: "DRIVER_MGMT",
@@ -40,16 +60,6 @@ const DEMO_USERS: DemoUser[] = [
     avatar: "📋",
     badgeColor: "bg-purple-600",
     details: "Driver Verification & Documents Review",
-  },
-  {
-    label: "Super Admin",
-    role: "ADMIN",
-    adminRole: "SUPER_ADMIN",
-    email: "vidura@streetify.lk",
-    name: "Vidura Rammandalagedara",
-    avatar: "🛡️",
-    badgeColor: "bg-rose-600",
-    details: "RBAC Governance, Suspension & Audit Logs",
   },
   {
     label: "Finance Manager",
@@ -70,6 +80,16 @@ const DEMO_USERS: DemoUser[] = [
     avatar: "🎧",
     badgeColor: "bg-cyan-600",
     details: "Dispute Tickets, Ratings & Wallet Refunds",
+  },
+  {
+    label: "Super Admin",
+    role: "ADMIN",
+    adminRole: "SUPER_ADMIN",
+    email: "vidura@streetify.lk",
+    name: "Vidura Rammandalagedara",
+    avatar: "🛡️",
+    badgeColor: "bg-rose-600",
+    details: "RBAC Governance, Suspension & Audit Logs",
   },
 ];
 
@@ -166,7 +186,7 @@ export default function DemoSwitcher() {
 
       {/* Slide-over or Popup Drawer */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4"
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-3 sm:p-4"
           style={{ background: "rgba(0,0,0,0.72)", backdropFilter: "blur(8px)" }}>
           <div
             className="w-full max-w-lg p-5 sm:p-6 shadow-2xl relative text-white rounded-2xl"
@@ -187,7 +207,7 @@ export default function DemoSwitcher() {
                 >⚡</span>
                 <div>
                   <h3 className="text-sm font-bold text-white">Quick Test Accounts & Role Switcher</h3>
-                  <p className="text-[11px]" style={{ color: "#4a6580" }}>1-Click instant switch between all 6 primary system actors</p>
+                  <p className="text-[11px]" style={{ color: "#4a6580" }}>1-Click instant switch between all 8 primary system actors</p>
                 </div>
               </div>
               <button

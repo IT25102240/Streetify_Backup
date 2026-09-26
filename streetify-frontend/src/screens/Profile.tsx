@@ -194,20 +194,22 @@ export default function ScreenProfile() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="min-h-screen relative z-0" >
+      <div className="absolute inset-0 -z-10 bg-[url('/hero-bg.jpg')] bg-cover bg-center opacity-30" />
+      <div className="absolute inset-0 -z-10 bg-slate-950/70 backdrop-blur-[40px]" />
       {toast && <Toast message={toast.msg} type={toast.type} visible={!!toast} />}
 
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-800 to-blue-600 px-6 py-8 text-white">
         <div className="max-w-2xl mx-auto flex items-center gap-5">
-          <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-2xl font-extrabold shadow-lg">
+          <div className="w-16 h-16 rounded-2xl bg-navy border-eco/10/20 backdrop-blur-sm flex items-center justify-center text-2xl font-extrabold shadow-lg">
             {loading ? "…" : initials}
           </div>
           <div>
             <p className="text-xl font-extrabold">{firstName} {lastName}</p>
             <p className="text-blue-200 text-sm font-mono mt-0.5">{profile?.email}</p>
             <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-xs bg-white/20 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide">
+              <span className="text-xs bg-navy border-eco/10/20 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide">
                 {role}
               </span>
               {role === "driver" && profile?.verificationStatus && (
@@ -224,13 +226,13 @@ export default function ScreenProfile() {
 
       <div className="max-w-2xl mx-auto px-4 py-6">
         {/* Tab Nav */}
-        <div className="flex gap-1 bg-white rounded-2xl p-1.5 shadow-sm border border-slate-200 mb-6">
+        <div className="flex gap-1 bg-navy border-eco/10 rounded-2xl p-1.5 shadow-sm border border-slate-800 mb-6">
           {TABS.map(t => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-sm font-bold transition-all ${
-                tab === t.key ? "bg-blue-700 text-white shadow" : "text-slate-500 hover:text-slate-800"
+                tab === t.key ? "bg-blue-700 text-white shadow" : "text-slate-500 hover:text-slate-100"
               }`}
             >
               <span>{t.icon}</span>
@@ -242,7 +244,7 @@ export default function ScreenProfile() {
         {/* ── Personal Info Tab ── */}
         {tab === "profile" && (
           <Card className="p-6 space-y-4">
-            <p className="font-extrabold text-slate-800 text-base">Personal Information</p>
+            <p className="font-extrabold text-slate-100 text-base">Personal Information</p>
             {loading ? (
               <p className="text-slate-400 text-sm py-4 text-center">Loading profile…</p>
             ) : (
@@ -291,9 +293,9 @@ export default function ScreenProfile() {
                         { label: "Vehicle Type",  value: localStorage.getItem("vehicle_info")?.split("·")[1]?.trim() || "N/A" },
                         { label: "Plate Number",  value: localStorage.getItem("vehicle_info")?.split("·")[0]?.trim() || "N/A" },
                       ].map(item => (
-                        <div key={item.label} className="bg-slate-50 rounded-xl p-3 border border-slate-200">
+                        <div key={item.label} className="bg-slate-950 rounded-xl p-3 border border-slate-800">
                           <p className="text-xs font-bold text-slate-500 mb-1">{item.label}</p>
-                          <p className="font-bold text-slate-800">{item.value}</p>
+                          <p className="font-bold text-slate-100">{item.value}</p>
                         </div>
                       ))}
                     </div>
@@ -315,7 +317,7 @@ export default function ScreenProfile() {
         {tab === "security" && (
           <Card className="p-6 space-y-4">
             <div>
-              <p className="font-extrabold text-slate-800 text-base">Change Password</p>
+              <p className="font-extrabold text-slate-100 text-base">Change Password</p>
               <p className="text-xs text-slate-500 mt-0.5">
                 Requires your current password. Minimum 8 characters.
               </p>
@@ -358,18 +360,18 @@ export default function ScreenProfile() {
         {tab === "otp" && (
           <Card className="p-6 space-y-4">
             <div>
-              <p className="font-extrabold text-slate-800 text-base">Reset Password via OTP</p>
+              <p className="font-extrabold text-slate-100 text-base">Reset Password via OTP</p>
               <p className="text-xs text-slate-500 mt-0.5">
                 A one-time PIN will be sent to your email via the Notification Service (UC03/UC16)
               </p>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <div className="bg-eco-dark/20 border border-blue-200 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-lg">📱</span>
                 <p className="font-bold text-blue-800 text-sm">How it works</p>
               </div>
-              <ol className="text-xs text-blue-700 space-y-0.5 list-decimal list-inside">
+              <ol className="text-xs text-eco space-y-0.5 list-decimal list-inside">
                 <li>Enter your registered email address</li>
                 <li>Click "Send OTP" — a 6-digit code will be emailed to you</li>
                 <li>Enter the OTP code and your new password</li>

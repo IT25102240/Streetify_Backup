@@ -469,7 +469,7 @@ export default function BranchKiosk() {
             {selectedPassenger && <span className="text-[10px] text-slate-400 font-mono">({selectedPassenger.firstName})</span>}
           </button>
 
-          <span className="text-slate-700">──</span>
+          <span className="text-slate-200">──</span>
 
           {/* Step 2 */}
           <button
@@ -492,7 +492,7 @@ export default function BranchKiosk() {
             {step > 2 && <span className="text-[10px] text-slate-400 font-mono">({selectedVehicle.key})</span>}
           </button>
 
-          <span className="text-slate-700">──</span>
+          <span className="text-slate-200">──</span>
 
           {/* Step 3 */}
           <button
@@ -514,7 +514,7 @@ export default function BranchKiosk() {
             <span>Payment & Dispatch</span>
           </button>
 
-          <span className="text-slate-700">──</span>
+          <span className="text-slate-200">──</span>
 
           {/* Step 4 */}
           <button
@@ -889,8 +889,13 @@ export default function BranchKiosk() {
                 {/* Leaflet OSM Interactive Map Preview */}
                 <div className="h-44 rounded-2xl overflow-hidden border border-slate-800 relative shadow-inner">
                   <OsmMap
-                    center={[pickupCoords.lat, pickupCoords.lng]}
-                    zoom={12}
+                    dark
+                    showPickup
+                    showDropoff
+                    pickupLat={pickupCoords.lat}
+                    pickupLng={pickupCoords.lng}
+                    dropoffLat={dropoffCoords.lat}
+                    dropoffLng={dropoffCoords.lng}
                     className="w-full h-full"
                   />
                   <div className="absolute bottom-2 left-2 bg-slate-950/90 border border-slate-800 rounded-lg px-2.5 py-1 text-[10px] font-mono text-slate-300 backdrop-blur-sm z-[1000]">
@@ -1081,7 +1086,7 @@ export default function BranchKiosk() {
                     onClick={() => setStandbyDriver("auto")}
                     className={`p-3 rounded-xl border cursor-pointer transition-all ${
                       standbyDriver === "auto"
-                        ? "bg-blue-600/10 border-blue-500 text-white"
+                        ? "bg-blue-600/10 border-eco text-white"
                         : "bg-slate-900 border-slate-800 text-slate-400"
                     }`}
                   >
@@ -1097,7 +1102,7 @@ export default function BranchKiosk() {
                     onClick={() => setStandbyDriver("broadcast")}
                     className={`p-3 rounded-xl border cursor-pointer transition-all ${
                       standbyDriver === "broadcast"
-                        ? "bg-blue-600/10 border-blue-500 text-white"
+                        ? "bg-blue-600/10 border-eco text-white"
                         : "bg-slate-900 border-slate-800 text-slate-400"
                     }`}
                   >
@@ -1181,13 +1186,13 @@ export default function BranchKiosk() {
             {/* Printable Physical Boarding Pass (Thermal / Receipt Style) */}
             <div
               ref={slipRef}
-              className="bg-white text-slate-950 rounded-3xl p-8 shadow-2xl border-4 border-slate-200 relative overflow-hidden font-sans print:shadow-none print:border-none print:p-4"
+              className="bg-navy border-eco/10 text-slate-950 rounded-3xl p-8 shadow-2xl border-4 border-slate-800 relative overflow-hidden font-sans print:shadow-none print:border-none print:p-4"
               id="printable-boarding-slip"
             >
               {/* Slip Header */}
-              <div className="border-b-2 border-dashed border-slate-300 pb-5 text-center space-y-1">
+              <div className="border-b-2 border-dashed border-slate-700 pb-5 text-center space-y-1">
                 <div className="flex items-center justify-center gap-2">
-                  <span className="text-2xl font-black tracking-tight text-blue-700">STREETIFY</span>
+                  <span className="text-2xl font-black tracking-tight text-eco">STREETIFY</span>
                   <span className="bg-blue-100 text-blue-800 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">
                     BRANCH TERMINAL PASS
                   </span>
@@ -1201,26 +1206,26 @@ export default function BranchKiosk() {
               </div>
 
               {/* High-Visibility Booking Ref & Security Boarding PIN */}
-              <div className="py-4 my-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between px-6">
+              <div className="py-4 my-3 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between px-6">
                 <div>
                   <span className="text-[10px] font-mono text-slate-500 uppercase block">Booking Reference</span>
-                  <span className="text-lg font-black font-mono tracking-wider text-slate-900">
+                  <span className="text-lg font-black font-mono tracking-wider text-white">
                     {confirmedTrip.bookingRef}
                   </span>
                 </div>
                 <div className="text-right">
                   <span className="text-[10px] font-mono text-slate-500 uppercase block">Driver Verification PIN</span>
-                  <span className="text-2xl font-black font-mono tracking-widest text-blue-700 bg-blue-50 px-3 py-1 rounded-xl border border-blue-200 inline-block">
+                  <span className="text-2xl font-black font-mono tracking-widest text-eco bg-eco-dark/20 px-3 py-1 rounded-xl border border-blue-200 inline-block">
                     {confirmedTrip.boardingPin}
                   </span>
                 </div>
               </div>
 
               {/* Journey Details */}
-              <div className="space-y-3 py-3 border-b-2 border-dashed border-slate-300 text-xs font-mono">
+              <div className="space-y-3 py-3 border-b-2 border-dashed border-slate-700 text-xs font-mono">
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase">Passenger:</span>
-                  <span className="font-bold text-slate-900 text-sm">
+                  <span className="font-bold text-white text-sm">
                     {confirmedTrip.passengerName} ({confirmedTrip.passengerPhone})
                   </span>
                 </div>
@@ -1234,13 +1239,13 @@ export default function BranchKiosk() {
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[10px] uppercase">Vehicle Tier:</span>
-                    <span className="font-bold text-slate-900">{confirmedTrip.rideType}</span>
+                    <span className="font-bold text-white">{confirmedTrip.rideType}</span>
                   </div>
                 </div>
 
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase">Destination:</span>
-                  <span className="font-bold text-slate-900">{confirmedTrip.dropoffAddress}</span>
+                  <span className="font-bold text-white">{confirmedTrip.dropoffAddress}</span>
                 </div>
               </div>
 
@@ -1257,15 +1262,15 @@ export default function BranchKiosk() {
 
                 <div className="flex items-center justify-between text-xs">
                   <div>
-                    <span className="font-black text-slate-900 text-sm block">
+                    <span className="font-black text-white text-sm block">
                       {confirmedTrip.driverName || "Kamal Perera"}
                     </span>
-                    <span className="text-[11px] font-mono text-slate-600">
+                    <span className="text-[11px] font-mono text-slate-300">
                       {confirmedTrip.vehicleModel || "Toyota Prius"} · Rating: ⭐ {confirmedTrip.driverRating || 4.9}
                     </span>
                   </div>
                   <div className="text-right">
-                    <span className="text-base font-black font-mono text-slate-900 bg-white px-3 py-1 rounded-lg border border-amber-300 block">
+                    <span className="text-base font-black font-mono text-white bg-navy border-eco/10 px-3 py-1 rounded-lg border border-amber-300 block">
                       {confirmedTrip.vehiclePlate || "CAB-1234"}
                     </span>
                     <span className="text-[10px] text-slate-500 font-mono">
@@ -1276,10 +1281,10 @@ export default function BranchKiosk() {
               </div>
 
               {/* Payment Receipt Seal */}
-              <div className="py-3 border-b-2 border-dashed border-slate-300 flex items-center justify-between text-xs font-mono">
+              <div className="py-3 border-b-2 border-dashed border-slate-700 flex items-center justify-between text-xs font-mono">
                 <div>
                   <span className="text-[10px] text-slate-400 uppercase block">Settlement Method:</span>
-                  <span className="font-bold text-slate-800">
+                  <span className="font-bold text-slate-100">
                     {confirmedTrip.paymentMethod === "CASH_COUNTER"
                       ? "CASH OVER COUNTER"
                       : confirmedTrip.paymentMethod === "CARD_COUNTER"
@@ -1290,7 +1295,7 @@ export default function BranchKiosk() {
 
                 <div className="text-right">
                   <span className="text-[10px] text-slate-400 uppercase block">Total Amount Paid:</span>
-                  <span className="text-lg font-black font-mono text-slate-900">
+                  <span className="text-lg font-black font-mono text-white">
                     LKR {confirmedTrip.totalFare?.toLocaleString()}.00
                   </span>
                 </div>
@@ -1314,7 +1319,7 @@ export default function BranchKiosk() {
 
       {/* ── Slide-over Drawer: Recent Counter Bookings ── */}
       {showRecentDrawer && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex justify-end animate-fadeIn">
+        <div className="fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-sm flex justify-end animate-fadeIn">
           <div className="w-full max-w-md bg-slate-900 border-l border-slate-800 p-6 flex flex-col h-full shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
               <div className="flex items-center gap-2">

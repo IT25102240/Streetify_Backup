@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { NotificationService, AppNotification } from "../services/notificationService";
 
 export default function NotificationCenter() {
@@ -69,9 +70,9 @@ export default function NotificationCenter() {
         </button>
 
         {/* ── Dropdown Drawer ── */}
-        {isOpen && (
+        {isOpen && createPortal(
           <div
-            className="absolute right-0 mt-2 w-80 sm:w-96 bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl z-[999] overflow-hidden flex flex-col text-slate-100"
+            className="fixed top-16 right-4 w-80 sm:w-96 bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl z-[9999] overflow-hidden flex flex-col text-slate-100"
             style={{ maxHeight: "480px" }}
           >
             {/* Header */}
@@ -153,7 +154,8 @@ export default function NotificationCenter() {
             <div className="px-4 py-2 border-t border-slate-800 bg-slate-950/50 text-[10px] text-slate-500 text-center font-mono">
               Live Mock Gateway: SMS, WebPush & Email Services
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
 

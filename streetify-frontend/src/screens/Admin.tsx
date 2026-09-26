@@ -5,11 +5,98 @@ import BranchKiosk from "./BranchKiosk";
 
 type AdminTab = "analytics" | "users" | "drivers" | "bookings" | "driver-trips" | "driver-docs" | "payments" | "reviews" | "cancellation" | "export" | "rbac" | "system" | "branch-kiosk";
 
+export type FormField = {
+  id: string;
+  label: string;
+  type?: "text" | "number" | "select";
+  options?: string[];
+  defaultValue?: string | number;
+};
+
+export const openAdminForm = (title: string, fields: FormField[]): Promise<Record<string, any> | null> => {
+  return new Promise((resolve) => {
+    const handler = (e: any) => {
+      resolve(e.detail.data);
+      window.removeEventListener('admin-form-close', handler);
+    };
+    window.addEventListener('admin-form-close', handler);
+    window.dispatchEvent(new CustomEvent('admin-form-open', { detail: { title, fields } }));
+  });
+};
+
+function AdminFormOverlay() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [fields, setFields] = useState<FormField[]>([]);
+  const [formData, setFormData] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    const handleOpen = (e: any) => {
+      setTitle(e.detail.title);
+      setFields(e.detail.fields);
+      const initData: Record<string, any> = {};
+      e.detail.fields.forEach((f: FormField) => {
+        initData[f.id] = f.defaultValue !== undefined ? f.defaultValue : "";
+      });
+      setFormData(initData);
+      setIsOpen(true);
+    };
+    window.addEventListener('admin-form-open', handleOpen);
+    return () => window.removeEventListener('admin-form-open', handleOpen);
+  }, []);
+
+  if (!isOpen) return null;
+
+  const handleClose = (data: any) => {
+    setIsOpen(false);
+    window.dispatchEvent(new CustomEvent('admin-form-close', { detail: { data } }));
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-navy border border-eco/30 rounded-2xl shadow-2xl shadow-eco/10 w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="px-6 py-4 border-b border-eco/20 bg-eco-dark/10">
+          <h2 className="text-lg font-black text-white">{title}</h2>
+        </div>
+        <div className="p-6 flex flex-col gap-4 overflow-y-auto max-h-[60vh]">
+          {fields.map(f => (
+            <div key={f.id} className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">{f.label}</label>
+              {f.type === "select" ? (
+                <select
+                  className="bg-navy-dark border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-eco focus:ring-1 focus:ring-eco outline-none"
+                  value={formData[f.id]}
+                  onChange={e => setFormData({ ...formData, [f.id]: e.target.value })}
+                >
+                  <option value="">-- Select --</option>
+                  {f.options?.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              ) : (
+                <input
+                  type={f.type || "text"}
+                  className="bg-navy-dark border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-eco focus:ring-1 focus:ring-eco outline-none placeholder-slate-600"
+                  value={formData[f.id]}
+                  onChange={e => setFormData({ ...formData, [f.id]: e.target.value })}
+                  placeholder={`Enter ${f.label.toLowerCase()}`}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="px-6 py-4 border-t border-eco/20 bg-slate-900/50 flex justify-end gap-3">
+          <button onClick={() => handleClose(null)} className="px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Cancel</button>
+          <button onClick={() => handleClose(formData)} className="px-5 py-2 rounded-xl text-sm font-bold bg-eco hover:bg-eco-glow text-white shadow-lg shadow-eco/20 transition-all">Save Data</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const adminRole = localStorage.getItem("admin_role") || "UNKNOWN";
   const adminEmail = localStorage.getItem("user_name") || "Admin";
 
-  const allowedTabs: { key: AdminTab; icon: string; label: string }[] = [];
+  const allowedTabs: { key: string; icon: string; label: string; external?: string }[] = [];
   // Analytics dashboard — visible to all admin roles
   allowedTabs.push({ key: "analytics", icon: "📊", label: "Dashboard" });
 
@@ -20,8 +107,8 @@ export default function AdminDashboard() {
   if (adminRole === "SUPER_ADMIN" || adminRole === "BOOKING_MGMT") {
     allowedTabs.push({ key: "bookings", icon: "🗺️", label: "Booking Management" });
   }
-  // Official Branch Walk-in Counter & Commuter Kiosk Admin Module
-  if (adminRole === "SUPER_ADMIN" || adminRole === "BOOKING_MGMT" || adminRole === "USER_MGMT" || adminRole === "UNKNOWN") {
+  // Official Branch Walk-in Counter & Telephone Booking Desk
+  if (adminRole === "SUPER_ADMIN" || adminRole === "BOOKING_MGMT" || adminRole === "USER_MGMT" || adminRole === "REVIEW_MGMT" || adminRole === "UNKNOWN") {
     allowedTabs.push({ key: "branch-kiosk", icon: "🏢", label: "Branch Walk-in Desk" });
   }
   if (adminRole === "SUPER_ADMIN" || adminRole === "DRIVER_MGMT") {
@@ -36,6 +123,7 @@ export default function AdminDashboard() {
   }
   if (adminRole === "SUPER_ADMIN" || adminRole === "REVIEW_MGMT") {
     allowedTabs.push({ key: "reviews", icon: "⭐", label: "Review Management" });
+    allowedTabs.push({ key: "disputes", icon: "🎧", label: "Dispute Tickets", external: "support" });
   }
   if (adminRole === "SUPER_ADMIN") {
     allowedTabs.push({ key: "system", icon: "🛡️", label: "System Control" });
@@ -44,46 +132,53 @@ export default function AdminDashboard() {
   const [tab, setTab] = useState<AdminTab>(allowedTabs[0]?.key || "system");
 
   return (
-    <div className="min-h-screen flex bg-slate-100">
-      <aside className="w-56 bg-[#1e3a8a] flex flex-col flex-none min-h-screen shadow-xl">
-        <div className="px-4 py-5 border-b border-blue-800/60">
+    <div className="min-h-screen flex relative z-0" >
+      <AdminFormOverlay />
+      <div className="absolute inset-0 -z-10 bg-[url('/hero-bg.jpg')] bg-cover bg-center opacity-30" />
+      <div className="absolute inset-0 -z-10 bg-slate-950/70 backdrop-blur-[40px]" />
+      <aside className="w-56 flex flex-col flex-none min-h-screen shadow-xl" style={{ background: "#041208", borderRight: "1px solid rgba(34,197,94,0.15)" }}>
+        <div className="px-4 py-5 border-b" style={{ borderColor: "rgba(34,197,94,0.15)" }}>
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-              <span className="text-xl">🚖</span>
-            </div>
+            <img
+              src="/logo.png"
+              alt="Streetify Logo"
+              className="w-9 h-9 rounded-xl flex-none"
+              style={{ boxShadow: "0 0 16px rgba(34,197,94,0.35)" }}
+            />
             <div>
-              <p className="font-extrabold text-white text-sm leading-tight">Streetify</p>
-              <p className="text-blue-400 text-[11px] font-mono">Admin Console</p>
+              <p className="font-extrabold text-white text-sm leading-tight" style={{ fontFamily: "Outfit, sans-serif" }}>Streetify</p>
+              <p className="text-[11px] font-mono tracking-widest" style={{ color: "#22c55e" }}>Admin Console</p>
             </div>
           </div>
         </div>
         <nav className="flex-1 p-3 space-y-1">
-          {allowedTabs.map(({ key, icon, label }) => (
-            <button key={key} onClick={() => setTab(key)}
+          {allowedTabs.map(({ key, icon, label, external }) => (
+            <button key={key} onClick={() => external ? window.dispatchEvent(new CustomEvent("navigate", { detail: { screen: external } })) : setTab(key as AdminTab)}
               className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all text-left
-                ${tab === key
-                  ? "bg-blue-600/80 text-white shadow-sm"
-                  : "text-blue-200 hover:bg-blue-800/60 hover:text-white"}`}>
+                ${tab === key && !external
+                  ? "bg-gradient-to-r from-eco-dark to-eco text-white shadow-md shadow-eco/25"
+                  : "text-slate-400 hover:bg-[rgba(34,197,94,0.08)] hover:text-white"}`}>
               <span>{icon}</span>
               <span className="flex-1 truncate text-sm">{label}</span>
+              {external && <span className="opacity-50 text-[10px]">↗</span>}
             </button>
           ))}
         </nav>
-        <div className="p-4 border-t border-blue-800/60">
+        <div className="p-4 border-t" style={{ borderColor: "rgba(34,197,94,0.15)" }}>
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-extrabold text-white text-xs">{adminRole.substring(0,2)}</div>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center font-extrabold text-white text-xs" style={{ background: "linear-gradient(135deg, #16a34a, #22c55e)" }}>{adminRole.substring(0,2)}</div>
             <div className="min-w-0">
               <p className="text-white text-xs font-extrabold truncate">{adminEmail}</p>
-              <p className="text-blue-400 text-[10px] font-mono truncate">{adminRole}</p>
+              <p className="text-[10px] font-mono truncate" style={{ color: "#22c55e" }}>{adminRole}</p>
             </div>
           </div>
         </div>
       </aside>
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-        <header className="bg-white border-b border-slate-200 px-6 py-3.5 flex items-center justify-between flex-none shadow-sm">
+        <header className="bg-navy border-eco/10 border-b border-slate-800 px-6 py-3.5 flex items-center justify-between flex-none shadow-sm">
           <div>
-            <h1 className="font-extrabold text-slate-900 text-lg leading-tight">
+            <h1 className="font-extrabold text-white text-lg leading-tight">
               {allowedTabs.find(t => t.key === tab)?.label || "Dashboard"}
             </h1>
             <p className="text-[11px] text-slate-400 font-mono mt-0.5">
@@ -132,22 +227,30 @@ function UsersPanel() {
   useEffect(() => { fetchUsers(); }, []);
 
   const handleAdd = async () => {
-    const firstName = prompt("First Name:"); if (!firstName) return;
-    const lastName = prompt("Last Name:"); if (!lastName) return;
-    const email = prompt("Email:"); if (!email) return;
-    const phone = prompt("Phone:"); if (!phone) return;
+    const data = await openAdminForm("Add New User", [
+      { id: "firstName", label: "First Name" },
+      { id: "lastName", label: "Last Name" },
+      { id: "email", label: "Email" },
+      { id: "phone", label: "Phone" }
+    ]);
+    if (!data || !data.firstName || !data.lastName || !data.email) return;
+
     try {
-      await apiClient('/module-admin/users', { method: 'POST', body: JSON.stringify({ firstName, lastName, email, phone }) });
+      await apiClient('/module-admin/users', { method: 'POST', body: JSON.stringify(data) });
       fetchUsers();
     } catch (e) { alert("Error: " + e); }
   };
 
   const handleEdit = async (u: any) => {
-    const firstName = prompt("Edit First Name:", u.firstName); if (!firstName) return;
-    const lastName = prompt("Edit Last Name:", u.lastName); if (!lastName) return;
-    const phone = prompt("Edit Phone:", u.phone); if (!phone) return;
+    const data = await openAdminForm("Edit User Profile", [
+      { id: "firstName", label: "First Name", defaultValue: u.firstName },
+      { id: "lastName", label: "Last Name", defaultValue: u.lastName },
+      { id: "phone", label: "Phone", defaultValue: u.phone }
+    ]);
+    if (!data) return;
+
     try {
-      await apiClient(`/module-admin/users/${u.id}`, { method: 'PUT', body: JSON.stringify({ firstName, lastName, phone, active: u.active }) });
+      await apiClient(`/module-admin/users/${u.id}`, { method: 'PUT', body: JSON.stringify(data) });
       fetchUsers();
     } catch (e) { alert("Error: " + e); }
   };
@@ -166,13 +269,13 @@ function UsersPanel() {
   return (
     <Card>
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <p className="font-extrabold text-slate-800">User Management</p>
+        <p className="font-extrabold text-slate-100">User Management</p>
         <Btn size="sm" onClick={handleAdd}>+ Add User</Btn>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
+            <tr className="bg-slate-950 border-b border-slate-800">
               <th className="px-4 py-3 text-left">ID</th>
               <th className="px-4 py-3 text-left">Name</th>
               <th className="px-4 py-3 text-left">Email</th>
@@ -183,7 +286,7 @@ function UsersPanel() {
           </thead>
           <tbody>
             {users.map(u => (
-              <tr key={u.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+              <tr key={u.id} className="border-b border-slate-100 hover:bg-slate-950 transition-colors">
                 <td className="px-4 py-3">{u.id}</td>
                 <td className="px-4 py-3 font-bold">{u.firstName} {u.lastName}</td>
                 <td className="px-4 py-3">{u.email}</td>
@@ -218,21 +321,29 @@ function BookingsPanel() {
   useEffect(() => { fetchTrips(); }, []);
 
   const handleAdd = async () => {
-    const pickupAddress = prompt("Pickup Address:"); if (!pickupAddress) return;
-    const dropoffAddress = prompt("Dropoff Address:"); if (!dropoffAddress) return;
+    const data = await openAdminForm("Create New Booking", [
+      { id: "pickupAddress", label: "Pickup Address" },
+      { id: "dropoffAddress", label: "Dropoff Address" }
+    ]);
+    if (!data || !data.pickupAddress || !data.dropoffAddress) return;
+
     try {
-      await apiClient('/module-admin/bookings', { method: 'POST', body: JSON.stringify({ pickupAddress, dropoffAddress }) });
+      await apiClient('/module-admin/bookings', { method: 'POST', body: JSON.stringify(data) });
       fetchTrips();
     } catch (e) { alert("Error: " + e); }
   };
 
   const handleEdit = async (t: any) => {
-    const pickupAddress = prompt("Edit Pickup Address:", t.pickupAddress); if (pickupAddress === null) return;
-    const dropoffAddress = prompt("Edit Dropoff Address:", t.dropoffAddress); if (dropoffAddress === null) return;
-    const status = prompt("Update Status (REQUESTED, ACTIVE, COMPLETED, CANCELLED):", t.status); if (status === null) return;
-    const estimatedFare = prompt("Estimated Fare:", t.totalFare || 0);
+    const data = await openAdminForm("Edit Booking Details", [
+      { id: "pickupAddress", label: "Pickup Address", defaultValue: t.pickupAddress },
+      { id: "dropoffAddress", label: "Dropoff Address", defaultValue: t.dropoffAddress },
+      { id: "status", label: "Status", type: "select", options: ["REQUESTED", "ACTIVE", "COMPLETED", "CANCELLED"], defaultValue: t.status },
+      { id: "estimatedFare", label: "Estimated Fare (LKR)", type: "number", defaultValue: t.totalFare || 0 }
+    ]);
+    if (!data) return;
+
     try {
-      await apiClient(`/module-admin/bookings/${t.id}`, { method: 'PUT', body: JSON.stringify({ pickupAddress, dropoffAddress, status, estimatedFare: Number(estimatedFare) }) });
+      await apiClient(`/module-admin/bookings/${t.id}`, { method: 'PUT', body: JSON.stringify({ ...data, estimatedFare: Number(data.estimatedFare) }) });
       fetchTrips();
     } catch (e) { alert("Error: " + e); }
   };
@@ -247,13 +358,13 @@ function BookingsPanel() {
   return (
     <Card>
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <p className="font-extrabold text-slate-800">Booking Management</p>
+        <p className="font-extrabold text-slate-100">Booking Management</p>
         <Btn size="sm" onClick={handleAdd}>+ Add Booking</Btn>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
+            <tr className="bg-slate-950 border-b border-slate-800">
               <th className="px-4 py-3 text-left">Trip ID</th>
               <th className="px-4 py-3 text-left">Pickup</th>
               <th className="px-4 py-3 text-left">Dropoff</th>
@@ -263,7 +374,7 @@ function BookingsPanel() {
           </thead>
           <tbody>
             {trips.map(t => (
-              <tr key={t.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+              <tr key={t.id} className="border-b border-slate-100 hover:bg-slate-950 transition-colors">
                 <td className="px-4 py-3 font-mono">{t.id}</td>
                 <td className="px-4 py-3 max-w-xs truncate">{t.pickupAddress}</td>
                 <td className="px-4 py-3 max-w-xs truncate">{t.dropoffAddress}</td>
@@ -295,16 +406,19 @@ function DriverTripsPanel() {
   useEffect(() => { fetchTrips(); }, []);
 
   const handleAdd = async () => {
-    const pickupAddress = prompt("Enter Pickup Address:", "Dummy Pickup Address"); if (!pickupAddress) return;
-    const dropoffAddress = prompt("Enter Dropoff Address:", "Dummy Dropoff Address"); if (!dropoffAddress) return;
-    const driverId = prompt("Enter Driver ID (Optional):");
+    const data = await openAdminForm("Add New Trip", [
+      { id: "pickupAddress", label: "Pickup Address", defaultValue: "Dummy Pickup Address" },
+      { id: "dropoffAddress", label: "Dropoff Address", defaultValue: "Dummy Dropoff Address" },
+      { id: "driverId", label: "Driver ID (Optional)", type: "number" }
+    ]);
+    if (!data || !data.pickupAddress || !data.dropoffAddress) return;
     try {
       await apiClient('/module-admin/driver-trips', { 
         method: 'POST', 
         body: JSON.stringify({ 
-          pickupAddress, 
-          dropoffAddress, 
-          driverId: driverId ? Number(driverId) : null 
+          pickupAddress: data.pickupAddress, 
+          dropoffAddress: data.dropoffAddress, 
+          driverId: data.driverId ? Number(data.driverId) : null 
         }) 
       });
       fetchTrips();
@@ -312,12 +426,15 @@ function DriverTripsPanel() {
   };
 
   const handleEdit = async (t: any) => {
-    const pickupAddress = prompt("Edit Pickup Address:", t.pickupAddress || "Dummy Pickup Address"); if (!pickupAddress) return;
-    const dropoffAddress = prompt("Edit Dropoff Address:", t.dropoffAddress || "Dummy Dropoff Address"); if (!dropoffAddress) return;
+    const data = await openAdminForm("Edit Trip Details", [
+      { id: "pickupAddress", label: "Pickup Address", defaultValue: t.pickupAddress || "Dummy Pickup Address" },
+      { id: "dropoffAddress", label: "Dropoff Address", defaultValue: t.dropoffAddress || "Dummy Dropoff Address" }
+    ]);
+    if (!data) return;
     try {
       await apiClient(`/module-admin/driver-trips/${t.id}`, { 
         method: 'PUT', 
-        body: JSON.stringify({ pickupAddress, dropoffAddress }) 
+        body: JSON.stringify(data) 
       });
       fetchTrips();
     } catch (e) { alert("Error: " + e); }
@@ -332,21 +449,25 @@ function DriverTripsPanel() {
   };
 
   const assignDriver = async (t: any) => {
-    const driverId = prompt("Assign Driver ID:", t.driver?.id || "");
-    if (!driverId) return;
+    const data = await openAdminForm("Assign Driver", [
+      { id: "driverId", label: "Driver ID", type: "number", defaultValue: t.driver?.id || "" }
+    ]);
+    if (!data || !data.driverId) return;
 
     try {
-      await apiClient(`/module-admin/driver-trips/${t.id}`, { method: 'PUT', body: JSON.stringify({ driverId: Number(driverId) }) });
+      await apiClient(`/module-admin/driver-trips/${t.id}`, { method: 'PUT', body: JSON.stringify({ driverId: Number(data.driverId) }) });
       fetchTrips();
     } catch (e) { alert("Error: " + e); }
   };
 
   const updateStatus = async (t: any) => {
-    const status = prompt("Update Status (REQUESTED, ACCEPTED, IN_PROGRESS, COMPLETED, CANCELLED):", t.status);
-    if (!status) return;
+    const data = await openAdminForm("Update Status", [
+      { id: "status", label: "Status", type: "select", options: ["REQUESTED", "ACCEPTED", "IN_PROGRESS", "COMPLETED", "CANCELLED"], defaultValue: t.status }
+    ]);
+    if (!data || !data.status) return;
 
     try {
-      await apiClient(`/module-admin/driver-trips/${t.id}`, { method: 'PUT', body: JSON.stringify({ status }) });
+      await apiClient(`/module-admin/driver-trips/${t.id}`, { method: 'PUT', body: JSON.stringify({ status: data.status }) });
       fetchTrips();
     } catch (e) { alert("Error: " + e); }
   };
@@ -361,13 +482,13 @@ function DriverTripsPanel() {
   return (
     <Card>
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <p className="font-extrabold text-slate-800">Driver Trip Management</p>
+        <p className="font-extrabold text-slate-100">Driver Trip Management</p>
         <Btn size="sm" onClick={handleAdd}>+ Add Trip</Btn>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
+            <tr className="bg-slate-950 border-b border-slate-800">
               <th className="px-4 py-3 text-left">Trip ID</th>
               <th className="px-4 py-3 text-left">Driver</th>
               <th className="px-4 py-3 text-left">Status</th>
@@ -376,7 +497,7 @@ function DriverTripsPanel() {
           </thead>
           <tbody>
             {trips.map(t => (
-              <tr key={t.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+              <tr key={t.id} className="border-b border-slate-100 hover:bg-slate-950 transition-colors">
                 <td className="px-4 py-3 font-mono">{t.id}</td>
                 <td className="px-4 py-3 font-bold">{t.driver ? `${t.driver.firstName} ${t.driver.lastName}` : "Unassigned"}</td>
                 <td className="px-4 py-3"><Pill>{t.status}</Pill></td>
@@ -414,21 +535,27 @@ function PaymentsPanel() {
   useEffect(() => { fetchPayments(); }, []);
 
   const handleAdd = async () => {
-    const tripId = prompt("Enter Trip ID:"); if (!tripId) return;
-    const grossAmount = prompt("Amount (LKR):"); if (!grossAmount) return;
-    const paymentMethod = prompt("Method (CASH, CARD):", "CASH"); if (!paymentMethod) return;
+    const data = await openAdminForm("Add Payment", [
+      { id: "tripId", label: "Trip ID", type: "number" },
+      { id: "grossAmount", label: "Amount (LKR)", type: "number" },
+      { id: "paymentMethod", label: "Method", type: "select", options: ["CASH", "CARD"], defaultValue: "CASH" }
+    ]);
+    if (!data || !data.tripId || !data.grossAmount) return;
     try {
-      await apiClient('/module-admin/payments', { method: 'POST', body: JSON.stringify({ tripId: Number(tripId), grossAmount: Number(grossAmount), paymentMethod }) });
+      await apiClient('/module-admin/payments', { method: 'POST', body: JSON.stringify(data) });
       fetchPayments();
     } catch (e) { alert("Error: " + e); }
   };
 
   const handleEdit = async (p: any) => {
-    const grossAmount = prompt("Edit Gross Amount (LKR):", p.grossAmount); if (!grossAmount) return;
-    const commission = prompt("Edit Commission (LKR):", p.platformCommission); if (!commission) return;
-    const driverNet = prompt("Edit Driver Net (LKR):", p.driverNet); if (!driverNet) return;
+    const data = await openAdminForm("Edit Payment", [
+      { id: "grossAmount", label: "Gross Amount (LKR)", type: "number", defaultValue: p.grossAmount },
+      { id: "commission", label: "Commission (LKR)", type: "number", defaultValue: p.platformCommission },
+      { id: "driverNet", label: "Driver Net (LKR)", type: "number", defaultValue: p.driverNet }
+    ]);
+    if (!data) return;
     try {
-      await apiClient(`/module-admin/payments/${p.id}`, { method: 'PUT', body: JSON.stringify({ grossAmount: Number(grossAmount), platformCommission: Number(commission), driverNet: Number(driverNet) }) });
+      await apiClient(`/module-admin/payments/${p.id}`, { method: 'PUT', body: JSON.stringify({ grossAmount: Number(data.grossAmount), platformCommission: Number(data.commission), driverNet: Number(data.driverNet) }) });
       fetchPayments();
     } catch (e) { alert("Error: " + e); }
   };
@@ -450,13 +577,13 @@ function PaymentsPanel() {
   return (
     <Card>
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <p className="font-extrabold text-slate-800">Payment Management</p>
+        <p className="font-extrabold text-slate-100">Payment Management</p>
         <Btn size="sm" onClick={handleAdd}>+ Add Payment</Btn>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
+            <tr className="bg-slate-950 border-b border-slate-800">
               <th className="px-4 py-3 text-left">ID</th>
               <th className="px-4 py-3 text-left">Gross Amount</th>
               <th className="px-4 py-3 text-left">Commission</th>
@@ -467,7 +594,7 @@ function PaymentsPanel() {
           </thead>
           <tbody>
             {payments.map(p => (
-              <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+              <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-950 transition-colors">
                 <td className="px-4 py-3 font-mono">{p.id}</td>
                 <td className="px-4 py-3">Rs {p.grossAmount}</td>
                 <td className="px-4 py-3">Rs {p.platformCommission}</td>
@@ -500,24 +627,9 @@ function ReviewsPanel() {
 
   useEffect(() => { fetchReviews(); }, []);
 
-  const handleAdd = async () => {
-    const tripId = prompt("Enter Trip ID:"); if (!tripId) return;
-    const rating = prompt("Rating (1-5):"); if (!rating) return;
-    const comment = prompt("Comment:"); if (!comment) return;
-    try {
-      await apiClient('/module-admin/reviews', { method: 'POST', body: JSON.stringify({ tripId: Number(tripId), rating: Number(rating), comment }) });
-      fetchReviews();
-    } catch (e) { alert("Error: " + e); }
-  };
 
-  const handleEdit = async (r: any) => {
-    const rating = prompt("Edit Rating (1-5):", r.rating); if (!rating) return;
-    const comment = prompt("Edit Comment:", r.comment); if (!comment) return;
-    try {
-      await apiClient(`/module-admin/reviews/${r.id}`, { method: 'PUT', body: JSON.stringify({ rating: Number(rating), comment }) });
-      fetchReviews();
-    } catch (e) { alert("Error: " + e); }
-  };
+
+
 
   const deleteReview = async (id: number) => {
     try {
@@ -529,13 +641,12 @@ function ReviewsPanel() {
   return (
     <Card>
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <p className="font-extrabold text-slate-800">Review Management</p>
-        <Btn size="sm" onClick={handleAdd}>+ Add Review</Btn>
+        <p className="font-extrabold text-slate-100">Review Management</p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
+            <tr className="bg-slate-950 border-b border-slate-800">
               <th className="px-4 py-3 text-left">ID</th>
               <th className="px-4 py-3 text-left">Rating</th>
               <th className="px-4 py-3 text-left">Comment</th>
@@ -544,12 +655,11 @@ function ReviewsPanel() {
           </thead>
           <tbody>
             {reviews.map(r => (
-              <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+              <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-950 transition-colors">
                 <td className="px-4 py-3 font-mono">{r.id}</td>
                 <td className="px-4 py-3 text-lg font-mono">{r.rating} ⭐</td>
                 <td className="px-4 py-3 max-w-sm truncate">{r.comment}</td>
                 <td className="px-4 py-3 flex gap-2">
-                  <Btn size="xs" v="secondary" onClick={() => handleEdit(r)}>Edit</Btn>
                   <Btn size="xs" v="danger" onClick={() => deleteReview(r.id)}>Delete</Btn>
                 </td>
               </tr>
@@ -585,19 +695,25 @@ function SystemPanel() {
   useEffect(() => { fetchAudit(); }, []);
 
   const handleAdd = async () => {
-    const actionType = prompt("Enter Action Type (e.g. MANUAL_ENTRY):", "MANUAL_ENTRY"); if (!actionType) return;
-    const description = prompt("Enter Description:"); if (!description) return;
+    const data = await openAdminForm("Add Audit Log", [
+      { id: "actionType", label: "Action Type (e.g. MANUAL_ENTRY)", defaultValue: "MANUAL_ENTRY" },
+      { id: "description", label: "Description" }
+    ]);
+    if (!data || !data.actionType || !data.description) return;
     try {
-      await apiClient('/module-admin/audit', { method: 'POST', body: JSON.stringify({ actionType, description }) });
+      await apiClient('/module-admin/audit', { method: 'POST', body: JSON.stringify(data) });
       fetchAudit();
     } catch (e) { alert("Error: " + e); }
   };
 
   const handleEdit = async (log: any) => {
-    const actionType = prompt("Edit Action Type:", log.actionType); if (!actionType) return;
-    const description = prompt("Edit Description:", log.description); if (!description) return;
+    const data = await openAdminForm("Edit Audit Log", [
+      { id: "actionType", label: "Action Type", defaultValue: log.actionType },
+      { id: "description", label: "Description", defaultValue: log.description }
+    ]);
+    if (!data) return;
     try {
-      await apiClient(`/module-admin/audit/${log.id}`, { method: 'PUT', body: JSON.stringify({ actionType, description }) });
+      await apiClient(`/module-admin/audit/${log.id}`, { method: 'PUT', body: JSON.stringify(data) });
       fetchAudit();
     } catch (e) { alert("Error: " + e); }
   };
@@ -613,7 +729,7 @@ function SystemPanel() {
     <Card>
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
         <div>
-          <p className="font-extrabold text-slate-800">System Audit Log (CRUD Mode)</p>
+          <p className="font-extrabold text-slate-100">System Audit Log (CRUD Mode)</p>
           <p className="text-[11px] text-slate-400 font-mono mt-0.5">
             GET /api/module-admin/audit?limit=50 · CRUD Enabled for Evaluation
           </p>
@@ -625,10 +741,10 @@ function SystemPanel() {
       </div>
       <div className="divide-y divide-slate-100">
         {audit.map((log, i) => (
-          <div key={i} className="px-5 py-4 flex items-start gap-4 hover:bg-slate-50 transition-colors">
+          <div key={i} className="px-5 py-4 flex items-start gap-4 hover:bg-slate-950 transition-colors">
             <div className={`w-2.5 h-2.5 rounded-full mt-1.5 flex-none ${AUDIT_CLR[log.actionType] ?? "bg-slate-400"}`} />
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-slate-800 font-semibold leading-snug">{log.description}</p>
+              <p className="text-sm text-slate-100 font-semibold leading-snug">{log.description}</p>
               <p className="text-[11px] text-slate-400 font-mono mt-0.5">{log.performedByEmail} • {log.actionType}</p>
             </div>
             <p className="text-[11px] text-slate-400 font-mono flex-none whitespace-nowrap pt-1">
@@ -659,11 +775,14 @@ function DriverDocsPanel() {
   useEffect(() => { fetchDrivers(); }, []);
 
   const handleAdd = async () => {
-    const driverId = prompt("Enter Driver ID to verify:"); if (!driverId) return;
-    const nic = prompt("Enter NIC (Optional):");
-    const license = prompt("Enter License (Optional):");
+    const data = await openAdminForm("Add Driver Verification", [
+      { id: "driverId", label: "Driver ID", type: "number" },
+      { id: "nic", label: "NIC (Optional)" },
+      { id: "license", label: "License (Optional)" }
+    ]);
+    if (!data || !data.driverId) return;
     try {
-      await apiClient('/module-admin/driver-docs', { method: 'POST', body: JSON.stringify({ driverId: Number(driverId), nic, license }) });
+      await apiClient('/module-admin/driver-docs', { method: 'POST', body: JSON.stringify({ driverId: Number(data.driverId), nic: data.nic, license: data.license }) });
       fetchDrivers();
     } catch (e) { alert("Error: " + e); }
   };
@@ -700,13 +819,13 @@ function DriverDocsPanel() {
   return (
     <Card>
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <p className="font-extrabold text-slate-800">Pending Driver Verifications</p>
+        <p className="font-extrabold text-slate-100">Pending Driver Verifications</p>
         <Btn size="sm" onClick={handleAdd}>+ Add Verification</Btn>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
+            <tr className="bg-slate-950 border-b border-slate-800">
               <th className="px-4 py-3 text-left">Driver ID</th>
               <th className="px-4 py-3 text-left">Name</th>
               <th className="px-4 py-3 text-left">NIC</th>
@@ -716,7 +835,7 @@ function DriverDocsPanel() {
           </thead>
           <tbody>
             {drivers.map(d => (
-              <tr key={d.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+              <tr key={d.id} className="border-b border-slate-100 hover:bg-slate-950 transition-colors">
                 <td className="px-4 py-3 font-mono">{d.id}</td>
                 <td className="px-4 py-3 font-bold">{d.firstName} {d.lastName}</td>
                 <td className="px-4 py-3 font-mono text-slate-500">{d.nic}</td>
@@ -749,22 +868,28 @@ function DriversPanel() {
   useEffect(() => { fetchDrivers(); }, []);
 
   const handleAdd = async () => {
-    const firstName = prompt("First Name:"); if (!firstName) return;
-    const lastName = prompt("Last Name:"); if (!lastName) return;
-    const email = prompt("Email:"); if (!email) return;
-    const phone = prompt("Phone:"); if (!phone) return;
+    const data = await openAdminForm("Add New Driver", [
+      { id: "firstName", label: "First Name" },
+      { id: "lastName", label: "Last Name" },
+      { id: "email", label: "Email" },
+      { id: "phone", label: "Phone" }
+    ]);
+    if (!data || !data.firstName || !data.lastName || !data.email) return;
     try {
-      await apiClient('/module-admin/drivers', { method: 'POST', body: JSON.stringify({ firstName, lastName, email, phone }) });
+      await apiClient('/module-admin/drivers', { method: 'POST', body: JSON.stringify(data) });
       fetchDrivers();
     } catch (e) { alert("Error: " + e); }
   };
 
   const handleEdit = async (d: any) => {
-    const firstName = prompt("Edit First Name:", d.firstName); if (!firstName) return;
-    const lastName = prompt("Edit Last Name:", d.lastName); if (!lastName) return;
-    const phone = prompt("Edit Phone:", d.phone); if (!phone) return;
+    const data = await openAdminForm("Edit Driver Profile", [
+      { id: "firstName", label: "First Name", defaultValue: d.firstName },
+      { id: "lastName", label: "Last Name", defaultValue: d.lastName },
+      { id: "phone", label: "Phone", defaultValue: d.phone }
+    ]);
+    if (!data) return;
     try {
-      await apiClient(`/module-admin/users/${d.id}`, { method: 'PUT', body: JSON.stringify({ firstName, lastName, phone, active: d.active }) });
+      await apiClient(`/module-admin/users/${d.id}`, { method: 'PUT', body: JSON.stringify(data) });
       fetchDrivers();
     } catch (e) { alert("Error: " + e); }
   };
@@ -783,13 +908,13 @@ function DriversPanel() {
   return (
     <Card>
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <p className="font-extrabold text-slate-800">Driver Profiles Management</p>
+        <p className="font-extrabold text-slate-100">Driver Profiles Management</p>
         <Btn size="sm" onClick={handleAdd}>+ Add Driver</Btn>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
+            <tr className="bg-slate-950 border-b border-slate-800">
               <th className="px-4 py-3 text-left">ID</th>
               <th className="px-4 py-3 text-left">Name</th>
               <th className="px-4 py-3 text-left">Email</th>
@@ -800,7 +925,7 @@ function DriversPanel() {
           </thead>
           <tbody>
             {drivers.map(d => (
-              <tr key={d.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+              <tr key={d.id} className="border-b border-slate-100 hover:bg-slate-950 transition-colors">
                 <td className="px-4 py-3 font-mono">{d.id}</td>
                 <td className="px-4 py-3 font-bold">{d.firstName} {d.lastName}</td>
                 <td className="px-4 py-3 text-slate-500">{d.email}</td>
@@ -872,7 +997,7 @@ function AnalyticsPanel() {
 
   return (
     <div className="space-y-5">
-      <p className="font-extrabold text-slate-800 text-lg">Real-Time Dashboard</p>
+      <p className="font-extrabold text-slate-100 text-lg">Real-Time Dashboard</p>
 
       {/* KPI Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
@@ -887,7 +1012,7 @@ function AnalyticsPanel() {
 
       {/* Peak Trip Hours */}
       <Card className="p-5">
-        <p className="font-extrabold text-slate-800 mb-4">🕐 Trip Demand & Peak Hours (UC30)</p>
+        <p className="font-extrabold text-slate-100 mb-4">🕐 Trip Demand & Peak Hours (UC30)</p>
         <div className="flex items-end gap-2 h-32">
           {HOURS.map(h => (
             <div key={h.label} className="flex-1 flex flex-col items-center gap-1">
@@ -904,12 +1029,12 @@ function AnalyticsPanel() {
 
       {/* Trip Status Breakdown */}
       <Card className="p-5">
-        <p className="font-extrabold text-slate-800 mb-3">📋 Trip Status Breakdown</p>
+        <p className="font-extrabold text-slate-100 mb-3">📋 Trip Status Breakdown</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: "Completed",  key: "COMPLETED",  color: "text-green-700 bg-green-50 border-green-200" },
             { label: "Cancelled",  key: "CANCELLED",  color: "text-red-700 bg-red-50 border-red-200"     },
-            { label: "In Progress",key: "IN_PROGRESS", color: "text-blue-700 bg-blue-50 border-blue-200" },
+            { label: "In Progress",key: "IN_PROGRESS", color: "text-eco bg-eco-dark/20 border-blue-200" },
             { label: "Requested",  key: "REQUESTED",  color: "text-orange-700 bg-orange-50 border-orange-200" },
           ].map(s => (
             <div key={s.label} className={`rounded-xl border p-3 ${s.color}`}>
@@ -963,7 +1088,7 @@ function CancellationPanel() {
   return (
     <Card>
       <div className="px-5 py-4 border-b border-slate-100">
-        <p className="font-extrabold text-slate-800">Driver Cancellation Rate Monitor (UC25)</p>
+        <p className="font-extrabold text-slate-100">Driver Cancellation Rate Monitor (UC25)</p>
         <p className="text-xs text-slate-400 font-mono mt-0.5">
           Threshold: ≥10% = Warning · ≥20% = Suspend · /api/module-admin/drivers
         </p>
@@ -971,7 +1096,7 @@ function CancellationPanel() {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
+            <tr className="bg-slate-950 border-b border-slate-800">
               <th className="px-4 py-3 text-left">Driver</th>
               <th className="px-4 py-3 text-left">Total Trips</th>
               <th className="px-4 py-3 text-left">Cancelled</th>
@@ -985,7 +1110,7 @@ function CancellationPanel() {
             {drivers.map((d: any) => {
               const rate = d.cancellationRate ?? Math.round(((d.cancelled ?? 0) / Math.max(d.totalTrips ?? 1, 1)) * 100 * 10) / 10;
               return (
-                <tr key={d.id} className="border-b border-slate-100 hover:bg-slate-50">
+                <tr key={d.id} className="border-b border-slate-100 hover:bg-slate-950">
                   <td className="px-4 py-3 font-bold">{d.firstName} {d.lastName}</td>
                   <td className="px-4 py-3 font-mono">{d.totalTrips ?? "—"}</td>
                   <td className="px-4 py-3 font-mono text-red-600">{d.cancelled ?? "—"}</td>
@@ -1068,7 +1193,7 @@ function ExportPanel() {
   return (
     <div className="space-y-4">
       <div>
-        <p className="font-extrabold text-slate-800 text-lg">Export Financial Reports (UC34)</p>
+        <p className="font-extrabold text-slate-100 text-lg">Export Financial Reports (UC34)</p>
         <p className="text-sm text-slate-500 mt-0.5">Download CSV reports for finance and operational analysis</p>
       </div>
 
@@ -1081,11 +1206,11 @@ function ExportPanel() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {REPORTS.map(r => (
           <Card key={r.key} className="p-5 flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-2xl flex-none">
+            <div className="w-12 h-12 rounded-xl bg-eco-dark/20 border border-blue-100 flex items-center justify-center text-2xl flex-none">
               {r.icon}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-extrabold text-slate-800">{r.label}</p>
+              <p className="font-extrabold text-slate-100">{r.label}</p>
               <p className="text-xs text-slate-500 mt-0.5">{r.desc}</p>
               <div className="mt-3 flex gap-2">
                 <Btn
@@ -1126,6 +1251,8 @@ function RbacPanel() {
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState<number | null>(null);
 
+  const isSuperAdmin = localStorage.getItem("admin_role") === "SUPER_ADMIN";
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -1162,17 +1289,17 @@ function RbacPanel() {
   return (
     <div className="space-y-4">
       <div>
-        <p className="font-extrabold text-slate-800 text-lg">Configure RBAC Permissions (UC26)</p>
+        <p className="font-extrabold text-slate-100 text-lg">Configure RBAC Permissions (UC26)</p>
         <p className="text-sm text-slate-500 mt-0.5">Assign and manage admin role-based access control</p>
       </div>
 
       {/* Role legend */}
       <Card className="p-5">
-        <p className="font-extrabold text-slate-700 mb-3 text-sm">Available Roles</p>
+        <p className="font-extrabold text-slate-200 mb-3 text-sm">Available Roles</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {ADMIN_ROLES.map(r => (
-            <div key={r} className="bg-slate-50 rounded-xl p-3 border border-slate-200">
-              <p className="font-bold text-slate-800 text-xs">{r}</p>
+            <div key={r} className="bg-slate-950 rounded-xl p-3 border border-slate-800">
+              <p className="font-bold text-slate-100 text-xs">{r}</p>
               <p className="text-xs text-slate-500 mt-0.5">{ROLE_DESC[r]}</p>
             </div>
           ))}
@@ -1182,12 +1309,12 @@ function RbacPanel() {
       {/* Admin Users Table */}
       <Card>
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-          <p className="font-extrabold text-slate-800">Admin User Roles</p>
+          <p className="font-extrabold text-slate-100">Admin User Roles</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
+              <tr className="bg-slate-950 border-b border-slate-800">
                 <th className="px-4 py-3 text-left">User</th>
                 <th className="px-4 py-3 text-left">Email</th>
                 <th className="px-4 py-3 text-left">Current Role</th>
@@ -1197,7 +1324,7 @@ function RbacPanel() {
             <tbody>
               {loading && <tr><td colSpan={4} className="text-center p-4">Loading…</td></tr>}
               {users.map(u => (
-                <tr key={u.id} className="border-b border-slate-100 hover:bg-slate-50">
+                <tr key={u.id} className="border-b border-slate-100 hover:bg-slate-950">
                   <td className="px-4 py-3 font-bold">{u.firstName} {u.lastName}</td>
                   <td className="px-4 py-3 text-slate-500 font-mono text-xs">{u.email}</td>
                   <td className="px-4 py-3">
@@ -1206,15 +1333,16 @@ function RbacPanel() {
                   <td className="px-4 py-3">
                     <div className="flex gap-2 items-center">
                       <select
-                        className="text-sm border border-slate-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={`text-sm border border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-eco bg-navy text-white transition-all ${!isSuperAdmin ? "opacity-50 cursor-not-allowed" : "hover:border-eco"}`}
                         value={u.adminRole || ""}
                         onChange={e => changeRole(u.id, e.target.value)}
-                        disabled={saving === u.id}
+                        disabled={saving === u.id || !isSuperAdmin}
+                        title={!isSuperAdmin ? "Only SUPER_ADMIN can modify RBAC tags" : ""}
                       >
-                        <option value="">— Select Role —</option>
-                        {ADMIN_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                        <option value="" className="bg-navy text-slate-400">— Select Role —</option>
+                        {ADMIN_ROLES.map(r => <option key={r} value={r} className="bg-navy text-white">{r}</option>)}
                       </select>
-                      {saving === u.id && <span className="text-xs text-blue-500 font-mono">Saving…</span>}
+                      {saving === u.id && <span className="text-xs text-eco font-mono animate-pulse">Saving…</span>}
                     </div>
                   </td>
                 </tr>

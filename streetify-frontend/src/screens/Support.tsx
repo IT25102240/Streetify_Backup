@@ -195,15 +195,17 @@ export default function ScreenSupport() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col">
+    <div className="min-h-screen  flex flex-col relative z-0" >
+      <div className="absolute inset-0 -z-10 bg-[url('/hero-bg.jpg')] bg-cover bg-center opacity-30" />
+      <div className="absolute inset-0 -z-10 bg-slate-950/70 backdrop-blur-[40px]" />
       {toast && (
         <Toast message={toast.msg} type={toast.type} visible={!!toast} />
       )}
 
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm flex-none">
+      <header className="bg-[rgba(6,14,30,0.6)] backdrop-blur-xl border-b border-eco/20 px-6 py-4 flex items-center justify-between shadow-sm flex-none z-10 relative">
         <div>
-          <h1 className="font-extrabold text-slate-900 text-lg">Customer Support Portal</h1>
+          <h1 className="font-extrabold text-white text-lg">Customer Support Portal</h1>
           <p className="text-xs text-slate-400 font-mono mt-0.5">
             UC35 Investigate Disputes · UC36 Send Resolutions · /api/disputes
           </p>
@@ -214,15 +216,15 @@ export default function ScreenSupport() {
       {/* KPI Stats Bar */}
       <div className="px-6 py-4 grid grid-cols-2 md:grid-cols-4 gap-3 flex-none">
         {[
-          { label: "Open Tickets",    value: stats.open,             icon: "🔴", color: "border-red-300 bg-red-50"     },
-          { label: "In Review",       value: stats.inReview,         icon: "🟡", color: "border-orange-300 bg-orange-50" },
-          { label: "Resolved Today",  value: stats.resolved,         icon: "✅", color: "border-green-300 bg-green-50"  },
-          { label: "Avg Response",    value: `${stats.avgResponseHours}h`, icon: "⏱️", color: "border-blue-300 bg-blue-50" },
+          { label: "Open Tickets",    value: stats.open,             icon: "🔴", color: "border-red-500/30 bg-[rgba(239,68,68,0.1)] text-red-100"     },
+          { label: "In Review",       value: stats.inReview,         icon: "🟡", color: "border-amber-500/30 bg-[rgba(245,158,11,0.1)] text-amber-100" },
+          { label: "Resolved Today",  value: stats.resolved,         icon: "✅", color: "border-eco/40 bg-eco-dark/10 text-emerald-100"  },
+          { label: "Avg Response",    value: `${stats.avgResponseHours}h`, icon: "⏱️", color: "border-slate-700 bg-[rgba(15,36,64,0.4)] text-white" },
         ].map(s => (
-          <div key={s.label} className={`rounded-xl border p-4 ${s.color}`}>
+          <div key={s.label} className={`rounded-xl border p-4 backdrop-blur-md transition-transform hover:-translate-y-1 ${s.color}`}>
             <p className="text-xl">{s.icon}</p>
             <p className="font-extrabold text-2xl font-mono mt-1">{s.value}</p>
-            <p className="text-xs font-semibold text-slate-600 mt-0.5">{s.label}</p>
+            <p className="text-xs font-semibold mt-0.5 opacity-80">{s.label}</p>
           </div>
         ))}
       </div>
@@ -236,7 +238,7 @@ export default function ScreenSupport() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search tickets, names…"
-              className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className="flex-1 px-3 py-2 text-sm border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-eco bg-navy border-eco/10"
             />
           </div>
 
@@ -246,10 +248,10 @@ export default function ScreenSupport() {
               <button
                 key={s}
                 onClick={() => setFilter(s)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-black tracking-wider uppercase transition-all ${
                   filterStatus === s
-                    ? "bg-blue-700 text-white"
-                    : "bg-white text-slate-600 border border-slate-300 hover:border-blue-400"
+                    ? "bg-gradient-to-r from-eco-dark to-eco text-white shadow-md shadow-eco/30"
+                    : "bg-[rgba(15,36,64,0.4)] text-slate-400 border border-slate-700 hover:border-eco/50 hover:text-white"
                 }`}
               >
                 {s === "ALL" ? "All" : s.replace("_", " ")}
@@ -274,15 +276,15 @@ export default function ScreenSupport() {
                 onClick={() => { setSelected(ticket); setResolution(ticket.resolution || ""); }}
                 className={`w-full text-left rounded-xl border transition-all ${
                   selected?.id === ticket.id
-                    ? "border-blue-500 bg-blue-50 shadow-md"
-                    : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
+                    ? "border-eco bg-eco-dark/20 shadow-md"
+                    : "border-slate-800 bg-navy border-eco/10 hover:border-slate-700 hover:shadow-sm"
                 } p-3.5`}
               >
                 <div className="flex items-start justify-between gap-2 mb-1.5">
                   <span className="font-mono text-xs text-slate-400">{ticket.ticketRef}</span>
                   <Pill color={STATUS_COLOR[ticket.status] as any}>{ticket.status.replace("_", " ")}</Pill>
                 </div>
-                <p className="font-bold text-sm text-slate-900 leading-snug line-clamp-2 mb-1.5">
+                <p className="font-bold text-sm text-white leading-snug line-clamp-2 mb-1.5">
                   {TYPE_ICON[ticket.disputeType]} {ticket.subject}
                 </p>
                 <div className="flex items-center justify-between text-xs text-slate-500">
@@ -312,7 +314,7 @@ export default function ScreenSupport() {
                       <span className="font-mono text-xs text-slate-400">{selected.ticketRef}</span>
                       <Pill color={STATUS_COLOR[selected.status] as any}>{selected.status.replace("_", " ")}</Pill>
                     </div>
-                    <h2 className="font-extrabold text-slate-900 text-lg leading-snug">
+                    <h2 className="font-extrabold text-white text-lg leading-snug">
                       {TYPE_ICON[selected.disputeType]} {selected.subject}
                     </h2>
                   </div>
@@ -332,21 +334,21 @@ export default function ScreenSupport() {
 
                 {/* Parties */}
                 <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div className="bg-slate-50 rounded-xl p-3">
+                  <div className="bg-slate-950 rounded-xl p-3">
                     <p className="text-xs font-bold text-slate-500 mb-1">PASSENGER</p>
-                    <p className="font-bold text-slate-900">👤 {selected.passengerName}</p>
+                    <p className="font-bold text-white">👤 {selected.passengerName}</p>
                   </div>
-                  <div className="bg-slate-50 rounded-xl p-3">
+                  <div className="bg-slate-950 rounded-xl p-3">
                     <p className="text-xs font-bold text-slate-500 mb-1">DRIVER</p>
-                    <p className="font-bold text-slate-900">🚗 {selected.driverName}</p>
+                    <p className="font-bold text-white">🚗 {selected.driverName}</p>
                   </div>
-                  <div className="bg-slate-50 rounded-xl p-3">
+                  <div className="bg-slate-950 rounded-xl p-3">
                     <p className="text-xs font-bold text-slate-500 mb-1">TRIP ID</p>
-                    <p className="font-mono text-sm text-blue-700">{selected.tripId ? `#${selected.tripId}` : "N/A"}</p>
+                    <p className="font-mono text-sm text-eco">{selected.tripId ? `#${selected.tripId}` : "N/A"}</p>
                   </div>
-                  <div className="bg-slate-50 rounded-xl p-3">
+                  <div className="bg-slate-950 rounded-xl p-3">
                     <p className="text-xs font-bold text-slate-500 mb-1">FILED</p>
-                    <p className="text-sm text-slate-700">
+                    <p className="text-sm text-slate-200">
                       {new Date(selected.createdAt).toLocaleString("en-GB", {
                         day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
                       })}
@@ -357,8 +359,8 @@ export default function ScreenSupport() {
 
               {/* Complaint Details */}
               <Card className="p-5">
-                <p className="font-extrabold text-slate-800 mb-3">📋 Complaint Description</p>
-                <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 rounded-xl p-4">
+                <p className="font-extrabold text-slate-100 mb-3">📋 Complaint Description</p>
+                <p className="text-sm text-slate-200 leading-relaxed bg-slate-950 rounded-xl p-4">
                   {selected.description}
                 </p>
                 <div className="mt-3 flex items-center gap-2">
@@ -369,20 +371,20 @@ export default function ScreenSupport() {
 
               {/* Resolution Panel — UC36 */}
               <Card className="p-5">
-                <p className="font-extrabold text-slate-800 mb-1">📝 Resolution (UC36)</p>
+                <p className="font-extrabold text-slate-100 mb-1">📝 Resolution (UC36)</p>
                 <p className="text-xs text-slate-500 mb-4">
                   Your response will be sent to the passenger via the Notification Service
                 </p>
 
                 {/* Resolution templates */}
                 <div className="mb-3">
-                  <p className="text-xs font-bold text-slate-600 mb-2">Quick Templates:</p>
+                  <p className="text-xs font-bold text-slate-300 mb-2">Quick Templates:</p>
                   <div className="flex flex-wrap gap-2">
                     {RESOLUTION_TEMPLATES.map((t, i) => (
                       <button
                         key={i}
                         onClick={() => setResolution(t)}
-                        className="text-xs px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:border-blue-400 hover:bg-blue-50 text-slate-600 hover:text-blue-700 transition-all text-left line-clamp-1 max-w-[220px]"
+                        className="text-xs px-2.5 py-1 rounded-lg border border-slate-800 bg-slate-950 hover:border-blue-400 hover:bg-eco-dark/20 text-slate-300 hover:text-eco transition-all text-left line-clamp-1 max-w-[220px]"
                       >
                         {t.slice(0, 48)}…
                       </button>
@@ -395,7 +397,7 @@ export default function ScreenSupport() {
                   onChange={e => setResolution(e.target.value)}
                   rows={5}
                   placeholder="Write formal resolution…  e.g. 'After reviewing the trip logs and driver communication, we have determined…'"
-                  className="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full px-4 py-3 border border-slate-700 rounded-xl text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-eco resize-none"
                   disabled={selected.status === "CLOSED"}
                 />
                 <div className="flex items-center justify-between mt-3 gap-3">
