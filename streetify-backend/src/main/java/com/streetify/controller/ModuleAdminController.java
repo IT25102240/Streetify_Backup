@@ -20,6 +20,7 @@ public class ModuleAdminController {
     private final UserDAO userDAO;
     private final PassengerDAO passengerDAO;
     private final DriverDAO driverDAO;
+    private final DriverDocumentDAO driverDocumentDAO;
     private final TripDAO tripDAO;
     private final PaymentDAO paymentDAO;
     private final ReviewDAO reviewDAO;
@@ -32,6 +33,7 @@ public class ModuleAdminController {
     public ModuleAdminController(UserDAO userDAO,
                                  PassengerDAO passengerDAO,
                                  DriverDAO driverDAO,
+                                 DriverDocumentDAO driverDocumentDAO,
                                  TripDAO tripDAO,
                                  PaymentDAO paymentDAO,
                                  ReviewDAO reviewDAO,
@@ -43,6 +45,7 @@ public class ModuleAdminController {
         this.userDAO = userDAO;
         this.passengerDAO = passengerDAO;
         this.driverDAO = driverDAO;
+        this.driverDocumentDAO = driverDocumentDAO;
         this.tripDAO = tripDAO;
         this.paymentDAO = paymentDAO;
         this.reviewDAO = reviewDAO;
@@ -423,8 +426,45 @@ public class ModuleAdminController {
                 } else {
                     map.put("vehicle", null);
                 }
+
+                // Attach verification documents from driver_documents table
+                List<Map<String, Object>> docList = driverDocumentDAO.findByDriverId(d.getId()).stream().map(doc -> {
+                    Map<String, Object> dm = new java.util.HashMap<>();
+                    dm.put("id", doc.getId());
+                    dm.put("docType", doc.getDocType());
+                    dm.put("originalFilename", doc.getOriginalFilename());
+                    dm.put("filePath", doc.getFilePath());
+                    dm.put("status", doc.getStatus().name());
+                    dm.put("reviewerNote", doc.getReviewerNote());
+                    dm.put("uploadedAt", doc.getUploadedAt());
+                    return dm;
+                }).toList();
+                map.put("documents", docList);
+
                 return map;
             }).toList();
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/driver-documents")
+    public ResponseEntity<List<Map<String, Object>>> getAllDriverDocuments() {
+        List<Map<String, Object>> result = driverDocumentDAO.findAll().stream().map(doc -> {
+            Map<String, Object> map = new java.util.HashMap<>();
+            map.put("id", doc.getId());
+            map.put("driverId", doc.getDriver() != null ? doc.getDriver().getId() : null);
+            map.put("driverName", doc.getDriver() != null ? (doc.getDriver().getFirstName() + " " + doc.getDriver().getLastName()) : "Unknown");
+            map.put("driverEmail", doc.getDriver() != null ? doc.getDriver().getEmail() : "");
+            map.put("docType", doc.getDocType());
+            map.put("originalFilename", doc.getOriginalFilename());
+            map.put("filePath", doc.getFilePath());
+            map.put("fileSizeBytes", doc.getFileSizeBytes());
+            map.put("contentType", doc.getContentType());
+            map.put("status", doc.getStatus().name());
+            map.put("reviewerNote", doc.getReviewerNote());
+            map.put("uploadedAt", doc.getUploadedAt());
+            map.put("reviewedAt", doc.getReviewedAt());
+            return map;
+        }).toList();
         return ResponseEntity.ok(result);
     }
 
@@ -435,9 +475,29 @@ public class ModuleAdminController {
         
         if ("APPROVE".equalsIgnoreCase(action)) {
             driver.setVerificationStatus(DriverVerificationStatus.APPROVED);
-            logAdminAction("APPROVE_DRIVER", "Approved verification for Driver ID " + id, id, "USER");
+            driver.setActive(true); // ACTIVATE driver upon admin approval
+            
+            // Update all submitted driver documents to APPROVED
+            List<DriverDocument> docs = driverDocumentDAO.findByDriverId(id);
+            for (DriverDocument doc : docs) {
+                doc.setStatus(DocumentStatus.APPROVED);
+                doc.setReviewedAt(java.time.LocalDateTime.now());
+                doc.setReviewerNote("Approved by Driver Admin (Tharindu) / Super Admin");
+                driverDocumentDAO.save(doc);
+            }
+            logAdminAction("APPROVE_DRIVER", "Approved driver & verification documents for Driver ID " + id, id, "USER");
         } else {
             driver.setVerificationStatus(DriverVerificationStatus.REJECTED);
+            driver.setActive(false);
+            
+            // Update submitted driver documents to REJECTED
+            List<DriverDocument> docs = driverDocumentDAO.findByDriverId(id);
+            for (DriverDocument doc : docs) {
+                doc.setStatus(DocumentStatus.REJECTED);
+                doc.setReviewedAt(java.time.LocalDateTime.now());
+                doc.setReviewerNote(data.getOrDefault("note", "Rejected by Driver Admin (Tharindu)"));
+                driverDocumentDAO.save(doc);
+            }
             logAdminAction("REJECT_DRIVER", "Rejected verification for Driver ID " + id, id, "USER");
         }
         
@@ -810,13 +870,13 @@ public class ModuleAdminController {
         String counterAgent = SecurityContextHolder.getContext().getAuthentication().getName();
 
         // Calculate distance and fare
-        double distanceKm = Math.max(1.5, Math.round(dispatchService.estimateFare(
-            com.streetify.dto.TripRequestDTO.builder()
-                .pickupLat(pickupLat).pickupLng(pickupLng)
-                .dropoffLat(dropoffLat).dropoffLng(dropoffLng)
-                .rideType(rideType)
-                .build()
-        ).getDistanceKm() * 10.0) / 10.0);
+        com.streetify.dto.TripRequestDTO estimateRequest = new com.streetify.dto.TripRequestDTO();
+        estimateRequest.setPickupLat(pickupLat);
+        estimateRequest.setPickupLng(pickupLng);
+        estimateRequest.setDropoffLat(dropoffLat);
+        estimateRequest.setDropoffLng(dropoffLng);
+        estimateRequest.setRideType(rideType);
+        double distanceKm = Math.max(1.5, Math.round(dispatchService.estimateFare(estimateRequest).getDistanceKm() * 10.0) / 10.0);
 
         double baseFare = rideType.equalsIgnoreCase("TUK") ? 75.0 : rideType.equalsIgnoreCase("VAN") ? 280.0 : 120.0;
         double perKmRate = rideType.equalsIgnoreCase("TUK") ? 65.0 : rideType.equalsIgnoreCase("VAN") ? 140.0 : 85.0;

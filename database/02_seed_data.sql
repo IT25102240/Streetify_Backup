@@ -74,6 +74,31 @@ VALUES
 GO
 
 -- ════════════════════════════════════════════════════════════════════════════════
+-- 4.1 Insert Driver Verification Documents (Past Submissions & Verification History)
+-- ════════════════════════════════════════════════════════════════════════════════
+DECLARE @D1_Doc_Id BIGINT = (SELECT TOP 1 id FROM users WHERE email = 'driver1@streetify.com');
+DECLARE @D2_Doc_Id BIGINT = (SELECT TOP 1 id FROM users WHERE email = 'driver2@streetify.com');
+DECLARE @D3_Doc_Id BIGINT = (SELECT TOP 1 id FROM users WHERE email = 'driver3@streetify.com');
+
+INSERT INTO driver_documents (driver_id, doc_type, original_filename, file_path, file_size_bytes, content_type, status, reviewer_note, uploaded_at, reviewed_at)
+VALUES
+-- Driver 1 (Kamal Perera - Approved Car Driver)
+(@D1_Doc_Id, 'license',   'kamal_driving_license.pdf',   'uploads/documents/driver-kamal/license.pdf',   1420500, 'application/pdf', 'APPROVED', 'Verified by Tharindu (Driver Admin) - Valid until 2029', DATEADD(day, -10, GETDATE()), DATEADD(day, -9, GETDATE())),
+(@D1_Doc_Id, 'reg',       'kamal_prius_cr_book.pdf',     'uploads/documents/driver-kamal/reg.pdf',       2104000, 'application/pdf', 'APPROVED', 'Revenue license valid until 2027 (Tharindu)',            DATEADD(day, -10, GETDATE()), DATEADD(day, -9, GETDATE())),
+(@D1_Doc_Id, 'insurance', 'kamal_prius_insurance.pdf',   'uploads/documents/driver-kamal/insurance.pdf', 1820000, 'application/pdf', 'APPROVED', 'Comprehensive commercial insurance policy verified',      DATEADD(day, -10, GETDATE()), DATEADD(day, -9, GETDATE())),
+
+-- Driver 2 (Nimal Silva - Approved Tuk Driver)
+(@D2_Doc_Id, 'license',   'nimal_tuk_license.jpg',       'uploads/documents/driver-nimal/license.jpg',    950000, 'image/jpeg',       'APPROVED', 'Tuk-tuk commercial license verified (Tharindu)',         DATEADD(day, -5, GETDATE()),  DATEADD(day, -4, GETDATE())),
+(@D2_Doc_Id, 'reg',       'nimal_cr_certificate.pdf',    'uploads/documents/driver-nimal/reg.pdf',       1240000, 'application/pdf', 'APPROVED', 'Western Province revenue license confirmed',            DATEADD(day, -5, GETDATE()),  DATEADD(day, -4, GETDATE())),
+(@D2_Doc_Id, 'insurance', 'nimal_thirdparty_policy.pdf', 'uploads/documents/driver-nimal/insurance.pdf',1510000, 'application/pdf', 'APPROVED', 'Third-party commercial insurance verified',             DATEADD(day, -5, GETDATE()),  DATEADD(day, -4, GETDATE())),
+
+-- Driver 3 (Sunil Shantha - Pending Verification Driver)
+(@D3_Doc_Id, 'license',   'sunil_van_license.pdf',       'uploads/documents/driver-sunil/license.pdf',   1120000, 'application/pdf', 'PENDING',  'Awaiting review by Driver Admin Tharindu',               DATEADD(hour, -2, GETDATE()), NULL),
+(@D3_Doc_Id, 'reg',       'sunil_caravan_cr.pdf',        'uploads/documents/driver-sunil/reg.pdf',       1640000, 'application/pdf', 'PENDING',  'Awaiting review by Driver Admin Tharindu',               DATEADD(hour, -2, GETDATE()), NULL),
+(@D3_Doc_Id, 'insurance', 'sunil_insurance_cert.pdf',    'uploads/documents/driver-sunil/insurance.pdf', 1380000, 'application/pdf', 'PENDING',  'Awaiting review by Driver Admin Tharindu',               DATEADD(hour, -2, GETDATE()), NULL);
+GO
+
+-- ════════════════════════════════════════════════════════════════════════════════
 -- 5. Insert Sample Trips (Completed, In-Progress, Requested)
 -- ════════════════════════════════════════════════════════════════════════════════
 DECLARE @Pass1_Id BIGINT = (SELECT TOP 1 id FROM users WHERE email = 'passenger1@streetify.com');

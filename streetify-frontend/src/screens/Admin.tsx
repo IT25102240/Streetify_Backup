@@ -764,6 +764,8 @@ function SystemPanel() {
 
 function DriverDocsPanel() {
   const [drivers, setDrivers] = useState<any[]>([]);
+  const [allDocs, setAllDocs] = useState<any[]>([]);
+  const [activeSubTab, setActiveSubTab] = useState<'pending' | 'all-docs'>('pending');
 
   const fetchDrivers = async () => {
     try {
@@ -772,7 +774,17 @@ function DriverDocsPanel() {
     } catch (e) { console.error(e); }
   };
 
-  useEffect(() => { fetchDrivers(); }, []);
+  const fetchAllDocs = async () => {
+    try {
+      const data = await apiClient<any[]>('/module-admin/driver-documents');
+      setAllDocs(data || []);
+    } catch (e) { console.error(e); }
+  };
+
+  useEffect(() => {
+    fetchDrivers();
+    fetchAllDocs();
+  }, []);
 
   const handleAdd = async () => {
     const data = await openAdminForm("Add Driver Verification", [
@@ -784,6 +796,7 @@ function DriverDocsPanel() {
     try {
       await apiClient('/module-admin/driver-docs', { method: 'POST', body: JSON.stringify({ driverId: Number(data.driverId), nic: data.nic, license: data.license }) });
       fetchDrivers();
+      fetchAllDocs();
     } catch (e) { alert("Error: " + e); }
   };
 
@@ -792,11 +805,12 @@ function DriverDocsPanel() {
     try {
       await apiClient(`/module-admin/driver-docs/${id}`, { method: 'PUT', body: JSON.stringify({ action }) });
       fetchDrivers();
+      fetchAllDocs();
     } catch (e) { alert("Error: " + e); }
   };
 
   const handleViewDetails = (d: any) => {
-    let details = `Driver Profile:\n`;
+    let details = `Driver Profile (ID: ${d.id}):\n`;
     details += `Name: ${d.firstName} ${d.lastName}\n`;
     details += `Email: ${d.email || 'N/A'}\n`;
     details += `Phone: ${d.phone || 'N/A'}\n`;
@@ -808,50 +822,193 @@ function DriverDocsPanel() {
       details += `Type: ${d.vehicle.type || 'N/A'}\n`;
       details += `Make & Model: ${d.vehicle.make || 'N/A'} ${d.vehicle.model || 'N/A'} (${d.vehicle.year || 'N/A'})\n`;
       details += `Color: ${d.vehicle.color || 'N/A'}\n`;
-      details += `Plate: ${d.vehicle.plate || 'N/A'}\n`;
+      details += `Plate: ${d.vehicle.plate || 'N/A'}\n\n`;
+    }
+
+    if (d.documents && d.documents.length > 0) {
+      details += `Submitted Documents (${d.documents.length}):\n`;
+      d.documents.forEach((doc: any, i: number) => {
+        details += `${i+1}. [${doc.docType.toUpperCase()}] ${doc.originalFilename} — Status: ${doc.status}\n   Path: ${doc.filePath}\n`;
+      });
     } else {
-      details += `No vehicle registered.\n`;
+      details += `No document records found in DB.\n`;
     }
     
     alert(details);
   };
 
   return (
-    <Card>
-      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <p className="font-extrabold text-slate-100">Pending Driver Verifications</p>
-        <Btn size="sm" onClick={handleAdd}>+ Add Verification</Btn>
+    <div className="space-y-6">
+      {/* Sub-tab switcher */}
+      <div className="flex gap-2 border-b border-slate-800 pb-3">
+        <button
+          onClick={() => setActiveSubTab('pending')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            activeSubTab === 'pending'
+              ? 'bg-gradient-to-r from-eco-dark to-eco text-white shadow-md shadow-eco/20'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800'
+          }`}
+        >
+          ⏳ Pending Approvals ({drivers.length})
+        </button>
+        <button
+          onClick={() => { setActiveSubTab('all-docs'); fetchAllDocs(); }}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            activeSubTab === 'all-docs'
+              ? 'bg-gradient-to-r from-eco-dark to-eco text-white shadow-md shadow-eco/20'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800'
+          }`}
+        >
+          📄 streetify_db `driver_documents` Table ({allDocs.length})
+        </button>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-slate-950 border-b border-slate-800">
-              <th className="px-4 py-3 text-left">Driver ID</th>
-              <th className="px-4 py-3 text-left">Name</th>
-              <th className="px-4 py-3 text-left">NIC</th>
-              <th className="px-4 py-3 text-left">License</th>
-              <th className="px-4 py-3 text-left">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {drivers.map(d => (
-              <tr key={d.id} className="border-b border-slate-100 hover:bg-slate-950 transition-colors">
-                <td className="px-4 py-3 font-mono">{d.id}</td>
-                <td className="px-4 py-3 font-bold">{d.firstName} {d.lastName}</td>
-                <td className="px-4 py-3 font-mono text-slate-500">{d.nic}</td>
-                <td className="px-4 py-3 font-mono text-slate-500">{d.licenseNumber}</td>
-                <td className="px-4 py-3 flex gap-2">
-                  <Btn size="xs" v="secondary" onClick={() => handleViewDetails(d)}>View Details</Btn>
-                  <Btn size="xs" onClick={() => handleVerify(d.id, 'APPROVE')}>Approve</Btn>
-                  <Btn size="xs" v="danger" onClick={() => handleVerify(d.id, 'REJECT')}>Reject</Btn>
-                </td>
-              </tr>
-            ))}
-            {drivers.length === 0 && <tr><td colSpan={5} className="text-center p-4">No pending verifications found</td></tr>}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+
+      {activeSubTab === 'pending' && (
+        <Card>
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <p className="font-extrabold text-slate-100">Driver Verification Queue (Tharindu / Super Admin)</p>
+              <p className="text-xs text-slate-400 font-mono mt-0.5">
+                New drivers remain inactive until documents are approved.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Btn size="sm" onClick={handleAdd}>+ Add Verification</Btn>
+              <Btn size="sm" v="secondary" onClick={() => { fetchDrivers(); fetchAllDocs(); }}>🔄 Refresh</Btn>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-950 border-b border-slate-800">
+                  <th className="px-4 py-3 text-left">Driver ID</th>
+                  <th className="px-4 py-3 text-left">Name & Contact</th>
+                  <th className="px-4 py-3 text-left">Vehicle Info</th>
+                  <th className="px-4 py-3 text-left">Documents in DB</th>
+                  <th className="px-4 py-3 text-left">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {drivers.map(d => (
+                  <tr key={d.id} className="border-b border-slate-100 hover:bg-slate-950 transition-colors">
+                    <td className="px-4 py-3 font-mono font-bold">{d.id}</td>
+                    <td className="px-4 py-3">
+                      <p className="font-bold text-white">{d.firstName} {d.lastName}</p>
+                      <p className="text-xs text-slate-400">{d.email}</p>
+                      <p className="text-xs text-slate-500 font-mono">NIC: {d.nic || 'N/A'}</p>
+                    </td>
+                    <td className="px-4 py-3 text-xs">
+                      {d.vehicle ? (
+                        <>
+                          <p className="font-semibold text-slate-200">{d.vehicle.make} {d.vehicle.model}</p>
+                          <p className="text-slate-400 font-mono">{d.vehicle.plate} · {d.vehicle.type}</p>
+                        </>
+                      ) : (
+                        <span className="text-slate-500 italic">No vehicle</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col gap-1">
+                        {d.documents && d.documents.length > 0 ? (
+                          d.documents.map((doc: any) => (
+                            <div key={doc.id} className="flex items-center gap-1.5 text-xs">
+                              <span className="font-mono text-slate-400 uppercase text-[10px] bg-slate-800 px-1.5 py-0.5 rounded">
+                                {doc.docType}
+                              </span>
+                              <span className="truncate max-w-[120px] text-slate-300" title={doc.originalFilename}>
+                                {doc.originalFilename}
+                              </span>
+                              <Pill color={doc.status === 'APPROVED' ? 'green' : doc.status === 'REJECTED' ? 'red' : 'yellow' as any}>
+                                {doc.status}
+                              </Pill>
+                            </div>
+                          ))
+                        ) : (
+                          <span className="text-xs text-slate-500 italic">No docs uploaded</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 flex gap-2">
+                      <Btn size="xs" v="secondary" onClick={() => handleViewDetails(d)}>Dossier</Btn>
+                      <Btn size="xs" v="primary" onClick={() => handleVerify(d.id, 'APPROVE')}>✓ Approve</Btn>
+                      <Btn size="xs" v="danger" onClick={() => handleVerify(d.id, 'REJECT')}>✕ Reject</Btn>
+                    </td>
+                  </tr>
+                ))}
+                {drivers.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="text-center p-6 text-slate-400">
+                      ✅ No drivers pending verification. All drivers are verified or none registered yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {activeSubTab === 'all-docs' && (
+        <Card>
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <p className="font-extrabold text-slate-100">Live `driver_documents` Table (MSSQL)</p>
+              <p className="text-xs text-slate-400 font-mono mt-0.5">
+                SELECT * FROM driver_documents; · {allDocs.length} total records
+              </p>
+            </div>
+            <Btn size="sm" v="secondary" onClick={fetchAllDocs}>🔄 Refresh Data</Btn>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-slate-950 border-b border-slate-800">
+                  <th className="px-3 py-2.5 text-left font-mono">id</th>
+                  <th className="px-3 py-2.5 text-left font-mono">driver_id</th>
+                  <th className="px-3 py-2.5 text-left">Driver Name</th>
+                  <th className="px-3 py-2.5 text-left font-mono">doc_type</th>
+                  <th className="px-3 py-2.5 text-left font-mono">original_filename</th>
+                  <th className="px-3 py-2.5 text-left font-mono">status</th>
+                  <th className="px-3 py-2.5 text-left">Reviewer Note</th>
+                  <th className="px-3 py-2.5 text-left font-mono">uploaded_at</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allDocs.map((doc: any) => (
+                  <tr key={doc.id} className="border-b border-slate-100 hover:bg-slate-950 transition-colors">
+                    <td className="px-3 py-2 font-mono font-bold text-slate-300">{doc.id}</td>
+                    <td className="px-3 py-2 font-mono text-slate-400">{doc.driverId}</td>
+                    <td className="px-3 py-2 font-semibold text-white">{doc.driverName}</td>
+                    <td className="px-3 py-2 font-mono uppercase text-eco">{doc.docType}</td>
+                    <td className="px-3 py-2 font-mono text-slate-300 truncate max-w-[150px]" title={doc.originalFilename}>
+                      {doc.originalFilename}
+                    </td>
+                    <td className="px-3 py-2">
+                      <Pill color={doc.status === 'APPROVED' ? 'green' : doc.status === 'REJECTED' ? 'red' : 'yellow' as any}>
+                        {doc.status}
+                      </Pill>
+                    </td>
+                    <td className="px-3 py-2 text-slate-400 max-w-[180px] truncate" title={doc.reviewerNote}>
+                      {doc.reviewerNote || '—'}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-slate-500 whitespace-nowrap">
+                      {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleString() : '—'}
+                    </td>
+                  </tr>
+                ))}
+                {allDocs.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="text-center p-6 text-slate-400">
+                      No records found in driver_documents table. Run 02_seed_data.sql or register a driver.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+    </div>
   );
 }
 

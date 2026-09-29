@@ -728,50 +728,62 @@ export default function ScreenLogin() {
 
                   {submitted && (
                     <div
-                      className="rounded-xl px-4 py-3 text-center"
+                      className="rounded-xl p-4 text-center space-y-2"
                       style={{
-                        background: "rgba(34,197,94,0.1)",
-                        border: "1px solid rgba(34,197,94,0.3)",
+                        background: "rgba(34,197,94,0.12)",
+                        border: "1px solid rgba(34,197,94,0.35)",
                         animation: "pop-in .4s cubic-bezier(.22,1,.36,1) both",
                       }}
                     >
-                      <p className="font-extrabold text-eco-glow">Application Submitted! 🎉</p>
-                      <p className="text-xs text-eco/60 mt-1 font-mono">Driver ID created · pending verification</p>
+                      <p className="font-extrabold text-eco-glow text-base">Application Submitted! 🎉</p>
+                      <p className="text-xs text-ash-light leading-relaxed">
+                        Your driver profile and documents have been securely saved to the database. Your account is currently <strong className="text-amber-400">PENDING APPROVAL</strong> by Driver Admin (Tharindu) or Super Admin.
+                      </p>
+                      <p className="text-[11px] text-ash-dark font-mono">
+                        You will be able to sign in as a driver once documents are reviewed.
+                      </p>
+                      <div className="pt-2">
+                        <Btn size="sm" v="eco" onClick={() => { setSubmitted(false); setTab("login"); }}>
+                          Go to Sign In →
+                        </Btn>
+                      </div>
                     </div>
                   )}
 
-                  <div className="flex gap-3">
-                    <Btn v="ghost" size="lg" onClick={() => setStep(2)}>← Back</Btn>
-                    <Btn
-                      v="eco" size="lg" full
-                      disabled={!allDocsUploaded || anyUploading || submitted}
-                      loading={anyUploading}
-                      onClick={async () => {
-                        setSubmitted(true);
-                        try {
-                          await apiClient('/auth/register/driver', {
-                            method: 'POST',
-                            body: JSON.stringify({
-                              firstName,
-                              lastName,
-                              email,
-                              password: pw,
-                              phone,
-                              nic,
-                              vehicleType: vehicle,
-                              numberPlate: plate,
-                              yearOfManufacture: parseInt(year)
-                            })
-                          });
-                        } catch (e: any) {
-                          alert("Registration failed: " + e.message);
-                          setSubmitted(false);
-                        }
-                      }}
-                    >
-                      {submitted ? "✓ Application Submitted" : allDocsUploaded ? "Submit Application →" : `Upload ${DOC_KEYS.filter(k => !docs[k]?.done).length} more document(s)`}
-                    </Btn>
-                  </div>
+                  {!submitted && (
+                    <div className="flex gap-3">
+                      <Btn v="ghost" size="lg" onClick={() => setStep(2)}>← Back</Btn>
+                      <Btn
+                        v="eco" size="lg" full
+                        disabled={!allDocsUploaded || anyUploading}
+                        loading={anyUploading}
+                        onClick={async () => {
+                          try {
+                            await apiClient('/auth/register/driver', {
+                              method: 'POST',
+                              body: JSON.stringify({
+                                firstName,
+                                lastName,
+                                email,
+                                password: pw,
+                                phone,
+                                nic,
+                                vehicleType: vehicle,
+                                numberPlate: plate,
+                                yearOfManufacture: parseInt(year)
+                              })
+                            });
+                            setSubmitted(true);
+                          } catch (e: any) {
+                            alert("Registration failed: " + e.message);
+                            setSubmitted(false);
+                          }
+                        }}
+                      >
+                        {allDocsUploaded ? "Submit Application →" : `Upload ${DOC_KEYS.filter(k => !docs[k]?.done).length} more document(s)`}
+                      </Btn>
+                    </div>
+                  )}
 
                   <p className="text-center text-[11px] text-ash-dark leading-relaxed">
                     By submitting you agree to the Streetify Driver Terms of Service and Privacy Policy.

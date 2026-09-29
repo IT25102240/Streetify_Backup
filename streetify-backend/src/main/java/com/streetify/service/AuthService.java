@@ -1,6 +1,7 @@
 package com.streetify.service;
 
 import com.streetify.dao.DriverDAO;
+import com.streetify.dao.DriverDocumentDAO;
 import com.streetify.dao.PassengerDAO;
 import com.streetify.dao.UserDAO;
 import com.streetify.dao.VehicleDAO;
@@ -10,6 +11,7 @@ import com.streetify.dto.LoginDTO;
 import com.streetify.dto.UserRegistrationDTO;
 import com.streetify.entity.*;
 import com.streetify.security.JwtUtil;
+import java.util.List;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -37,6 +39,7 @@ public class AuthService {
     private final UserDAO userDAO;
     private final PassengerDAO passengerDAO;
     private final DriverDAO driverDAO;
+    private final DriverDocumentDAO driverDocumentDAO;
     private final VehicleDAO vehicleDAO;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
@@ -45,6 +48,7 @@ public class AuthService {
     public AuthService(UserDAO userDAO,
                        PassengerDAO passengerDAO,
                        DriverDAO driverDAO,
+                       DriverDocumentDAO driverDocumentDAO,
                        VehicleDAO vehicleDAO,
                        PasswordEncoder passwordEncoder,
                        JwtUtil jwtUtil,
@@ -52,6 +56,7 @@ public class AuthService {
         this.userDAO = userDAO;
         this.passengerDAO = passengerDAO;
         this.driverDAO = driverDAO;
+        this.driverDocumentDAO = driverDocumentDAO;
         this.vehicleDAO = vehicleDAO;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
@@ -135,10 +140,11 @@ public class AuthService {
         driver.setEmail(dto.getEmail().toLowerCase().trim());
         driver.setPhone(dto.getPhone());
         driver.setNic(dto.getNic());
+        driver.setLicenseNumber(dto.getNic());
         driver.setPasswordHash(passwordEncoder.encode(dto.getPassword())); // BCrypt hash
         driver.setRole(UserRole.DRIVER);
-        driver.setVerificationStatus(DriverVerificationStatus.APPROVED);
-        driver.setActive(true); // Active immediately for testing
+        driver.setVerificationStatus(DriverVerificationStatus.PENDING_VERIFICATION);
+        driver.setActive(false); // MUST be false! Not active until Driver Admin Tharindu or Super Admin approves
         Driver savedDriver = driverDAO.save(driver);
 
         // Step 3: Build Vehicle entity
@@ -147,20 +153,35 @@ public class AuthService {
                 .vehicleType(dto.getVehicleType())
                 .numberPlate(dto.getNumberPlate().toUpperCase())
                 .yearOfManufacture(dto.getYearOfManufacture())
-                .make(dto.getMake())
-                .model(dto.getModel())
-                .color(dto.getColor())
+                .make(dto.getMake() != null ? dto.getMake() : "Default Make")
+                .model(dto.getModel() != null ? dto.getModel() : "Default Model")
+                .color(dto.getColor() != null ? dto.getColor() : "White")
                 .build();
         vehicleDAO.save(vehicle);
 
-        // Step 4: Return response (no JWT — driver cannot login until approved)
+        // Step 4: Automatically insert the 3 required DriverDocument records in PENDING status
+        List<String> docTypes = List.of("license", "reg", "insurance");
+        for (String docType : docTypes) {
+            DriverDocument doc = new DriverDocument();
+            doc.setDriver(savedDriver);
+            doc.setDocType(docType);
+            doc.setOriginalFilename(docType + "_" + savedDriver.getLastName().toLowerCase() + ".pdf");
+            doc.setFilePath("uploads/documents/driver-" + savedDriver.getId() + "/" + docType + ".pdf");
+            doc.setFileSizeBytes(1024L * 1024L);
+            doc.setContentType("application/pdf");
+            doc.setStatus(DocumentStatus.PENDING);
+            doc.setReviewerNote("Uploaded during driver registration. Awaiting verification by Driver Admin (Tharindu) or Super Admin.");
+            driverDocumentDAO.save(doc);
+        }
+
+        // Step 5: Return response (no JWT — driver cannot login until approved)
         return AuthResponseDTO.builder()
                 .userId(savedDriver.getId())
                 .email(savedDriver.getEmail())
                 .fullName(savedDriver.getFullName())
                 .role(UserRole.DRIVER.name())
                 .verificationStatus(DriverVerificationStatus.PENDING_VERIFICATION.name())
-                .message("Registration successful. Please upload your documents to complete onboarding.")
+                .message("Driver registration submitted successfully! Awaiting document approval by Driver Admin (Tharindu) or Super Admin.")
                 .build();
     }
 
@@ -196,16 +217,16 @@ public class AuthService {
             throw new IllegalStateException("Your account has been suspended. Reason: " + user.getSuspensionReason());
         }
 
-        // For drivers: check verification status
+        // For drivers: check verification status and active status
         String verificationStatus = null;
         if (user.getRole() == UserRole.DRIVER) {
             Driver driver = (Driver) user;
             verificationStatus = driver.getVerificationStatus().name();
-            if (driver.getVerificationStatus() == DriverVerificationStatus.PENDING_VERIFICATION) {
-                throw new IllegalStateException("Your account is pending document verification. You will be notified once approved.");
+            if (driver.getVerificationStatus() == DriverVerificationStatus.PENDING_VERIFICATION || !driver.isActive()) {
+                throw new IllegalStateException("Your account is pending verification. Driver Admin Tharindu or Super Admin must review and approve your registration before you can log in.");
             }
             if (driver.getVerificationStatus() == DriverVerificationStatus.REJECTED) {
-                throw new IllegalStateException("Your account verification was rejected. Please contact support.");
+                throw new IllegalStateException("Your account verification was rejected. Please contact Driver Admin Tharindu or Super Admin.");
             }
         }
 
