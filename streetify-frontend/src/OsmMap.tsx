@@ -119,6 +119,72 @@ function makeMyLocationIcon() {
 }
 
 /* ── Component interface ── */
+export interface DriverMarkerData {
+  id: string;
+  lat: number;
+  lng: number;
+  name?: string;
+  plate?: string;
+  eta?: number;
+  rating?: number;
+  heading?: number;
+  isSelf?: boolean;
+}
+
+/* ── Custom Driver Icon ── */
+function makeDriverIcon(d: DriverMarkerData) {
+  const isSelf = d.isSelf;
+  const label = d.isSelf ? (d.name ? `You (${d.name})` : "You (Driver)") : (d.name ? `${d.name} · ${d.eta ?? 3}m` : "Driver");
+  const bg = isSelf ? "linear-gradient(135deg, #2563eb, #1d4ed8)" : "linear-gradient(135deg, #10b981, #059669)";
+  const ringColor = isSelf ? "rgba(37,99,235,0.4)" : "rgba(16,185,129,0.4)";
+
+  return L.divIcon({
+    className: "driver-pin-container",
+    html: `
+      <div style="position:relative;display:flex;flex-direction:column;align-items:center;cursor:pointer;">
+        <!-- Pulsing radar glow -->
+        <div style="
+          position:absolute;top:6px;width:34px;height:34px;border-radius:50%;
+          background:${ringColor};
+          animation:driver-radar 2s ease-out infinite;"></div>
+        <!-- Car circle -->
+        <div style="
+          width:34px;height:34px;border-radius:50%;
+          background:${bg};
+          border:2.5px solid white;
+          box-shadow:0 3px 12px rgba(0,0,0,0.4);
+          display:flex;align-items:center;justify-content:center;
+          font-size:16px;z-index:2;position:relative;">
+          ${isSelf ? "🚘" : "🚗"}
+        </div>
+        <!-- Badge label -->
+        <div style="
+          margin-top:3px;
+          background:#0f1923;color:#f8fafc;
+          font-size:10px;font-weight:700;
+          padding:2px 7px;border-radius:6px;
+          white-space:nowrap;
+          border:1px solid rgba(255,255,255,0.18);
+          box-shadow:0 2px 8px rgba(0,0,0,0.5);
+          display:flex;align-items:center;gap:3px;z-index:2;">
+          <span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:${isSelf ? "#60a5fa" : "#34d399"};"></span>
+          <span>${label}</span>
+        </div>
+      </div>
+      <style>
+        @keyframes driver-radar {
+          0%   { transform:scale(0.9); opacity:0.8; }
+          70%  { transform:scale(2.2); opacity:0; }
+          100% { transform:scale(2.2); opacity:0; }
+        }
+      </style>
+    `,
+    iconSize: [80, 56],
+    iconAnchor: [40, 24],
+    popupAnchor: [0, -26],
+  });
+}
+
 interface OsmMapProps {
   height?: string | number;
   children?: ReactNode;
@@ -138,7 +204,13 @@ interface OsmMapProps {
   // Real user location coords — shows animated "You are here" dot
   myLat?: number;
   myLng?: number;
-  // Called when map ref is ready (for external re-center button)
+  // Real Leaflet driver markers on the road
+  driverMarkers?: DriverMarkerData[];
+  // Auto-center map when GPS fix arrives
+  autoCenter?: boolean;
+  // Map click handler (e.g. to set pickup or dropoff)
+  onMapClick?: (coords: { lat: number; lng: number }) => void;
+  // Called when map ref is ready (for external controls)
   onMapReady?: (map: L.Map) => void;
 }
 
@@ -159,15 +231,20 @@ export default function OsmMap({
   dropoffLng,
   myLat,
   myLng,
+  driverMarkers = [],
+  autoCenter = true,
+  onMapClick,
   onMapReady,
 }: OsmMapProps) {
   const h = typeof height === "number" ? `${height}px` : height;
-  const containerRef    = useRef<HTMLDivElement>(null);
-  const mapRef          = useRef<L.Map | null>(null);
-  const pickupMarkerRef = useRef<L.Marker | null>(null);
-  const dropoffMarkerRef= useRef<L.Marker | null>(null);
-  const routeLayerRef   = useRef<L.Polyline | null>(null);
-  const myLocMarkerRef  = useRef<L.Marker | null>(null);
+  const containerRef     = useRef<HTMLDivElement>(null);
+  const mapRef           = useRef<L.Map | null>(null);
+  const pickupMarkerRef  = useRef<L.Marker | null>(null);
+  const dropoffMarkerRef = useRef<L.Marker | null>(null);
+  const routeLayerRef    = useRef<L.Polyline | null>(null);
+  const myLocMarkerRef   = useRef<L.Marker | null>(null);
+  const driverMarkersMap = useRef<Map<string, L.Marker>>(new Map());
+  const hasInitiallyCentered = useRef(false);
 
   /* Resolve pickup coords:
    * Priority: explicit props > address lookup > real GPS > Colombo fallback */
@@ -189,11 +266,7 @@ export default function OsmMap({
   const initialCenter: [number, number] =
     myLat && myLng ? [myLat, myLng] : pCoords;
 
-  /* Tile layer URLs
-   * Dark  → Stadia Maps Alidade Smooth Dark — free for dev/student use, no API key required
-   *          https://stadiamaps.com/technology/map-tiles/
-   * Light → Standard OpenStreetMap — always free, no key required
-   */
+  /* Tile layer URLs */
   const tileUrl = dark
     ? "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
     : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
@@ -224,13 +297,25 @@ export default function OsmMap({
     if (showPickup) {
       pickupMarkerRef.current = L.marker(pCoords, { icon: makePickupIcon() })
         .addTo(map)
-        .bindTooltip(pickupAddress || "Pickup", { permanent: false });
+        .bindTooltip(pickupAddress || "Pickup Point", { permanent: false });
     }
+
+    // Map click listener
+    map.on("click", (e: L.LeafletMouseEvent) => {
+      onMapClick?.({ lat: e.latlng.lat, lng: e.latlng.lng });
+    });
 
     mapRef.current = map;
     onMapReady?.(map);
 
+    // ResizeObserver to ensure Leaflet renders properly on resize
+    const resizeObserver = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    resizeObserver.observe(containerRef.current);
+
     return () => {
+      resizeObserver.disconnect();
       map.remove();
       mapRef.current = null;
     };
@@ -247,13 +332,14 @@ export default function OsmMap({
     L.tileLayer(tileUrl, { attribution, maxZoom: 19 }).addTo(map);
   }, [dark]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* Update "You are here" marker when real GPS coords arrive/change */
+  /* Update "You are here" marker and AUTO-CENTER when GPS coords arrive/change */
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
     if (myLat && myLng) {
       const pos: [number, number] = [myLat, myLng];
+
       if (myLocMarkerRef.current) {
         myLocMarkerRef.current.setLatLng(pos);
       } else {
@@ -261,13 +347,19 @@ export default function OsmMap({
           .addTo(map)
           .bindTooltip("📍 You are here", { permanent: false });
       }
+
+      // Auto-center map if it's the initial GPS fix or autoCenter is requested
+      if (autoCenter && !hasInitiallyCentered.current) {
+        hasInitiallyCentered.current = true;
+        map.flyTo(pos, 15, { animate: true, duration: 1.2 });
+      }
     } else {
       if (myLocMarkerRef.current) {
         map.removeLayer(myLocMarkerRef.current);
         myLocMarkerRef.current = null;
       }
     }
-  }, [myLat, myLng]);
+  }, [myLat, myLng, autoCenter]);
 
   /* Update pickup marker position when coords change */
   useEffect(() => {
@@ -275,8 +367,11 @@ export default function OsmMap({
     if (!map) return;
     if (pickupMarkerRef.current) {
       pickupMarkerRef.current.setLatLng(pCoords);
+      if (pickupAddress) {
+        pickupMarkerRef.current.setTooltipContent(pickupAddress);
+      }
     }
-  }, [pCoords[0], pCoords[1]]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pCoords[0], pCoords[1], pickupAddress]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* Update dropoff marker + draw route when coords change */
   useEffect(() => {
@@ -289,37 +384,81 @@ export default function OsmMap({
     if (showDropoff && dCoords) {
       dropoffMarkerRef.current = L.marker(dCoords, { icon: makeDropoffIcon() })
         .addTo(map)
-        .bindTooltip(dropoffAddress || "Drop-off", { permanent: false });
+        .bindTooltip(dropoffAddress || "Drop-off Destination", { permanent: false });
 
       if (animate && showPickup) {
         routeLayerRef.current = L.polyline([pCoords, dCoords], {
-          color: dark ? "#60a5fa" : "#1D4ED8",
-          weight: 4,
-          opacity: 0.85,
-          dashArray: "8 6",
+          color: dark ? "#38bdf8" : "#2563eb",
+          weight: 5,
+          opacity: 0.9,
+          dashArray: "10 8",
         }).addTo(map);
 
-        map.fitBounds(L.latLngBounds([pCoords, dCoords]), { padding: [50, 50] });
+        map.fitBounds(L.latLngBounds([pCoords, dCoords]), { padding: [60, 60] });
       }
-    } else if (showPickup && !(myLat && myLng)) {
+    } else if (showPickup && !hasInitiallyCentered.current && !(myLat && myLng)) {
       map.setView(pCoords, 15, { animate: true });
     }
   }, [showDropoff, dCoords?.[0], dCoords?.[1], animate, dark]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* Real Leaflet driver markers */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const currentMap = driverMarkersMap.current;
+    const incomingIds = new Set(driverMarkers.map(d => d.id));
+
+    // Remove markers that are no longer present
+    for (const [id, marker] of currentMap.entries()) {
+      if (!incomingIds.has(id)) {
+        map.removeLayer(marker);
+        currentMap.delete(id);
+      }
+    }
+
+    // Add or update markers
+    driverMarkers.forEach(d => {
+      const pos: [number, number] = [d.lat, d.lng];
+      const existing = currentMap.get(d.id);
+      if (existing) {
+        existing.setLatLng(pos);
+        existing.setIcon(makeDriverIcon(d));
+      } else {
+        const marker = L.marker(pos, {
+          icon: makeDriverIcon(d),
+          zIndexOffset: d.isSelf ? 900 : 500,
+        }).addTo(map);
+
+        marker.bindPopup(`
+          <div style="font-family:sans-serif;padding:4px;min-width:140px;">
+            <div style="font-weight:bold;font-size:13px;color:#0f172a;">${d.name ?? "Streetify Driver"}</div>
+            ${d.plate ? `<div style="font-size:11px;color:#64748b;font-family:monospace;">${d.plate}</div>` : ""}
+            ${d.eta !== undefined ? `<div style="font-size:12px;color:#10b981;font-weight:600;margin-top:4px;">⏱️ ${d.eta} min away</div>` : ""}
+            ${d.rating ? `<div style="font-size:11px;color:#f59e0b;">★ ${d.rating} rating</div>` : ""}
+          </div>
+        `);
+        currentMap.set(d.id, marker);
+      }
+    });
+  }, [driverMarkers]);
+
   return (
     <div className={`relative overflow-hidden ${className}`} style={{ height: h }}>
-      {/* Leaflet map container */}
+      {/* Leaflet map canvas */}
       <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
 
-      {/* Driver pins + overlays rendered on top */}
-      <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 800 }}>
-        {children}
-      </div>
+      {/* Children overlays (legacy or custom badges) */}
+      {children && (
+        <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 800 }}>
+          {children}
+        </div>
+      )}
     </div>
   );
 }
 
-/* ── DriverPin — pulsing CSS marker positioned absolutely ── */
+/* ── DriverPin — legacy pulsing marker component kept for backward compatibility ── */
 export function DriverPin({
   top,
   left,

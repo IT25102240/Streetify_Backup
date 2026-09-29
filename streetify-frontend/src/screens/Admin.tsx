@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { Btn, Card, Pill } from "../ui";
 import { apiClient } from "../api/apiClient";
 import BranchKiosk from "./BranchKiosk";
+import SystemStatusIndicator, { CompactStatusIndicator } from "../components/SystemStatusIndicator";
+import { tabStorage } from "../utils/storage";
+import { tripSyncService } from "../services/tripSyncService";
 
 type AdminTab = "analytics" | "users" | "drivers" | "bookings" | "driver-trips" | "driver-docs" | "payments" | "reviews" | "cancellation" | "export" | "rbac" | "system" | "branch-kiosk";
 
@@ -93,8 +96,8 @@ function AdminFormOverlay() {
 }
 
 export default function AdminDashboard() {
-  const adminRole = localStorage.getItem("admin_role") || "UNKNOWN";
-  const adminEmail = localStorage.getItem("user_name") || "Admin";
+  const adminRole = tabStorage.getItem("admin_role") || "UNKNOWN";
+  const adminEmail = tabStorage.getItem("user_name") || "Admin";
 
   const allowedTabs: { key: string; icon: string; label: string; external?: string }[] = [];
   // Analytics dashboard — visible to all admin roles
@@ -185,13 +188,16 @@ export default function AdminDashboard() {
               MSSQL · /api/module-admin/{tab}
             </p>
           </div>
-          <button
-            onClick={() => setTab("branch-kiosk")}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-50 to-amber-100 hover:from-amber-100 hover:to-amber-200 text-amber-900 border border-amber-300 text-xs font-bold shadow-sm transition-all"
-            title="Open Front-Desk Walk-In Passenger Onboarding & Counter Booking Kiosk"
-          >
-            <span>🏢</span> Branch Walk-In Kiosk
-          </button>
+          <div className="flex items-center gap-3">
+            <CompactStatusIndicator />
+            <button
+              onClick={() => setTab("branch-kiosk")}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-50 to-amber-100 hover:from-amber-100 hover:to-amber-200 text-amber-900 border border-amber-300 text-xs font-bold shadow-sm transition-all"
+              title="Open Front-Desk Walk-In Passenger Onboarding & Counter Booking Kiosk"
+            >
+              <span>🏢</span> Branch Walk-In Kiosk
+            </button>
+          </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
@@ -208,6 +214,9 @@ export default function AdminDashboard() {
           {tab === "export"      && <ExportPanel />}
           {tab === "rbac"        && <RbacPanel />}
           {tab === "system"      && <SystemPanel />}
+
+          {/* System Status Monitor - Visible on every Admin Module page */}
+          <SystemStatusIndicator />
         </div>
       </div>
     </div>
@@ -403,7 +412,13 @@ function DriverTripsPanel() {
     } catch (e) { console.error(e); }
   };
 
-  useEffect(() => { fetchTrips(); }, []);
+  useEffect(() => { 
+    fetchTrips(); 
+    const unsub = tripSyncService.subscribeAll(() => {
+      fetchTrips();
+    });
+    return () => unsub();
+  }, []);
 
   const handleAdd = async () => {
     const data = await openAdminForm("Add New Trip", [
@@ -1408,7 +1423,7 @@ function RbacPanel() {
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState<number | null>(null);
 
-  const isSuperAdmin = localStorage.getItem("admin_role") === "SUPER_ADMIN";
+  const isSuperAdmin = tabStorage.getItem("admin_role") === "SUPER_ADMIN";
 
   useEffect(() => {
     const load = async () => {

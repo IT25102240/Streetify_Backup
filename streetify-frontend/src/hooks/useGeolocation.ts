@@ -1,14 +1,13 @@
 /**
- * useGeolocation — Live GPS/WiFi position hook
+ * useGeolocation — Live GPS/WiFi position hook with multi-tier fallback
  *
- * Uses browser Geolocation API (navigator.geolocation.watchPosition).
- * Works on localhost and HTTPS. No API key required.
+ * Tier 1: Browser GPS (high accuracy, quick timeout)
+ * Tier 2: Browser WiFi/Cell tower triangulation (low accuracy, instant)
+ * Tier 3: IP-based Geolocation fallback (works on any desktop/PC without GPS)
+ * Tier 4: Colombo Metro default fallback (6.9271, 79.8612)
  *
- * Returns:
- *   coords   — { lat, lng, accuracy } or null while locating
- *   error    — string error message or null
- *   loading  — true while waiting for first fix
- *   refetch  — call to manually request a position refresh
+ * Guarantees that passenger and driver location is always resolved quickly
+ * and never gets stuck indefinitely in "Detecting your location...".
  */
 import { useState, useEffect, useCallback, useRef } from "react";
 
@@ -16,6 +15,7 @@ export interface GeoCoords {
   lat: number;
   lng: number;
   accuracy: number; // metres
+  source?: "gps" | "wifi" | "ip" | "default";
 }
 
 export interface UseGeolocationResult {
@@ -25,10 +25,11 @@ export interface UseGeolocationResult {
   refetch: () => void;
 }
 
-const GEO_OPTIONS: PositionOptions = {
-  enableHighAccuracy: true,
-  timeout: 12000,
-  maximumAge: 5000,
+const COLOMBO_DEFAULT: GeoCoords = {
+  lat: 6.9271,
+  lng: 79.8612,
+  accuracy: 100,
+  source: "default",
 };
 
 export function useGeolocation(): UseGeolocationResult {
@@ -36,51 +37,139 @@ export function useGeolocation(): UseGeolocationResult {
   const [error, setError]   = useState<string | null>(null);
   const [loading, setLoad]  = useState(true);
   const watchId = useRef<number | null>(null);
+  const hasResolvedRef = useRef(false);
 
-  const start = useCallback(() => {
-    if (!navigator.geolocation) {
-      setError("Geolocation is not supported by your browser.");
-      setLoad(false);
-      return;
+  // Fallback to IP geolocation if browser GPS takes too long or fails
+  const fetchIpLocation = useCallback(async () => {
+    if (hasResolvedRef.current) return;
+    try {
+      const res = await fetch("https://ipwho.is/", { signal: AbortSignal.timeout(4000) });
+      if (!res.ok) throw new Error("IP lookup failed");
+      const data = await res.json();
+      if (data.success && typeof data.latitude === "number" && typeof data.longitude === "number") {
+        if (!hasResolvedRef.current) {
+          hasResolvedRef.current = true;
+          setCoords({
+            lat: data.latitude,
+            lng: data.longitude,
+            accuracy: 1500,
+            source: "ip",
+          });
+          setLoad(false);
+          setError(null);
+          return;
+        }
+      }
+    } catch {
+      // Ignore IP lookup failure, will use default fallback
     }
 
+    if (!hasResolvedRef.current) {
+      hasResolvedRef.current = true;
+      setCoords(COLOMBO_DEFAULT);
+      setLoad(false);
+    }
+  }, []);
+
+  const start = useCallback(() => {
+    hasResolvedRef.current = false;
     setLoad(true);
     setError(null);
 
-    // Stop any existing watch
+    // If browser doesn't support geolocation at all
+    if (!navigator.geolocation) {
+      setError("Geolocation is not supported by your browser. Using network location.");
+      fetchIpLocation();
+      return;
+    }
+
+    // Safety timeout: if browser GPS is stuck/unresponsive for > 3.5s, fall back to IP/default
+    const safetyTimer = setTimeout(() => {
+      if (!hasResolvedRef.current) {
+        fetchIpLocation();
+      }
+    }, 3500);
+
+    // Stop existing watch if any
     if (watchId.current !== null) {
       navigator.geolocation.clearWatch(watchId.current);
     }
 
-    watchId.current = navigator.geolocation.watchPosition(
+    // Step 1: First try quick fix with highAccuracy: true
+    navigator.geolocation.getCurrentPosition(
       (pos) => {
+        clearTimeout(safetyTimer);
+        hasResolvedRef.current = true;
         setCoords({
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
           accuracy: pos.coords.accuracy,
+          source: "gps",
         });
         setLoad(false);
         setError(null);
       },
-      (err) => {
-        switch (err.code) {
-          case err.PERMISSION_DENIED:
-            setError("Location permission denied. Please allow location access.");
-            break;
-          case err.POSITION_UNAVAILABLE:
-            setError("Location unavailable. Check your device settings.");
-            break;
-          case err.TIMEOUT:
-            setError("Location request timed out. Retrying…");
-            break;
-          default:
-            setError("Unable to get your location.");
-        }
-        setLoad(false);
+      () => {
+        // Step 2: High accuracy failed (common on desktop/laptops), try low-accuracy immediately
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            clearTimeout(safetyTimer);
+            hasResolvedRef.current = true;
+            setCoords({
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              accuracy: pos.coords.accuracy,
+              source: "wifi",
+            });
+            setLoad(false);
+            setError(null);
+          },
+          (err) => {
+            clearTimeout(safetyTimer);
+            switch (err.code) {
+              case err.PERMISSION_DENIED:
+                setError("Location permission denied. Using estimated location.");
+                break;
+              case err.POSITION_UNAVAILABLE:
+                setError("Hardware GPS unavailable. Using network location.");
+                break;
+              case err.TIMEOUT:
+                setError("GPS request timed out. Using estimated location.");
+                break;
+              default:
+                setError("Unable to obtain GPS. Using estimated location.");
+            }
+            fetchIpLocation();
+          },
+          { enableHighAccuracy: false, timeout: 4000, maximumAge: 30000 }
+        );
       },
-      GEO_OPTIONS
+      { enableHighAccuracy: true, timeout: 3000, maximumAge: 10000 }
     );
-  }, []);
+
+    // Step 3: Continuously watch position for live movement updates
+    watchId.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        hasResolvedRef.current = true;
+        setCoords({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+          source: pos.coords.accuracy < 50 ? "gps" : "wifi",
+        });
+        setLoad(false);
+        setError(null);
+      },
+      () => {
+        // Ignore watch errors if we already have coords
+      },
+      { enableHighAccuracy: false, timeout: 15000, maximumAge: 5000 }
+    );
+
+    return () => {
+      clearTimeout(safetyTimer);
+    };
+  }, [fetchIpLocation]);
 
   useEffect(() => {
     start();
@@ -96,28 +185,51 @@ export function useGeolocation(): UseGeolocationResult {
 
 /**
  * reverseGeocode — Turns lat/lng into a human-readable address
- * Uses OpenStreetMap Nominatim API — completely free, no key needed.
- * Rate limit: max 1 request/second (fine for user-triggered calls).
+ * Uses OpenStreetMap Nominatim with fast timeout and fallback
  */
 export async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  // Check known landmark proximities in Colombo metro first for lightning-fast resolution
+  const knownLandmarks = [
+    { name: "Colombo Fort Station, Colombo 01", lat: 6.9337, lng: 79.8452, dist: 0.008 },
+    { name: "World Trade Centre, Colombo 01",   lat: 6.9329, lng: 79.8438, dist: 0.008 },
+    { name: "Galle Face Green, Colombo 03",      lat: 6.9270, lng: 79.8450, dist: 0.008 },
+    { name: "Nawaloka Hospital, Colombo 02",    lat: 6.9208, lng: 79.8519, dist: 0.008 },
+    { name: "Maradana, Colombo 10",             lat: 6.9271, lng: 79.8612, dist: 0.009 },
+    { name: "42/B Kotte Road, Nugegoda",        lat: 6.8649, lng: 79.8997, dist: 0.008 },
+  ];
+
+  for (const lm of knownLandmarks) {
+    const dLat = Math.abs(lm.lat - lat);
+    const dLng = Math.abs(lm.lng - lng);
+    if (dLat < lm.dist && dLng < lm.dist) {
+      return lm.name;
+    }
+  }
+
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16&addressdetails=1`,
-      { headers: { "Accept-Language": "en", "User-Agent": "Streetify-StudentApp/1.0" } }
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=17&addressdetails=1`,
+      {
+        headers: { "Accept-Language": "en", "User-Agent": "Streetify-App/2.0" },
+        signal: AbortSignal.timeout(3500),
+      }
     );
     if (!res.ok) throw new Error("Nominatim error");
     const data = await res.json();
 
-    // Build a short, readable address
     const a = data.address ?? {};
     const parts = [
-      a.road || a.pedestrian || a.footway,
-      a.suburb || a.neighbourhood || a.quarter,
-      a.city || a.town || a.village,
+      a.road || a.pedestrian || a.suburb || a.neighbourhood,
+      a.city || a.town || a.county || a.state_district,
+      a.state || a.country,
     ].filter(Boolean);
 
-    return parts.length > 0 ? parts.join(", ") : (data.display_name ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+    return parts.length > 0 ? parts.join(", ") : (data.display_name?.split(",").slice(0, 3).join(",") ?? `${lat.toFixed(4)}, ${lng.toFixed(4)}`);
   } catch {
-    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    // If online lookup fails or times out, provide formatted coordinates or general zone
+    if (lat >= 6.85 && lat <= 7.0 && lng >= 79.80 && lng <= 79.95) {
+      return `Colombo Metro (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+    }
+    return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
   }
 }

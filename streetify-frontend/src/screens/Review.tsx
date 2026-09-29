@@ -8,6 +8,7 @@
 import { useState, useEffect } from "react";
 import { Btn, Card, Toast } from "../ui";
 import { apiClient } from "../api/apiClient";
+import { tabStorage } from "../utils/storage";
 
 const DISPUTE_OPTIONS = [
   "Driver didn't show up",
@@ -41,7 +42,7 @@ export default function ScreenReview() {
   const [errorToast, setErrorToast] = useState("");
 
   useEffect(() => {
-    const lastTrip = localStorage.getItem("last_completed_trip");
+    const lastTrip = tabStorage.getItem("last_completed_trip");
     if (lastTrip) {
       try {
         setTrip(JSON.parse(lastTrip));

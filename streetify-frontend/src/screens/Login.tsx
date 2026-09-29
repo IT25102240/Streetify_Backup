@@ -80,47 +80,6 @@ const FEATURES = [
   { icon: "🛡️", title: "Verified Drivers", desc: "All drivers are background checked and document verified" },
 ];
 
-function SystemStatusIndicator() {
-  const [backendAlive, setBackendAlive] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    const checkStatus = async () => {
-      try {
-        await fetch('http://localhost:8080/api/auth/me', { method: 'OPTIONS' });
-        setBackendAlive(true);
-      } catch (e) {
-        setBackendAlive(false);
-      }
-    };
-    checkStatus();
-    const interval = setInterval(checkStatus, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="py-8 flex flex-col items-center justify-center gap-4 relative z-0" style={{ background: "#02050a", borderTop: "1px solid rgba(255,255,255,0.03)" }}>
-      <p className="text-[10px] font-mono font-bold tracking-widest text-slate-500 uppercase">System Status Monitor</p>
-      <div className="flex flex-wrap justify-center gap-4">
-        {/* Frontend Badge */}
-        <div className="flex items-center gap-2.5 px-4 py-2 rounded-xl" style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)" }}>
-          <span className="w-2.5 h-2.5 rounded-full animate-pulse bg-eco shadow-[0_0_8px_rgba(34,197,94,0.8)]"></span>
-          <span className="text-sm font-black text-eco tracking-wide">FRONTEND LIVE</span>
-        </div>
-        
-        {/* Backend Badge */}
-        <div className="flex items-center gap-2.5 px-4 py-2 rounded-xl transition-all" style={{ 
-          background: backendAlive ? "rgba(34,197,94,0.08)" : backendAlive === false ? "rgba(239,68,68,0.08)" : "rgba(255,255,255,0.02)",
-          border: backendAlive ? "1px solid rgba(34,197,94,0.25)" : backendAlive === false ? "1px solid rgba(239,68,68,0.25)" : "1px solid rgba(255,255,255,0.1)"
-        }}>
-          <span className={`w-2.5 h-2.5 rounded-full shadow-lg ${backendAlive ? "animate-pulse bg-eco shadow-[0_0_8px_rgba(34,197,94,0.8)]" : backendAlive === false ? "animate-pulse bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" : "bg-slate-500"}`}></span>
-          <span className={`text-sm font-black tracking-wide ${backendAlive ? "text-eco" : backendAlive === false ? "text-red-500" : "text-slate-400"}`}>
-            {backendAlive ? "BACKEND LIVE" : backendAlive === false ? "BACKEND OFFLINE" : "PINGING BACKEND..."}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function ScreenLogin() {
   const [tab, setTab]           = useState<Tab>("login");
@@ -906,8 +865,6 @@ export default function ScreenLogin() {
           </div>
         </div>
       </div>
-      
-      <SystemStatusIndicator />
     </div>
   );
 }

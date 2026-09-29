@@ -10,6 +10,8 @@ import { useState, useEffect } from "react";
 import { Btn, Card, Field, Pill } from "../ui";
 import { apiClient } from "../api/apiClient";
 import { NotificationService } from "../services/notificationService";
+import { tabStorage } from "../utils/storage";
+import { tripSyncService } from "../services/tripSyncService";
 
 type PayMeth  = "card"|"wallet"|"cash";
 type PayState = "idle"|"processing"|"declined"|"success";
@@ -36,7 +38,7 @@ export default function ScreenPayment() {
   const [gatewayRef, setGatewayRef] = useState("");
 
   useEffect(() => {
-    const active = localStorage.getItem("active_trip");
+    const active = tabStorage.getItem("active_trip") || tabStorage.getItem("last_completed_trip");
     if (active) {
       try {
         setTrip(JSON.parse(active));
@@ -84,6 +86,14 @@ export default function ScreenPayment() {
       
       setReceipt(res);
       setPs("success");
+
+      // Broadcast PAYMENT_COMPLETED for live admin monitoring & cross-tab sync
+      tripSyncService.publishPaymentCompleted({
+        tripId: trip.tripId,
+        amount: res?.grossAmount || totalAmount,
+        paymentMethod: method,
+        txnId: res?.transactionId || generatedRef,
+      });
 
       // Dispatch receipt via Notification Service
       NotificationService.sendReceipt(
@@ -183,8 +193,8 @@ export default function ScreenPayment() {
             </div>
             <Btn v="primary" size="lg" full onClick={() => { 
               setPs("idle"); 
-              if (trip) localStorage.setItem("last_completed_trip", JSON.stringify(trip));
-              localStorage.removeItem("active_trip"); 
+              if (trip) tabStorage.setItem("last_completed_trip", JSON.stringify(trip));
+              tabStorage.removeItem("active_trip"); 
               setTrip(null);
               window.dispatchEvent(new CustomEvent('navigate', { detail: { screen: 'review' } }));
             }}>Done</Btn>

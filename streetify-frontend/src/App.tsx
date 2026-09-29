@@ -18,6 +18,8 @@ import NotificationCenter from "./components/NotificationCenter";
 import Footer            from "./components/Footer";
 import DemoSwitcher      from "./components/DemoSwitcher";
 
+import { tabStorage } from "./utils/storage";
+
 type Screen = "login" | "booking" | "driver" | "payment" | "review" | "admin" | "history" | "support" | "profile" | "kiosk";
 
 const NAV: { key: Screen; label: string; icon: string; group: "passenger" | "driver" | "admin" | "support" }[] = [
@@ -61,22 +63,63 @@ export default function App() {
       return newHistory;
     });
   };
+
   const [role, setRole] = useState<string | null>(
-    localStorage.getItem("jwt_token")
-      ? (localStorage.getItem("user_role")?.toLowerCase() || "passenger")
+    tabStorage.getItem("jwt_token")
+      ? (tabStorage.getItem("user_role")?.toLowerCase() || "passenger")
       : null
   );
-  const adminRole = localStorage.getItem("admin_role") || "";
-  const userName  = localStorage.getItem("user_name")  || "";
+  const [adminRole, setAdminRole] = useState(tabStorage.getItem("admin_role") || "");
+  const [userName, setUserName]   = useState(tabStorage.getItem("user_name")  || "");
+  const [isVivaMode, setIsVivaMode] = useState(false);
+
+  // Initialize from URL query parameters (for direct 2-tab Viva links)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlRole = params.get("role")?.toLowerCase();
+    const urlScreen = params.get("screen") as Screen | null;
+    const viva = params.get("viva") === "1" || params.get("viva") === "true";
+
+    if (viva) setIsVivaMode(true);
+
+    if (urlRole) {
+      const isDriver = urlRole === "driver";
+      const isAdmin = urlRole === "admin";
+      const defaultName = isDriver ? "Kamal Perera" : isAdmin ? "Vidura Rammandalagedara" : "Lahiru Peris";
+      const defaultVehicle = isDriver ? "CAB-4821 · Toyota Prius" : "";
+      const defaultAdmin = isAdmin ? "SUPER_ADMIN" : "";
+
+      tabStorage.setTabOnly("jwt_token", `mock-jwt-${urlRole}`);
+      tabStorage.setTabOnly("user_role", urlRole.toUpperCase());
+      tabStorage.setTabOnly("user_name", defaultName);
+      if (defaultVehicle) tabStorage.setTabOnly("vehicle_info", defaultVehicle);
+      if (defaultAdmin) tabStorage.setTabOnly("admin_role", defaultAdmin);
+
+      setRole(urlRole);
+      setUserName(defaultName);
+      setAdminRole(defaultAdmin);
+
+      if (urlScreen) {
+        setScreenState(urlScreen);
+      } else {
+        setScreenState(isDriver ? "driver" : isAdmin ? "admin" : "booking");
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const handleAuthSuccess = (e: any) => {
       const userRole = e.detail?.role?.toLowerCase() || "passenger";
       setRole(userRole);
+      setUserName(tabStorage.getItem("user_name") || "");
+      setAdminRole(tabStorage.getItem("admin_role") || "");
       setScreen(userRole === "driver" ? "driver" : userRole === "admin" ? "admin" : "booking");
     };
-    const handleAuthExpired = () => { setRole(null); setScreen("login"); };
-    const handleNavigate    = (e: any) => {
+    const handleAuthExpired = () => { 
+      setRole(null); 
+      setScreen("login"); 
+    };
+    const handleNavigate = (e: any) => {
       const dest = e.detail?.screen as Screen;
       if (dest) setScreen(dest);
     };
@@ -91,12 +134,10 @@ export default function App() {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("jwt_token");
-    localStorage.removeItem("user_role");
-    localStorage.removeItem("user_name");
-    localStorage.removeItem("vehicle_info");
-    localStorage.removeItem("admin_role");
+    tabStorage.clearAuth();
     setRole(null);
+    setUserName("");
+    setAdminRole("");
     setHistory([]);
     setScreen("login");
   };
@@ -237,6 +278,13 @@ export default function App() {
                 {role}
               </span>
             </div>
+          )}
+
+          {isVivaMode && (
+            <span className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+              2-Tab Viva Sync
+            </span>
           )}
 
           <NotificationCenter />

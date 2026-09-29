@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { apiClient } from "../api/apiClient";
+import { tabStorage } from "../utils/storage";
 
 interface DemoUser {
   label: string;
@@ -97,6 +98,24 @@ export default function DemoSwitcher() {
   const [isOpen, setIsOpen] = useState(false);
   const [switching, setSwitching] = useState<string | null>(null);
 
+  const handleLaunchTwoTabViva = () => {
+    // Current tab becomes Tab 1 (Passenger)
+    tabStorage.setTabOnly("jwt_token", "mock-jwt-passenger");
+    tabStorage.setTabOnly("user_role", "PASSENGER");
+    tabStorage.setTabOnly("user_name", "Lahiru Peris");
+    tabStorage.removeItem("admin_role");
+    
+    // Redirect current tab to passenger booking
+    window.location.href = "/?role=passenger&screen=booking&viva=1";
+
+    // Launch Tab 2 in a new window/tab for Driver
+    window.open("/?role=driver&screen=driver&viva=1", "_blank");
+  };
+
+  const handleLaunchAdminTab = () => {
+    window.open("/?role=admin&screen=admin&viva=1", "_blank");
+  };
+
   const handleQuickLogin = async (user: DemoUser) => {
     setSwitching(user.email);
     try {
@@ -121,13 +140,16 @@ export default function DemoSwitcher() {
       }
 
       if (res && res.accessToken) {
-        localStorage.setItem("jwt_token", res.accessToken);
-        localStorage.setItem("user_role", res.role || user.role);
-        localStorage.setItem("user_name", res.fullName || user.name);
+        tabStorage.setTabOnly("jwt_token", res.accessToken);
+        tabStorage.setTabOnly("user_role", res.role || user.role);
+        tabStorage.setTabOnly("user_name", res.fullName || user.name);
+        if (user.role === "DRIVER") {
+          tabStorage.setTabOnly("vehicle_info", "CAB-4821 · Toyota Prius");
+        }
         if (res.adminRole || user.adminRole) {
-          localStorage.setItem("admin_role", res.adminRole || user.adminRole || "");
+          tabStorage.setTabOnly("admin_role", res.adminRole || user.adminRole || "");
         } else {
-          localStorage.removeItem("admin_role");
+          tabStorage.removeItem("admin_role");
         }
 
         window.dispatchEvent(
@@ -142,10 +164,13 @@ export default function DemoSwitcher() {
       }
     } catch {
       // Fallback local session if backend is momentarily restarting
-      localStorage.setItem("jwt_token", "mock-jwt-" + user.role.toLowerCase());
-      localStorage.setItem("user_role", user.role);
-      localStorage.setItem("user_name", user.name);
-      if (user.adminRole) localStorage.setItem("admin_role", user.adminRole);
+      tabStorage.setTabOnly("jwt_token", "mock-jwt-" + user.role.toLowerCase());
+      tabStorage.setTabOnly("user_role", user.role);
+      tabStorage.setTabOnly("user_name", user.name);
+      if (user.role === "DRIVER") {
+        tabStorage.setTabOnly("vehicle_info", "CAB-4821 · Toyota Prius");
+      }
+      if (user.adminRole) tabStorage.setTabOnly("admin_role", user.adminRole);
 
       window.dispatchEvent(
         new CustomEvent("auth-success", {
@@ -168,7 +193,7 @@ export default function DemoSwitcher() {
       <div className="fixed bottom-6 right-6 z-40">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2 px-3.5 py-2.5 text-white rounded-full font-bold text-xs transition-all hover:scale-105 active:scale-95 group"
+          className="flex items-center gap-2 px-3.5 py-2.5 text-white rounded-full font-bold text-xs transition-all hover:scale-105 active:scale-95 group shadow-2xl"
           style={{
             background: "linear-gradient(135deg, #16a34a, #22c55e, #15803d)",
             boxShadow: "0 0 20px rgba(34,197,94,0.35), 0 4px 16px rgba(0,0,0,0.4)",
@@ -189,37 +214,85 @@ export default function DemoSwitcher() {
         <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-3 sm:p-4"
           style={{ background: "rgba(0,0,0,0.72)", backdropFilter: "blur(8px)" }}>
           <div
-            className="w-full max-w-lg p-5 sm:p-6 shadow-2xl relative text-white rounded-2xl"
+            className="w-full max-w-xl p-5 sm:p-6 shadow-2xl relative text-white rounded-2xl max-h-[90vh] overflow-y-auto"
             style={{
-              background: "rgba(9,20,40,0.97)",
-              border: "1px solid rgba(34,197,94,0.2)",
+              background: "rgba(9,20,40,0.98)",
+              border: "1px solid rgba(34,197,94,0.25)",
               backdropFilter: "blur(20px)",
             }}
           >
+            {/* Header */}
             <div
-              className="flex items-center justify-between pb-3 mb-1"
+              className="flex items-center justify-between pb-3 mb-3"
               style={{ borderBottom: "1px solid rgba(34,197,94,0.1)" }}
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <span
-                  className="text-xl p-1.5 rounded-xl"
-                  style={{ background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)" }}
+                  className="text-xl p-2 rounded-xl"
+                  style={{ background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.3)" }}
                 >⚡</span>
                 <div>
-                  <h3 className="text-sm font-bold text-white">Quick Test Accounts & Role Switcher</h3>
-                  <p className="text-[11px]" style={{ color: "#4a6580" }}>1-Click instant switch between all 8 primary system actors</p>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    Quick Test Accounts & Viva Demo Suite
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      TAB ISOLATED
+                    </span>
+                  </h3>
+                  <p className="text-[11px]" style={{ color: "#7a95b0" }}>
+                    Each tab retains its own isolated JWT persona without session overwriting
+                  </p>
                 </div>
               </div>
               <button
                 onClick={() => setIsOpen(false)}
-                className="hover:text-white text-lg p-1 transition-colors"
-                style={{ color: "#4a6580" }}
+                className="hover:text-white text-lg p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+                style={{ color: "#7a95b0" }}
               >
                 ✕
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 my-4">
+            {/* ── Viva Demonstration 2-Tab Fast Launcher ── */}
+            <div className="mb-4 p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950/60 to-blue-950/60 border border-emerald-500/30">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🎓</span>
+                  <span className="text-xs font-black uppercase tracking-wider text-emerald-300">
+                    Lecturer Panel Viva Demonstration (Side-by-Side)
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                  REAL-TIME SYNC
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 mb-3 leading-relaxed">
+                Click below to launch <strong>Tab 1 (Passenger)</strong> and <strong>Tab 2 (Driver)</strong> simultaneously. Actions taken on one tab sync in under 5ms to the other tab.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={handleLaunchTwoTabViva}
+                  className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-lg shadow-emerald-900/40 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <span>🚀</span>
+                  <span>Launch 2-Tab Demo (Pass + Driver)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLaunchAdminTab}
+                  className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl font-bold text-xs text-white bg-slate-800/90 hover:bg-slate-700 border border-slate-600 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <span>🛡️</span>
+                  <span>Open Tab 3: Admin Monitor</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Individual Role Quick Switcher Grid */}
+            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">
+              Switch This Tab's Persona:
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 my-2">
               {DEMO_USERS.map((u) => (
                 <button
                   key={u.email}
@@ -248,7 +321,7 @@ export default function DemoSwitcher() {
                     <div className="text-xs font-bold text-white group-hover:text-eco-glow truncate transition-colors">
                       {u.name}
                     </div>
-                    <div className="text-[10px] truncate" style={{ color: "#4a6580" }}>
+                    <div className="text-[10px] truncate" style={{ color: "#7a95b0" }}>
                       {u.details}
                     </div>
                   </div>

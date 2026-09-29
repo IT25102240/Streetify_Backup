@@ -9,6 +9,7 @@
 import { useState, useEffect } from "react";
 import { Btn, Card, Pill } from "../ui";
 import { apiClient } from "../api/apiClient";
+import { tabStorage } from "../utils/storage";
 
 type ViewMode = "passenger" | "driver";
 
@@ -40,7 +41,7 @@ export default function ScreenHistory() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const userRole = localStorage.getItem("user_role") || "passenger";
+  const userRole = tabStorage.getItem("user_role") || "passenger";
 
   useEffect(() => {
     const fetchHistory = async () => {

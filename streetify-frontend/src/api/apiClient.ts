@@ -1,3 +1,5 @@
+import { tabStorage } from '../utils/storage';
+
 export const API_BASE_URL = 'http://localhost:8080/api';
 
 /**
@@ -8,7 +10,7 @@ export async function apiClient<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token = localStorage.getItem('jwt_token');
+  const token = tabStorage.getItem('jwt_token');
 
   const headers = new Headers(options.headers || {});
   headers.set('Content-Type', 'application/json');
@@ -24,7 +26,7 @@ export async function apiClient<T>(
 
   // Handle unauthorized/expired token
   if (response.status === 401) {
-    localStorage.removeItem('jwt_token');
+    tabStorage.removeItem('jwt_token');
     window.dispatchEvent(new Event('auth-expired'));
   }
 

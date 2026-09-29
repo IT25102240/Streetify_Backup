@@ -14,6 +14,7 @@ import { useState, useEffect } from "react";
 import { Btn, Card, Field, Toast, PwStrength, HR } from "../ui";
 import { apiClient } from "../api/apiClient";
 import { NotificationService } from "../services/notificationService";
+import { tabStorage } from "../utils/storage";
 
 interface UserProfile {
   id: number;
@@ -70,7 +71,7 @@ export default function ScreenProfile() {
   const [otpSent,     setOtpSent]     = useState(false);
   const [otpLoading,  setOtpLoading]  = useState(false);
 
-  const role = localStorage.getItem("user_role") || "passenger";
+  const role = tabStorage.getItem("user_role") || "passenger";
 
   const showToast = (msg: string, type: "success" | "error" | "info" = "success") => {
     setToast({ msg, type });
@@ -88,13 +89,13 @@ export default function ScreenProfile() {
         setPhone(data.phone    || "");
         setAddr(data.address   || "");
       } catch {
-        /* Use localStorage fallback */
-        const name = (localStorage.getItem("user_name") || "").split(" ");
+        /* Use tabStorage fallback */
+        const name = (tabStorage.getItem("user_name") || "").split(" ");
         const fallback: UserProfile = {
           id: 0,
           firstName: name[0] || "User",
           lastName:  name.slice(1).join(" ") || "",
-          email:     localStorage.getItem("user_email") || "user@example.com",
+          email:     tabStorage.getItem("user_email") || "user@example.com",
           phone:     "",
           role,
           createdAt: new Date().toISOString(),
@@ -117,7 +118,7 @@ export default function ScreenProfile() {
         body: JSON.stringify({ firstName, lastName, phone, address }),
       });
       setProfile(p => p ? { ...p, firstName, lastName, phone, address } : p);
-      localStorage.setItem("user_name", `${firstName} ${lastName}`);
+      tabStorage.setItem("user_name", `${firstName} ${lastName}`);
       showToast("Profile updated successfully ✓");
     } catch (err: any) {
       showToast(err.message || "Failed to update profile", "error");
@@ -290,8 +291,8 @@ export default function ScreenProfile() {
                     <HR label="Vehicle Information" />
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       {[
-                        { label: "Vehicle Type",  value: localStorage.getItem("vehicle_info")?.split("·")[1]?.trim() || "N/A" },
-                        { label: "Plate Number",  value: localStorage.getItem("vehicle_info")?.split("·")[0]?.trim() || "N/A" },
+                        { label: "Vehicle Type",  value: tabStorage.getItem("vehicle_info")?.split("·")[1]?.trim() || "N/A" },
+                        { label: "Plate Number",  value: tabStorage.getItem("vehicle_info")?.split("·")[0]?.trim() || "N/A" },
                       ].map(item => (
                         <div key={item.label} className="bg-slate-950 rounded-xl p-3 border border-slate-800">
                           <p className="text-xs font-bold text-slate-500 mb-1">{item.label}</p>
