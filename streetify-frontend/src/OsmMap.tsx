@@ -387,19 +387,47 @@ export default function OsmMap({
         .bindTooltip(dropoffAddress || "Drop-off Destination", { permanent: false });
 
       if (animate && showPickup) {
-        routeLayerRef.current = L.polyline([pCoords, dCoords], {
+        // Draw initial fast line
+        let currentRoute = L.polyline([pCoords, dCoords], {
           color: dark ? "#38bdf8" : "#2563eb",
-          weight: 5,
-          opacity: 0.9,
-          dashArray: "10 8",
+          weight: 4,
+          opacity: 0.8,
+          dashArray: "8 6",
         }).addTo(map);
+        routeLayerRef.current = currentRoute;
 
         map.fitBounds(L.latLngBounds([pCoords, dCoords]), { padding: [60, 60] });
+
+        // Query OSRM free routing API for real street road geometry along Sri Lankan roads
+        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${pCoords[1]},${pCoords[0]};${dCoords[1]},${dCoords[0]}?overview=full&geometries=geojson`;
+        fetch(osrmUrl)
+          .then(res => res.json())
+          .then(data => {
+            if (data?.routes?.[0]?.geometry?.coordinates && mapRef.current) {
+              const roadPath: [number, number][] = data.routes[0].geometry.coordinates.map(
+                (pt: [number, number]) => [pt[1], pt[0]]
+              );
+              if (routeLayerRef.current) {
+                map.removeLayer(routeLayerRef.current);
+              }
+              // Create glowing real road path
+              const realRoad = L.polyline(roadPath, {
+                color: dark ? "#22c55e" : "#16a34a",
+                weight: 5,
+                opacity: 0.95,
+              }).addTo(map);
+              routeLayerRef.current = realRoad;
+              map.fitBounds(realRoad.getBounds(), { padding: [60, 60] });
+            }
+          })
+          .catch(() => {
+            // Keep straight line fallback on network timeout
+          });
       }
     } else if (showPickup && !hasInitiallyCentered.current && !(myLat && myLng)) {
       map.setView(pCoords, 15, { animate: true });
     }
-  }, [showDropoff, dCoords?.[0], dCoords?.[1], animate, dark]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [showDropoff, dCoords?.[0], dCoords?.[1], animate, dark, pCoords[0], pCoords[1]]);
 
   /* Real Leaflet driver markers */
   useEffect(() => {

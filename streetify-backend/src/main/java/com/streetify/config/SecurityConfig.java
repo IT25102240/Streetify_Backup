@@ -86,14 +86,15 @@ public class SecurityConfig {
                 .requestMatchers("/api/disputes/**").hasAnyRole("PASSENGER", "STAFF", "ADMIN")
 
                 // ── Driver Routes ──────────────────────────────────────────
-                .requestMatchers("/api/driver/**").hasAnyRole("DRIVER", "ADMIN")
+                .requestMatchers("/api/driver/*/status").permitAll()
+                .requestMatchers("/api/driver/**").hasAnyRole("DRIVER", "STAFF", "ADMIN")
                 .requestMatchers("/api/trips/**").hasAnyRole("DRIVER", "PASSENGER", "ADMIN")
 
                 // ── Staff Routes ───────────────────────────────────────────
                 .requestMatchers("/api/staff/**").hasAnyRole("STAFF", "ADMIN")
 
                 // ── Admin Routes (strictly ADMIN only) ────────────────────
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .requestMatchers("/api/admin/**", "/api/module-admin/**").hasRole("ADMIN")
 
                 // ── All other requests require authentication ──────────────
                 .anyRequest().authenticated()

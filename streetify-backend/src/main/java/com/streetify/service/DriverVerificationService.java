@@ -179,6 +179,11 @@ public class DriverVerificationService {
         return documentDAO.findByDriverId(driverId);
     }
 
+    @Transactional(readOnly = true)
+    public java.util.Optional<DriverDocument> getDocumentById(Long docId) {
+        return documentDAO.findById(docId);
+    }
+
     // ─── Helper ───────────────────────────────────────────────────────────────
 
     private String getFileExtension(String filename) {

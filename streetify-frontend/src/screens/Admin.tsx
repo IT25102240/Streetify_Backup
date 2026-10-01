@@ -14,6 +14,9 @@ export type FormField = {
   type?: "text" | "number" | "select";
   options?: string[];
   defaultValue?: string | number;
+  readOnly?: boolean;
+  disabled?: boolean;
+  helpText?: string;
 };
 
 export const openAdminForm = (title: string, fields: FormField[]): Promise<Record<string, any> | null> => {
@@ -64,10 +67,21 @@ function AdminFormOverlay() {
         <div className="p-6 flex flex-col gap-4 overflow-y-auto max-h-[60vh]">
           {fields.map(f => (
             <div key={f.id} className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">{f.label}</label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">{f.label}</label>
+                {f.readOnly && (
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                    <span>🔒</span>
+                    <span>READ-ONLY</span>
+                  </span>
+                )}
+              </div>
               {f.type === "select" ? (
                 <select
-                  className="bg-navy-dark border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-eco focus:ring-1 focus:ring-eco outline-none"
+                  disabled={f.readOnly || f.disabled}
+                  className={`bg-navy-dark border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-eco focus:ring-1 focus:ring-eco outline-none ${
+                    f.readOnly || f.disabled ? "opacity-60 cursor-not-allowed bg-slate-900 border-slate-800" : ""
+                  }`}
                   value={formData[f.id]}
                   onChange={e => setFormData({ ...formData, [f.id]: e.target.value })}
                 >
@@ -77,11 +91,27 @@ function AdminFormOverlay() {
               ) : (
                 <input
                   type={f.type || "text"}
-                  className="bg-navy-dark border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-eco focus:ring-1 focus:ring-eco outline-none placeholder-slate-600"
+                  readOnly={f.readOnly}
+                  disabled={f.disabled}
+                  className={`bg-navy-dark border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-eco focus:ring-1 focus:ring-eco outline-none placeholder-slate-600 transition-all ${
+                    f.readOnly || f.disabled
+                      ? "opacity-75 cursor-not-allowed bg-slate-900/90 border-slate-800 text-slate-300 font-mono select-none"
+                      : ""
+                  }`}
                   value={formData[f.id]}
-                  onChange={e => setFormData({ ...formData, [f.id]: e.target.value })}
+                  onChange={e => {
+                    if (!f.readOnly && !f.disabled) {
+                      setFormData({ ...formData, [f.id]: e.target.value });
+                    }
+                  }}
                   placeholder={`Enter ${f.label.toLowerCase()}`}
                 />
+              )}
+              {f.helpText && (
+                <p className="text-[11px] text-slate-400 flex items-center gap-1">
+                  <span>ℹ️</span>
+                  <span>{f.helpText}</span>
+                </p>
               )}
             </div>
           ))}
@@ -319,6 +349,15 @@ function UsersPanel() {
 
 function BookingsPanel() {
   const [trips, setTrips] = useState<any[]>([]);
+  const adminRole = tabStorage.getItem("admin_role") || "";
+  const adminUser = (tabStorage.getItem("user_name") || "").toLowerCase();
+  
+  // Super Admin Vidura has overall everything access
+  const isSuperAdmin = adminRole === "SUPER_ADMIN" || adminUser.includes("vidura");
+  // Booking Admin Chanuka has booking management authority
+  const isChanukaBookingAdmin = adminRole === "BOOKING_MGMT" || adminUser.includes("chanuka");
+  // Either Chanuka or Vidura has privileged access
+  const canManageBooking = isSuperAdmin || isChanukaBookingAdmin;
 
   const fetchTrips = async () => {
     try {
@@ -330,29 +369,72 @@ function BookingsPanel() {
   useEffect(() => { fetchTrips(); }, []);
 
   const handleAdd = async () => {
-    const data = await openAdminForm("Create New Booking", [
-      { id: "pickupAddress", label: "Pickup Address" },
-      { id: "dropoffAddress", label: "Dropoff Address" }
-    ]);
+    const fields: FormField[] = [
+      { id: "pickupAddress", label: "Pickup Address", defaultValue: "" },
+      { id: "dropoffAddress", label: "Dropoff Address", defaultValue: "" }
+    ];
+
+    // Booking Admin (Chanuka) + Super Admin (Vidura) can select initial status when creating a new booking
+    if (canManageBooking) {
+      fields.push({
+        id: "status",
+        label: "Status",
+        type: "select",
+        options: ["REQUESTED", "ACCEPTED", "ACTIVE", "IN_PROGRESS", "COMPLETED", "CANCELLED"],
+        defaultValue: "REQUESTED",
+        helpText: "Set initial booking status (defaults to REQUESTED)"
+      });
+    }
+
+    const data = await openAdminForm("Create New Booking", fields);
     if (!data || !data.pickupAddress || !data.dropoffAddress) return;
 
     try {
-      await apiClient('/module-admin/bookings', { method: 'POST', body: JSON.stringify(data) });
+      await apiClient('/module-admin/bookings', { 
+        method: 'POST', 
+        body: JSON.stringify({
+          pickupAddress: data.pickupAddress,
+          dropoffAddress: data.dropoffAddress,
+          status: data.status || "REQUESTED"
+        }) 
+      });
       fetchTrips();
     } catch (e) { alert("Error: " + e); }
   };
 
   const handleEdit = async (t: any) => {
-    const data = await openAdminForm("Edit Booking Details", [
+    const fields: FormField[] = [
       { id: "pickupAddress", label: "Pickup Address", defaultValue: t.pickupAddress },
       { id: "dropoffAddress", label: "Dropoff Address", defaultValue: t.dropoffAddress },
-      { id: "status", label: "Status", type: "select", options: ["REQUESTED", "ACTIVE", "COMPLETED", "CANCELLED"], defaultValue: t.status },
-      { id: "estimatedFare", label: "Estimated Fare (LKR)", type: "number", defaultValue: t.totalFare || 0 }
-    ]);
+      { id: "status", label: "Status", type: "select", options: ["REQUESTED", "ACCEPTED", "ACTIVE", "IN_PROGRESS", "COMPLETED", "CANCELLED"], defaultValue: t.status },
+    ];
+
+    // Booking Admin (Chanuka) and Super Admin (Vidura) can see the estimated fare, but it cannot be changed (read-only)
+    if (canManageBooking) {
+      fields.push({
+        id: "estimatedFare",
+        label: "Estimated Fare (LKR)",
+        type: "number",
+        defaultValue: t.totalFare ?? t.estimatedFare ?? 0,
+        readOnly: true,
+        helpText: "🔒 Calculated dynamically by dispatch engine. Cannot be modified."
+      });
+    }
+
+    const data = await openAdminForm("Edit Booking Details", fields);
     if (!data) return;
 
     try {
-      await apiClient(`/module-admin/bookings/${t.id}`, { method: 'PUT', body: JSON.stringify({ ...data, estimatedFare: Number(data.estimatedFare) }) });
+      await apiClient(`/module-admin/bookings/${t.id}`, { 
+        method: 'PUT', 
+        body: JSON.stringify({ 
+          pickupAddress: data.pickupAddress,
+          dropoffAddress: data.dropoffAddress,
+          status: data.status,
+          // Preserve dynamic calculated fare
+          estimatedFare: t.totalFare ?? t.estimatedFare ?? 0
+        }) 
+      });
       fetchTrips();
     } catch (e) { alert("Error: " + e); }
   };
@@ -367,7 +449,18 @@ function BookingsPanel() {
   return (
     <Card>
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <p className="font-extrabold text-slate-100">Booking Management</p>
+        <div className="flex items-center gap-2.5">
+          <p className="font-extrabold text-slate-100">Booking Management</p>
+          {isSuperAdmin ? (
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-red-500/15 text-red-300 border border-red-500/30">
+              VIDURA · SUPER ADMIN (FULL ACCESS)
+            </span>
+          ) : isChanukaBookingAdmin ? (
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-300 border border-teal-500/30">
+              CHANUKA · BOOKING LEAD
+            </span>
+          ) : null}
+        </div>
         <Btn size="sm" onClick={handleAdd}>+ Add Booking</Btn>
       </div>
       <div className="overflow-x-auto">
@@ -378,6 +471,7 @@ function BookingsPanel() {
               <th className="px-4 py-3 text-left">Pickup</th>
               <th className="px-4 py-3 text-left">Dropoff</th>
               <th className="px-4 py-3 text-left">Status</th>
+              {canManageBooking && <th className="px-4 py-3 text-left">Est. Fare</th>}
               <th className="px-4 py-3 text-left">Actions</th>
             </tr>
           </thead>
@@ -388,13 +482,18 @@ function BookingsPanel() {
                 <td className="px-4 py-3 max-w-xs truncate">{t.pickupAddress}</td>
                 <td className="px-4 py-3 max-w-xs truncate">{t.dropoffAddress}</td>
                 <td className="px-4 py-3"><Pill>{t.status}</Pill></td>
+                {canManageBooking && (
+                  <td className="px-4 py-3 font-mono font-bold text-emerald-400">
+                    LKR {(t.totalFare ?? t.estimatedFare ?? 0).toLocaleString()}
+                  </td>
+                )}
                 <td className="px-4 py-3 flex gap-2">
                   <Btn size="xs" v="secondary" onClick={() => handleEdit(t)}>Edit</Btn>
                   <Btn size="xs" v="danger" onClick={() => handleCancel(t.id)}>Cancel</Btn>
                 </td>
               </tr>
             ))}
-            {trips.length === 0 && <tr><td colSpan={5} className="text-center p-4">No bookings found</td></tr>}
+            {trips.length === 0 && <tr><td colSpan={canManageBooking ? 6 : 5} className="text-center p-4">No bookings found</td></tr>}
           </tbody>
         </table>
       </div>

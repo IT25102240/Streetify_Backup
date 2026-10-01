@@ -117,8 +117,15 @@ export default function ScreenPayment() {
     }, 1400);
   }
 
-  const fareRows = trip ? FARE_ROWS(200, trip.distance ?? 0, 33) : FARE_ROWS(200, 31.4, 33);
-  const totalAmount = fareRows.reduce((acc, row) => acc + parseFloat(row.value.replace(/[^0-9.]/g, '')), 0);
+  const userEmail = tabStorage.getItem("user_email") || (trip?.passengerName ? `${trip.passengerName.toLowerCase().replace(/\s+/g, '')}@streetify.com` : "passenger@streetify.com");
+  const fareRows = trip?.fare
+    ? [
+        { label: "Base Fare", value: `LKR ${(trip.fare > 300 ? 200 : 80).toFixed(2)}` },
+        { label: `Distance Charge (~${trip.distance ?? 8} km)`, value: `LKR ${(Math.max(0, trip.fare - (trip.fare > 300 ? 204 : 84))).toFixed(2)}` },
+        { label: "Platform Fee", value: "LKR 4.00" },
+      ]
+    : FARE_ROWS(200, trip?.distance ?? 31.4, 33);
+  const totalAmount = trip?.fare ? Number(trip.fare) : fareRows.reduce((acc, row) => acc + parseFloat(row.value.replace(/[^0-9.]/g, '')), 0);
 
   /* ── Receipt view ── */
   if (ps === "success") return (
@@ -133,7 +140,7 @@ export default function ScreenPayment() {
               <span className="text-5xl">✅</span>
             </div>
             <p className="text-2xl font-extrabold">Payment Successful</p>
-            <p className="text-emerald-200 text-sm mt-2">Receipt sent to nimesha@email.com</p>
+            <p className="text-emerald-200 text-sm mt-2">Receipt sent to {userEmail}</p>
           </div>
 
           {/* Tear perforation */}

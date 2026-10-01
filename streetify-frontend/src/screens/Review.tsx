@@ -88,13 +88,20 @@ export default function ScreenReview() {
       });
 
       if (dispute) {
+        let disputeType = "OTHER";
+        const dLower = dispute.toLowerCase();
+        if (dLower.includes("overcharged") || dLower.includes("fare")) disputeType = "OVERCHARGED";
+        else if (dLower.includes("unsafe") || dLower.includes("reckless") || dLower.includes("rude") || dLower.includes("behaviour")) disputeType = "DRIVER_BEHAVIOR";
+        else if (dLower.includes("vehicle") || dLower.includes("match")) disputeType = "VEHICLE_CONDITION";
+        else if (dLower.includes("cancel") || dLower.includes("show up")) disputeType = "CANCELLATION_FEE";
+
         await apiClient("/disputes/create", {
           method: "POST",
           body: JSON.stringify({
             tripId: trip.tripId,
             subject: `Dispute: ${dispute}`,
-            description: comment || "No description provided",
-            disputeType: "OTHER"
+            description: comment || dispute,
+            disputeType: disputeType
           })
         });
       }

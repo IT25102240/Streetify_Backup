@@ -20,5 +20,16 @@ public enum TripStatus {
     ARRIVED,
     IN_PROGRESS,
     COMPLETED,
-    CANCELLED
+    CANCELLED,
+    ACTIVE;
+
+    public static TripStatus fromString(String val) {
+        if (val == null || val.isBlank()) return REQUESTED;
+        String s = val.trim().toUpperCase();
+        try {
+            return TripStatus.valueOf(s);
+        } catch (IllegalArgumentException e) {
+            return REQUESTED;
+        }
+    }
 }

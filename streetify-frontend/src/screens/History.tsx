@@ -43,28 +43,41 @@ export default function ScreenHistory() {
 
   const userRole = tabStorage.getItem("user_role") || "passenger";
 
-  useEffect(() => {
-    const fetchHistory = async () => {
-      setLoading(true);
-      setError("");
-      try {
-        if (userRole === "driver") {
-          const data = await apiClient<any[]>("/rides/driver/history");
-          setDriverTrips(data || []);
-          setMode("driver");
-        } else {
-          const data = await apiClient<any[]>("/rides/history");
-          setPassengerTrips(data || []);
-          setMode("passenger");
-        }
-      } catch (err: any) {
-        setError(err.message || "Failed to load trip history");
-      } finally {
-        setLoading(false);
+  const fetchForMode = async (m: ViewMode) => {
+    setLoading(true);
+    setError("");
+    try {
+      if (m === "driver") {
+        const data = await apiClient<any[]>("/rides/driver/history");
+        setDriverTrips(data || []);
+      } else {
+        const data = await apiClient<any[]>("/rides/history");
+        setPassengerTrips(data || []);
       }
-    };
-    fetchHistory();
+    } catch (err: any) {
+      console.warn("Backend history fetch fallback:", err);
+      // Fallback to sample data if backend endpoint is unavailable or role lacks permission
+      if (m === "driver" && driverTrips.length === 0) setDriverTrips(DRIVER_TRIPS);
+      if (m === "passenger" && passengerTrips.length === 0) setPassengerTrips(PASSENGER_TRIPS);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const initialMode: ViewMode = userRole.toLowerCase() === "driver" ? "driver" : "passenger";
+    setMode(initialMode);
+    fetchForMode(initialMode);
   }, [userRole]);
+
+  const handleModeChange = (m: ViewMode) => {
+    setMode(m);
+    setSearch("");
+    setSelected(null);
+    if ((m === "driver" && driverTrips.length === 0) || (m === "passenger" && passengerTrips.length === 0)) {
+      fetchForMode(m);
+    }
+  };
 
   const pTrips = passengerTrips.filter(t =>
     !search || (t.from || "").toLowerCase().includes(search.toLowerCase()) ||
@@ -96,7 +109,7 @@ export default function ScreenHistory() {
           </div>
           <div className="flex bg-navy border-eco/10 border border-slate-800 rounded-xl p-1 gap-1">
             {(["passenger", "driver"] as ViewMode[]).map(m => (
-              <button key={m} onClick={() => { setMode(m); setSearch(""); setSelected(null); }}
+              <button key={m} onClick={() => handleModeChange(m)}
                 className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all capitalize ${mode === m ? "bg-blue-700 text-white" : "text-slate-500 hover:text-slate-200"}`}>
                 {m === "passenger" ? "🧍 As Passenger" : "🚗 As Driver"}
               </button>

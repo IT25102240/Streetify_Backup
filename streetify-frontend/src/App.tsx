@@ -85,13 +85,14 @@ export default function App() {
     if (urlRole) {
       const isDriver = urlRole === "driver";
       const isAdmin = urlRole === "admin";
-      const defaultName = isDriver ? "Kamal Perera" : isAdmin ? "Vidura Rammandalagedara" : "Lahiru Peris";
-      const defaultVehicle = isDriver ? "CAB-4821 · Toyota Prius" : "";
+      const defaultEmail = isDriver ? "driver1@streetify.com" : isAdmin ? "admin@streetify.com" : "passenger1@streetify.com";
+      const defaultName = isDriver ? "Kamal Perera" : isAdmin ? "System Admin" : "Lahiru Peris";
+      const defaultVehicle = isDriver ? "WP CAB-1234 · Toyota Prius" : "";
       const defaultAdmin = isAdmin ? "SUPER_ADMIN" : "";
 
-      tabStorage.setTabOnly("jwt_token", `mock-jwt-${urlRole}`);
       tabStorage.setTabOnly("user_role", urlRole.toUpperCase());
       tabStorage.setTabOnly("user_name", defaultName);
+      tabStorage.setTabOnly("user_email", defaultEmail);
       if (defaultVehicle) tabStorage.setTabOnly("vehicle_info", defaultVehicle);
       if (defaultAdmin) tabStorage.setTabOnly("admin_role", defaultAdmin);
 
@@ -104,6 +105,24 @@ export default function App() {
       } else {
         setScreenState(isDriver ? "driver" : isAdmin ? "admin" : "booking");
       }
+
+      // Automatically obtain real JWT token from seeded credentials if backend is running
+      fetch("http://localhost:8080/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: defaultEmail, password: "1111" }),
+      })
+      .then(res => res.ok ? res.json() : null)
+      .then(auth => {
+        if (auth?.accessToken) {
+          tabStorage.setTabOnly("jwt_token", auth.accessToken);
+        } else {
+          tabStorage.setTabOnly("jwt_token", `mock-jwt-${urlRole}`);
+        }
+      })
+      .catch(() => {
+        tabStorage.setTabOnly("jwt_token", `mock-jwt-${urlRole}`);
+      });
     }
   }, []);
 
@@ -164,7 +183,7 @@ export default function App() {
       >
         {/* ── Wordmark ── */}
         <div
-          onClick={() => setScreen("login")}
+          onClick={() => setScreen(role === "driver" ? "driver" : role === "admin" ? "admin" : role ? "booking" : "login")}
           className="flex items-center gap-2.5 mr-4 pr-4 flex-none cursor-pointer group"
           style={{ borderRight: "1px solid rgba(34,197,94,0.12)" }}
         >

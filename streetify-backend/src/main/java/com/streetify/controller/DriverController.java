@@ -140,4 +140,30 @@ public class DriverController {
                 "message", "Document " + (approved ? "APPROVED" : "REJECTED") + " successfully."
         ));
     }
+
+    /**
+     * GET /api/driver/documents/{docId}/file
+     * Streams document file (image/pdf) for in-browser preview by Staff/Admin.
+     */
+    @GetMapping("/documents/{docId}/file")
+    public ResponseEntity<org.springframework.core.io.Resource> getDocumentFile(@PathVariable Long docId) {
+        return verificationService.getDocumentById(docId)
+                .map(doc -> {
+                    try {
+                        java.nio.file.Path path = java.nio.file.Paths.get(doc.getFilePath());
+                        if (!java.nio.file.Files.exists(path)) {
+                            return ResponseEntity.notFound().<org.springframework.core.io.Resource>build();
+                        }
+                        org.springframework.core.io.Resource resource = new org.springframework.core.io.UrlResource(path.toUri());
+                        String contentType = doc.getContentType() != null ? doc.getContentType() : "application/octet-stream";
+                        return ResponseEntity.ok()
+                                .contentType(MediaType.parseMediaType(contentType))
+                                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + doc.getOriginalFilename() + "\"")
+                                .body(resource);
+                    } catch (Exception e) {
+                        return ResponseEntity.internalServerError().<org.springframework.core.io.Resource>build();
+                    }
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
 }

@@ -98,12 +98,28 @@ public class ModuleAdminController {
         if (data.containsKey("lastName"))  user.setLastName((String) data.get("lastName"));
         if (data.containsKey("email"))     user.setEmail((String) data.get("email"));
         if (data.containsKey("phone"))     user.setPhone((String) data.get("phone"));
-        user.setPasswordHash("default-hash");
-        user.setRole(UserRole.PASSENGER);
+        
+        String rawPassword = data.containsKey("password") ? (String) data.get("password") : "1111";
+        user.setPasswordHash(passwordEncoder.encode(rawPassword));
+        
+        if (data.containsKey("role") && data.get("role") != null) {
+            try {
+                user.setRole(UserRole.valueOf(((String) data.get("role")).toUpperCase()));
+            } catch (Exception e) {
+                user.setRole(UserRole.PASSENGER);
+            }
+        } else {
+            user.setRole(UserRole.PASSENGER);
+        }
+
+        if (data.containsKey("adminRole")) {
+            user.setAdminRole((String) data.get("adminRole"));
+        }
+
         user.setActive(true);
         User saved = userDAO.save(user);
         
-        logAdminAction("CREATE_USER", "Created new passenger user: " + user.getEmail(), saved.getId(), "USER");
+        logAdminAction("CREATE_USER", "Created new " + user.getRole() + " user: " + user.getEmail(), saved.getId(), "USER");
         return ResponseEntity.ok(Map.of("status", "ok", "id", saved.getId()));
     }
 
@@ -169,16 +185,45 @@ public class ModuleAdminController {
     @PostMapping("/bookings")
     public ResponseEntity<Map<String, Object>> createBooking(@RequestBody Map<String, Object> data) {
         Trip trip = new Trip();
-        Passenger p = passengerDAO.findAll().stream().findFirst().orElse(null);
+        Passenger p = passengerDAO.findAll().stream().findFirst().orElseGet(() -> {
+            Passenger newP = new Passenger();
+            newP.setFirstName("Walk-in");
+            newP.setLastName("Passenger");
+            newP.setEmail("walkin_" + System.currentTimeMillis() + "@streetify.com");
+            newP.setPasswordHash(passwordEncoder.encode("1111"));
+            newP.setPhone("0770000000");
+            newP.setRole(UserRole.PASSENGER);
+            newP.setActive(true);
+            return passengerDAO.save(newP);
+        });
         trip.setPassenger(p);
 
-        if (data.containsKey("pickupAddress")) trip.setPickupAddress((String) data.get("pickupAddress"));
-        if (data.containsKey("dropoffAddress")) trip.setDropoffAddress((String) data.get("dropoffAddress"));
+        String pickup = (String) data.getOrDefault("pickupAddress", "Colombo Fort Railway Station");
+        String dropoff = (String) data.getOrDefault("dropoffAddress", "Nugegoda Junction");
+        trip.setPickupAddress(pickup);
+        trip.setDropoffAddress(dropoff);
         
         trip.setPickupLat(6.9271); trip.setPickupLng(79.8612);
         trip.setDropoffLat(6.8649); trip.setDropoffLng(79.8997);
         trip.setRideType("CAR");
-        trip.setStatus(TripStatus.REQUESTED);
+        if (data.containsKey("status") && data.get("status") != null && !data.get("status").toString().isBlank()) {
+            String s = data.get("status").toString().trim().toUpperCase();
+            if ("ACTIVE".equals(s)) {
+                trip.setStatus(TripStatus.IN_PROGRESS);
+            } else {
+                try {
+                    trip.setStatus(TripStatus.valueOf(s));
+                } catch (Exception ex) {
+                    trip.setStatus(TripStatus.REQUESTED);
+                }
+            }
+        } else {
+            trip.setStatus(TripStatus.REQUESTED);
+        }
+        double estFare = data.containsKey("estimatedFare") ? ((Number) data.get("estimatedFare")).doubleValue() : 1250.0;
+        trip.setTotalFare(estFare);
+        trip.setPlatformCommission(Math.round(estFare * 0.15 * 100.0) / 100.0);
+        trip.setDriverNet(Math.round(estFare * 0.85 * 100.0) / 100.0);
         Trip saved = tripDAO.save(trip);
         
         logAdminAction("CREATE_BOOKING", "Created new trip manually from " + trip.getPickupAddress(), saved.getId(), "TRIP");
@@ -216,14 +261,12 @@ public class ModuleAdminController {
     public ResponseEntity<Map<String, Object>> updateBooking(@PathVariable Long id, @RequestBody Map<String, Object> updates) {
         Trip trip = tripDAO.findById(id).orElseThrow(() -> new IllegalArgumentException("Trip not found: " + id));
 
-        if (updates.containsKey("status")) {
-            trip.setStatus(TripStatus.valueOf((String) updates.get("status")));
+        if (updates.containsKey("status") && updates.get("status") != null) {
+            trip.setStatus(TripStatus.fromString(updates.get("status").toString()));
         }
         if (updates.containsKey("pickupAddress"))  trip.setPickupAddress((String) updates.get("pickupAddress"));
         if (updates.containsKey("dropoffAddress")) trip.setDropoffAddress((String) updates.get("dropoffAddress"));
-        if (updates.containsKey("estimatedFare")) {
-            trip.setTotalFare(((Number) updates.get("estimatedFare")).doubleValue());
-        }
+        // Estimated / Total fare is calculated dynamically by the dispatch engine and is immutable here.
 
         Trip saved = tripDAO.save(trip);
         logAdminAction("UPDATE_BOOKING", "Updated booking ID " + id + " status to " + trip.getStatus(), id, "TRIP");
@@ -370,8 +413,8 @@ public class ModuleAdminController {
             trip.setDropoffAddress((String) updates.get("dropoffAddress"));
             logAdminAction("UPDATE_TRIP", "Updated dropoff address for trip ID " + id, id, "TRIP");
         }
-        if (updates.containsKey("status")) {
-            trip.setStatus(TripStatus.valueOf((String) updates.get("status")));
+        if (updates.containsKey("status") && updates.get("status") != null) {
+            trip.setStatus(TripStatus.fromString(updates.get("status").toString()));
             logAdminAction("UPDATE_TRIP_STATUS", "Updated trip ID " + id + " status to " + trip.getStatus(), id, "TRIP");
         }
 

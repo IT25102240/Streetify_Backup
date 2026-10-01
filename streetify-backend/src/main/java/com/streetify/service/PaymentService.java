@@ -3,6 +3,7 @@ package com.streetify.service;
 import com.streetify.dao.DriverDAO;
 import com.streetify.dao.PaymentDAO;
 import com.streetify.dao.TripDAO;
+import com.streetify.dao.UserDAO;
 import com.streetify.dto.PaymentReceiptDTO;
 import com.streetify.dto.PaymentRequestDTO;
 import com.streetify.entity.*;
@@ -19,18 +20,17 @@ import java.time.LocalDateTime;
  *   If any step fails → FULL ROLLBACK (no partial payments).
  *
  * Flow for each payment:
- *   1. Validate trip is COMPLETED and not already paid
- *   2. Create Payment record (PENDING)
- *   3. Simulate card processing with mock retry loop (max 3 attempts)
- *   4. On SUCCESS:
+ *   1. Validate trip is not already paid and caller is authorized
+ *   2. If WALLET payment, ensure passenger has sufficient wallet balance
+ *   3. Create Payment record (PENDING)
+ *   4. Simulate payment gateway processing
+ *   5. On SUCCESS:
  *      a. Mark trip as paid
- *      b. Deduct 15% platform commission
- *      c. Credit driver's wallet (net amount)
- *      d. Update Payment status to SUCCESS
- *   5. Return PaymentReceiptDTO
- *
- * Commission: 15% of totalFare → platform revenue
- * Driver net: 85% of totalFare
+ *      b. If WALLET: debit passenger wallet, credit driver wallet net amount (85%)
+ *      c. If CASH: driver already has physical cash; add 15% platform commission debt to driver
+ *      d. If CARD: credit driver wallet net amount (85%); platform keeps commission
+ *      e. Update Payment status to SUCCESS
+ *   6. Return PaymentReceiptDTO
  */
 @Service
 @Transactional
@@ -40,6 +40,7 @@ public class PaymentService {
     private final PaymentDAO paymentDAO;
     private final TripDAO tripDAO;
     private final DriverDAO driverDAO;
+    private final UserDAO userDAO;
 
     @Value("${streetify.commission.rate:0.15}")
     private double commissionRate;
@@ -48,10 +49,12 @@ public class PaymentService {
 
     public PaymentService(PaymentDAO paymentDAO,
                           TripDAO tripDAO,
-                          DriverDAO driverDAO) {
+                          DriverDAO driverDAO,
+                          UserDAO userDAO) {
         this.paymentDAO = paymentDAO;
         this.tripDAO = tripDAO;
         this.driverDAO = driverDAO;
+        this.userDAO = userDAO;
     }
 
     // ─── Payment Processing ───────────────────────────────────────────────────
@@ -68,10 +71,6 @@ public class PaymentService {
         Trip trip = tripDAO.findById(dto.getTripId())
                 .orElseThrow(() -> new IllegalArgumentException("Trip not found: " + dto.getTripId()));
 
-        // Temporarily disabled for UI testing convenience:
-        // if (trip.getStatus() != TripStatus.COMPLETED) {
-        //     throw new IllegalStateException("Payment can only be processed for COMPLETED trips.");
-        // }
         if (trip.isPaid()) {
             throw new IllegalStateException("This trip has already been paid.");
         }
@@ -83,6 +82,21 @@ public class PaymentService {
         double grossAmount = trip.getTotalFare();
         double commission = Math.round(grossAmount * commissionRate * 100.0) / 100.0;
         double driverNet  = Math.round((grossAmount - commission) * 100.0) / 100.0;
+
+        String method = dto.getPaymentMethod().toUpperCase();
+
+        // Validate wallet balance if paying via digital wallet
+        User passenger = userDAO.findById(passengerId)
+                .orElseThrow(() -> new IllegalArgumentException("Passenger user account not found."));
+
+        if ("WALLET".equals(method)) {
+            double currentBalance = passenger.getWalletBalance() != null ? passenger.getWalletBalance() : 0.0;
+            if (currentBalance < grossAmount) {
+                throw new IllegalStateException("Insufficient wallet balance (Current: LKR " +
+                        String.format("%.2f", currentBalance) + ", Required: LKR " +
+                        String.format("%.2f", grossAmount) + "). Please top up your wallet or pay via Cash/Card.");
+            }
+        }
 
         // --- MOCK OVERRIDE FOR UI TESTING WITHOUT DRIVER ---
         if (trip.getDriver() == null) {
@@ -130,12 +144,24 @@ public class PaymentService {
             trip.setPaid(true);
             tripDAO.save(trip);
 
-            // Credit driver's wallet with net amount (if driver exists)
+            // Apply financial settlement based on payment method:
             if (trip.getDriver() != null) {
-                driverDAO.creditWallet(trip.getDriver().getId(), driverNet);
-
-                // Add commission to driver's debt (platform collects later)
-                driverDAO.addCommissionDebt(trip.getDriver().getId(), commission);
+                Long driverId = trip.getDriver().getId();
+                if ("CASH".equals(method)) {
+                    // Driver physically collected 100% of cash from passenger.
+                    // Driver does NOT get credited with driverNet (already holds it).
+                    // Driver owes 15% platform commission to Streetify:
+                    driverDAO.addCommissionDebt(driverId, commission);
+                } else if ("WALLET".equals(method)) {
+                    // Digital wallet: passenger pays from wallet balance
+                    userDAO.debitWallet(passengerId, grossAmount);
+                    // Platform transfers 85% net earnings directly to driver's digital wallet:
+                    driverDAO.creditWallet(driverId, driverNet);
+                } else if ("CARD".equals(method)) {
+                    // Online Card: Platform collected funds via 3DS card gateway
+                    // Platform transfers 85% net earnings to driver's digital wallet:
+                    driverDAO.creditWallet(driverId, driverNet);
+                }
             }
 
             // Update payment record to SUCCESS

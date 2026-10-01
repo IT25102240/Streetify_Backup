@@ -29,6 +29,7 @@ interface DriverState {
   eta: number;
   rating: number;
   heading: number;
+  type?: string;
 }
 
 const RIDE_TYPES: { key: RideType; label: string; icon: string; desc: string; base: number; perKm: number }[] = [
@@ -45,12 +46,44 @@ const SAVED_PLACES = [
   { icon: "🌊", label: "Galle Face",     addr: "Galle Face Green, Col 03",   lat: 6.9270, lng: 79.8450 },
 ];
 
+const SL_PLACES = [
+  { label: "Dalada Maligawa", addr: "Temple of the Sacred Tooth Relic, Kandy", lat: 7.2936, lng: 80.6413 },
+  { label: "Galle Face Green", addr: "Galle Face, Colombo 03", lat: 6.9270, lng: 79.8450 },
+  { label: "BIA Terminal 1", addr: "Bandaranaike Int. Airport, Katunayake", lat: 7.1805, lng: 79.8837 },
+  { label: "Colombo Fort Station", addr: "Railway Station, Colombo Fort", lat: 6.9337, lng: 79.8452 },
+  { label: "Lotus Tower", addr: "Colombo Lotus Tower, Colombo 10", lat: 6.9273, lng: 79.8584 },
+  { label: "World Trade Center", addr: "Echelon Square, Colombo 01", lat: 6.9329, lng: 79.8438 },
+  { label: "Nawaloka Hospital", addr: "Nawaloka Hospital, Colombo 02", lat: 6.9208, lng: 79.8519 },
+  { label: "One Galle Face Mall", addr: "1A Centre Road, Colombo 02", lat: 6.9277, lng: 79.8436 },
+  { label: "Majestic City", addr: "10 Station Rd, Colombo 04", lat: 6.8937, lng: 79.8549 },
+  { label: "Mount Lavinia Hotel", addr: "100 Hotel Rd, Mount Lavinia", lat: 6.8333, lng: 79.8656 },
+  { label: "Independence Memorial Hall", addr: "Independence Ave, Colombo 07", lat: 6.9048, lng: 79.8677 },
+  { label: "National Museum Colombo", addr: "Marcus Fernando Mawatha, Colombo 07", lat: 6.9099, lng: 79.8608 },
+  { label: "Gangaramaya Temple", addr: "61 Sri Jinarathana Rd, Colombo 02", lat: 6.9168, lng: 79.8564 },
+  { label: "Kandy Lake", addr: "Kandy Lake Round, Kandy", lat: 7.2917, lng: 80.6410 },
+  { label: "Peradeniya Gardens", addr: "Royal Botanical Gardens, Peradeniya, Kandy", lat: 7.2687, lng: 80.5968 },
+  { label: "Sigiriya Rock Fortress", addr: "Sigiriya, Central Province", lat: 7.9570, lng: 80.7603 },
+  { label: "Dambulla Cave Temple", addr: "Kandy - Jaffna Highway, Dambulla", lat: 7.8567, lng: 80.6486 },
+  { label: "Nine Arches Bridge", addr: "Demodara, Ella", lat: 6.8767, lng: 81.0607 },
+  { label: "Little Adam's Peak", addr: "Ella - Passara Rd, Ella", lat: 6.8622, lng: 81.0543 },
+  { label: "Galle Dutch Fort", addr: "Church St, Galle", lat: 6.0270, lng: 80.2170 },
+  { label: "Mirissa Beach", addr: "Mirissa, Southern Province", lat: 5.9483, lng: 80.4571 },
+  { label: "Unawatuna Beach", addr: "Unawatuna, Galle", lat: 6.0104, lng: 80.2492 },
+  { label: "Gregory Lake", addr: "Peradeniya-Badulla Rd, Nuwara Eliya", lat: 6.9530, lng: 80.7819 },
+  { label: "Jaffna Fort", addr: "Jaffna City, Northern Province", lat: 9.6615, lng: 80.0090 },
+  { label: "Nallur Kandaswamy Kovil", addr: "Point Pedro Rd, Nallur, Jaffna", lat: 9.6745, lng: 80.0294 },
+  { label: "Negombo Beach", addr: "Porutota Rd, Negombo", lat: 7.2275, lng: 79.8407 },
+  { label: "Pinnawala Elephant Orphanage", addr: "Rambukkana Rd, Pinnawala", lat: 7.3015, lng: 80.3871 },
+];
+
 export default function ScreenBooking() {
   const [pickup, setPickup]       = useState("Detecting your location…");
   const [dropoff, setDropoff]     = useState("");
   const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number }>({ lat: 6.9271, lng: 79.8612 });
   const [dropoffCoords, setDropoffCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [mapTargetMode, setMapTargetMode] = useState<"pickup" | "dropoff">("dropoff");
+  const [showPickupSuggestions, setShowPickupSuggestions] = useState(false);
+  const [showDropoffSuggestions, setShowDropoffSuggestions] = useState(false);
 
   const [rideType, setRide]       = useState<RideType>("standard");
   const [step, setStep]           = useState<BookingStep>("idle");
@@ -88,15 +121,21 @@ export default function ScreenBooking() {
       setPickup(addr);
     });
 
-    // Populate nearby drivers around user's actual location
+    // Populate 9 demo drivers (3 per vehicle type) around user's location
     if (!initialLocSet.current) {
       initialLocSet.current = true;
-      const baseLat = myCoords.lat;
-      const baseLng = myCoords.lng;
+      const bLat = myCoords.lat;
+      const bLng = myCoords.lng;
       setDrivers([
-        { id: "d1", name: "Kasun P.",  plate: "CAB-4821", lat: baseLat + 0.0032, lng: baseLng - 0.0028, eta: 4, rating: 4.91, heading: 45 },
-        { id: "d2", name: "Roshan M.", plate: "WP-5503",  lat: baseLat - 0.0041, lng: baseLng + 0.0035, eta: 6, rating: 4.78, heading: 180 },
-        { id: "d3", name: "Amara N.",  plate: "WP-2217",  lat: baseLat + 0.0025, lng: baseLng + 0.0042, eta: 8, rating: 4.85, heading: 270 },
+        { id: "demo-c1", name: "Kasun P.", plate: "CAB-4821", lat: bLat + 0.003, lng: bLng - 0.002, eta: 4, rating: 4.9, heading: 45, type: "standard" },
+        { id: "demo-c2", name: "Nuwan M.", plate: "WP-5503",  lat: bLat - 0.004, lng: bLng + 0.003, eta: 6, rating: 4.8, heading: 180, type: "standard" },
+        { id: "demo-c3", name: "Amara N.", plate: "WP-2217",  lat: bLat + 0.002, lng: bLng + 0.004, eta: 8, rating: 4.7, heading: 270, type: "standard" },
+        { id: "demo-v1", name: "Kamal D.", plate: "VAN-8991", lat: bLat - 0.005, lng: bLng - 0.005, eta: 7, rating: 4.9, heading: 90, type: "xl" },
+        { id: "demo-v2", name: "Saman K.", plate: "WP-1122",  lat: bLat + 0.006, lng: bLng + 0.001, eta: 9, rating: 4.6, heading: 120, type: "xl" },
+        { id: "demo-v3", name: "Ruwan T.", plate: "WP-3344",  lat: bLat - 0.001, lng: bLng - 0.006, eta: 5, rating: 4.8, heading: 310, type: "xl" },
+        { id: "demo-m1", name: "Nimal S.", plate: "BCA-1020", lat: bLat + 0.001, lng: bLng + 0.002, eta: 2, rating: 4.9, heading: 15, type: "moto" },
+        { id: "demo-m2", name: "Ajith W.", plate: "BCC-9988", lat: bLat - 0.002, lng: bLng + 0.001, eta: 3, rating: 4.7, heading: 195, type: "moto" },
+        { id: "demo-m3", name: "Namal B.", plate: "BXZ-7766", lat: bLat + 0.003, lng: bLng - 0.004, eta: 4, rating: 4.8, heading: 75, type: "moto" },
       ]);
     }
   }, [myCoords?.lat, myCoords?.lng]);
@@ -104,12 +143,18 @@ export default function ScreenBooking() {
   /* Fallback initial drivers if GPS takes time */
   useEffect(() => {
     if (drivers.length === 0) {
-      const baseLat = 6.9271;
-      const baseLng = 79.8612;
+      const bLat = 6.9271;
+      const bLng = 79.8612;
       setDrivers([
-        { id: "d1", name: "Kasun P.",  plate: "CAB-4821", lat: baseLat + 0.0035, lng: baseLng - 0.0030, eta: 4, rating: 4.91, heading: 45 },
-        { id: "d2", name: "Roshan M.", plate: "WP-5503",  lat: baseLat - 0.0038, lng: baseLng + 0.0040, eta: 7, rating: 4.78, heading: 190 },
-        { id: "d3", name: "Amara N.",  plate: "WP-2217",  lat: baseLat + 0.0048, lng: baseLng + 0.0025, eta: 9, rating: 4.85, heading: 260 },
+        { id: "demo-c1", name: "Kasun P.", plate: "CAB-4821", lat: bLat + 0.003, lng: bLng - 0.002, eta: 4, rating: 4.9, heading: 45, type: "standard" },
+        { id: "demo-c2", name: "Nuwan M.", plate: "WP-5503",  lat: bLat - 0.004, lng: bLng + 0.003, eta: 6, rating: 4.8, heading: 180, type: "standard" },
+        { id: "demo-c3", name: "Amara N.", plate: "WP-2217",  lat: bLat + 0.002, lng: bLng + 0.004, eta: 8, rating: 4.7, heading: 270, type: "standard" },
+        { id: "demo-v1", name: "Kamal D.", plate: "VAN-8991", lat: bLat - 0.005, lng: bLng - 0.005, eta: 7, rating: 4.9, heading: 90, type: "xl" },
+        { id: "demo-v2", name: "Saman K.", plate: "WP-1122",  lat: bLat + 0.006, lng: bLng + 0.001, eta: 9, rating: 4.6, heading: 120, type: "xl" },
+        { id: "demo-v3", name: "Ruwan T.", plate: "WP-3344",  lat: bLat - 0.001, lng: bLng - 0.006, eta: 5, rating: 4.8, heading: 310, type: "xl" },
+        { id: "demo-m1", name: "Nimal S.", plate: "BCA-1020", lat: bLat + 0.001, lng: bLng + 0.002, eta: 2, rating: 4.9, heading: 15, type: "moto" },
+        { id: "demo-m2", name: "Ajith W.", plate: "BCC-9988", lat: bLat - 0.002, lng: bLng + 0.001, eta: 3, rating: 4.7, heading: 195, type: "moto" },
+        { id: "demo-m3", name: "Namal B.", plate: "BXZ-7766", lat: bLat + 0.003, lng: bLng - 0.004, eta: 4, rating: 4.8, heading: 75, type: "moto" },
       ]);
     }
   }, [drivers.length]);
@@ -281,15 +326,8 @@ export default function ScreenBooking() {
       dotRef.current = setInterval(() => setDots(d => (d + 1) % 4), 500);
       const t = setTimeout(() => {
         if (dotRef.current) clearInterval(dotRef.current);
-        const matched = drivers[0] ?? {
-          id: "d1",
-          name: "Kasun P.",
-          plate: "CAB-4821",
-          lat: pickupCoords.lat + 0.001,
-          lng: pickupCoords.lng + 0.001,
-          eta: 3,
-          rating: 4.91,
-          heading: 90,
+        const matched = drivers.find(d => d.type === rideType) ?? drivers[0] ?? {
+          id: "demo-d1", name: "Kasun P.", plate: "CAB-4821", lat: pickupCoords.lat + 0.001, lng: pickupCoords.lng + 0.001, eta: 3, rating: 4.91, heading: 90, type: rideType
         };
         setMatch(matched);
         setLiveTripStatus("ASSIGNED");
@@ -298,17 +336,60 @@ export default function ScreenBooking() {
           "Driver Assigned! 🚖",
           `${matched.name} is on the way in ${matched.plate} (ETA ${matched.eta}m)`
         );
-      }, 20000);
+      }, 15000); // 15 seconds demo fallback wait
       return () => { clearTimeout(t); if (dotRef.current) clearInterval(dotRef.current); };
     }
-  }, [step, drivers, pickupCoords]);
+  }, [step, drivers, pickupCoords, rideType]);
+
+  /* Demo Driver Auto-Progression Simulator */
+  useEffect(() => {
+    if (step === "matched" && matchedDriver && matchedDriver.id.startsWith("demo-")) {
+      const timer = setTimeout(() => {
+        if (liveTripStatus === "ASSIGNED") {
+          tripSyncService.publishStatusUpdate(matchedDriver.id, "EN_ROUTE");
+        } else if (liveTripStatus === "EN_ROUTE") {
+          tripSyncService.publishStatusUpdate(matchedDriver.id, "ARRIVED");
+        } else if (liveTripStatus === "ARRIVED") {
+          tripSyncService.publishStatusUpdate(matchedDriver.id, "IN_PROGRESS");
+        } else if (liveTripStatus === "IN_PROGRESS") {
+          tripSyncService.publishStatusUpdate(matchedDriver.id, "COMPLETED");
+        }
+      }, 5000); // 5 seconds per state transition for demo
+      return () => clearTimeout(timer);
+    }
+  }, [step, matchedDriver, liveTripStatus]);
 
   function pickSavedPlace(p: typeof SAVED_PLACES[0]) {
     setDropoff(p.addr);
     setDropoffCoords({ lat: p.lat, lng: p.lng });
     setStep("selecting");
     setFareReady(false);
+    if (leafletMapRef.current) {
+      leafletMapRef.current.flyTo([p.lat, p.lng], 15, { animate: true, duration: 1 });
+    }
   }
+
+  const selectPickupPlace = (p: typeof SL_PLACES[0]) => {
+    const formatted = p.addr.toLowerCase().includes(p.label.toLowerCase()) ? p.addr : `${p.label}, ${p.addr}`;
+    setPickup(formatted);
+    setPickupCoords({ lat: p.lat, lng: p.lng });
+    setShowPickupSuggestions(false);
+    if (leafletMapRef.current) {
+      leafletMapRef.current.flyTo([p.lat, p.lng], 15, { animate: true, duration: 1 });
+    }
+  };
+
+  const selectDropoffPlace = (p: typeof SL_PLACES[0]) => {
+    const formatted = p.addr.toLowerCase().includes(p.label.toLowerCase()) ? p.addr : `${p.label}, ${p.addr}`;
+    setDropoff(formatted);
+    setDropoffCoords({ lat: p.lat, lng: p.lng });
+    setShowDropoffSuggestions(false);
+    setStep("selecting");
+    setFareReady(false);
+    if (leafletMapRef.current) {
+      leafletMapRef.current.flyTo([p.lat, p.lng], 14, { animate: true, duration: 1.2 });
+    }
+  };
 
   const handleCancelTrip = async () => {
     try {
@@ -339,8 +420,10 @@ export default function ScreenBooking() {
   ];
 
   // Convert drivers to Leaflet driver markers
-  const driverMarkers: DriverMarkerData[] = drivers.map(d => ({
-    id: d.id,
+  const driverMarkers: DriverMarkerData[] = drivers
+    .filter(d => !d.type || d.type === rideType)
+    .map(d => ({
+      id: d.id,
     name: d.name,
     plate: d.plate,
     lat: d.lat,
@@ -465,7 +548,12 @@ export default function ScreenBooking() {
                 <div className="relative">
                   <input
                     value={pickup}
-                    onChange={e => setPickup(e.target.value)}
+                    onChange={e => {
+                      setPickup(e.target.value);
+                      setShowPickupSuggestions(true);
+                    }}
+                    onFocus={() => setShowPickupSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowPickupSuggestions(false), 300)}
                     placeholder="Pickup location"
                     className="w-full pl-3.5 pr-20 py-2.5 bg-slate-800/90 border border-slate-700 rounded-xl text-xs font-semibold text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
                   />
@@ -482,6 +570,41 @@ export default function ScreenBooking() {
                       Pick on Map
                     </button>
                   </div>
+                  {showPickupSuggestions && pickup.trim().length > 0 && (
+                    <div 
+                      className="absolute top-full left-0 right-0 mt-1.5 bg-[#0e1e36] border border-slate-700/80 rounded-xl shadow-2xl overflow-hidden z-[999] max-h-56 overflow-y-auto divide-y divide-slate-800/80"
+                      onMouseDown={e => e.preventDefault()}
+                    >
+                      {(() => {
+                        const q = pickup.trim().toLowerCase();
+                        const matches = SL_PLACES.filter(p => p.label.toLowerCase().includes(q) || p.addr.toLowerCase().includes(q));
+                        if (matches.length === 0) {
+                          return (
+                            <div className="px-3 py-2.5 text-center text-slate-400 text-xs">
+                              No matching Sri Lankan places found
+                            </div>
+                          );
+                        }
+                        return matches.map(p => (
+                          <div 
+                            key={p.label}
+                            className="px-3.5 py-2.5 hover:bg-slate-800/90 active:bg-emerald-600/30 cursor-pointer text-xs transition-colors flex items-center gap-2.5"
+                            onMouseDown={e => {
+                              e.preventDefault();
+                              selectPickupPlace(p);
+                            }}
+                            onClick={() => selectPickupPlace(p)}
+                          >
+                            <span className="text-base flex-none">🟢</span>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-bold text-white truncate">{p.label}</p>
+                              <p className="text-slate-400 text-[10px] truncate">{p.addr}</p>
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  )}
                 </div>
 
                 {/* Dropoff Input */}
@@ -490,8 +613,11 @@ export default function ScreenBooking() {
                     value={dropoff}
                     onChange={e => {
                       setDropoff(e.target.value);
+                      setShowDropoffSuggestions(true);
                       if (e.target.value.length > 2) setStep("selecting");
                     }}
+                    onFocus={() => setShowDropoffSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowDropoffSuggestions(false), 300)}
                     placeholder="Where to? (e.g. Airport, Galle Face)"
                     className="w-full pl-3.5 pr-20 py-2.5 bg-slate-800/90 border border-blue-600/60 rounded-xl text-xs font-semibold text-white placeholder-slate-400 focus:outline-none focus:border-blue-400 transition-colors"
                   />
@@ -517,6 +643,41 @@ export default function ScreenBooking() {
                       </button>
                     )}
                   </div>
+                  {showDropoffSuggestions && dropoff.trim().length > 0 && (
+                    <div 
+                      className="absolute top-full left-0 right-0 mt-1.5 bg-[#0e1e36] border border-slate-700/80 rounded-xl shadow-2xl overflow-hidden z-[999] max-h-56 overflow-y-auto divide-y divide-slate-800/80"
+                      onMouseDown={e => e.preventDefault()}
+                    >
+                      {(() => {
+                        const q = dropoff.trim().toLowerCase();
+                        const matches = SL_PLACES.filter(p => p.label.toLowerCase().includes(q) || p.addr.toLowerCase().includes(q));
+                        if (matches.length === 0) {
+                          return (
+                            <div className="px-3 py-2.5 text-center text-slate-400 text-xs">
+                              No matching Sri Lankan places found
+                            </div>
+                          );
+                        }
+                        return matches.map(p => (
+                          <div 
+                            key={p.label}
+                            className="px-3.5 py-2.5 hover:bg-slate-800/90 active:bg-blue-600/30 cursor-pointer text-xs transition-colors flex items-center gap-2.5"
+                            onMouseDown={e => {
+                              e.preventDefault();
+                              selectDropoffPlace(p);
+                            }}
+                            onClick={() => selectDropoffPlace(p)}
+                          >
+                            <span className="text-base flex-none">📍</span>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-bold text-white truncate">{p.label}</p>
+                              <p className="text-slate-400 text-[10px] truncate">{p.addr}</p>
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

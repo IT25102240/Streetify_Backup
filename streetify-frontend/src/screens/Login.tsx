@@ -10,6 +10,7 @@
 import { useState, useRef, DragEvent, ChangeEvent, useEffect } from "react";
 import { Btn, Card, Field, HR, PwStrength, Pill } from "../ui";
 import { apiClient } from "../api/apiClient";
+import { tabStorage } from "../utils/storage";
 
 interface AuthResponseDTO {
   accessToken: string;
@@ -153,11 +154,12 @@ export default function ScreenLogin() {
         method: 'POST',
         body: JSON.stringify({ email: loginEmail, password: loginPw })
       });
-      localStorage.setItem("jwt_token", response.accessToken);
-      if (response.fullName)    localStorage.setItem("user_name",    response.fullName);
-      if (response.vehicleInfo) localStorage.setItem("vehicle_info", response.vehicleInfo);
-      if (response.role)        localStorage.setItem("user_role",    response.role.toLowerCase());
-      if (response.adminRole)   localStorage.setItem("admin_role",   response.adminRole);
+      tabStorage.setItem("jwt_token", response.accessToken);
+      if (response.email)       tabStorage.setItem("user_email",    response.email);
+      if (response.fullName)    tabStorage.setItem("user_name",     response.fullName);
+      if (response.vehicleInfo) tabStorage.setItem("vehicle_info",  response.vehicleInfo);
+      if (response.role)        tabStorage.setItem("user_role",     response.role.toLowerCase());
+      if (response.adminRole)   tabStorage.setItem("admin_role",    response.adminRole);
       window.dispatchEvent(new CustomEvent("auth-success", { detail: { role: response.role, adminRole: response.adminRole } }));
       setLLoad(false);
     } catch (e: any) {

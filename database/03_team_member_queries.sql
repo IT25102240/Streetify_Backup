@@ -132,18 +132,24 @@ SELECT
 FROM users
 WHERE dtype = 'DRIVER' AND verification_status = 'PENDING_VERIFICATION';
 
--- 3.3 Inspect uploaded driver verification documents
+-- 3.3 Inspect uploaded driver verification documents (with full file metadata)
 SELECT 
-    d.id AS doc_id, 
-    u.first_name + ' ' + u.last_name AS driver_name, 
-    d.doc_type, 
-    d.file_path, 
-    d.status, 
-    d.reviewer_note, 
-    d.uploaded_at
+    d.id AS doc_id,
+    d.driver_id,
+    u.first_name + ' ' + u.last_name AS driver_name,
+    u.email AS driver_email,
+    d.doc_type,
+    d.original_filename,
+    d.file_path,
+    d.file_size_bytes,
+    d.content_type,
+    d.status,
+    d.reviewer_note,
+    d.uploaded_at,
+    d.reviewed_at
 FROM driver_documents d
 INNER JOIN users u ON d.driver_id = u.id
-ORDER BY d.uploaded_at DESC;
+ORDER BY d.id ASC;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────

@@ -220,36 +220,107 @@ public class AuthController {
         return ResponseEntity.ok(java.util.Map.of("ok", true, "message", "Password changed successfully."));
     }
 
+    // In-memory OTP storage with 5-minute expiration
+    private record OtpEntry(String code, long expiryTime) {}
+    private final java.util.concurrent.ConcurrentHashMap<String, OtpEntry> otpCache = new java.util.concurrent.ConcurrentHashMap<>();
+
     /**
      * POST /api/auth/reset-password
-     * Generates password reset request for email.
+     * Generates a 6-digit OTP for password reset and stores it with 5-minute expiry.
      */
     @PostMapping("/reset-password")
     public ResponseEntity<java.util.Map<String, Object>> resetPassword(
             @RequestBody java.util.Map<String, String> body
     ) {
         String email = body.get("email");
-        boolean exists = email != null && userDAO.existsByEmail(email);
-        return ResponseEntity.ok(java.util.Map.of("ok", true, "exists", exists, "message", "OTP sent to registered contact."));
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("ok", false, "message", "Email is required."));
+        }
+
+        boolean exists = userDAO.existsByEmail(email.trim());
+        if (!exists) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(java.util.Map.of("ok", false, "message", "No account registered with this email."));
+        }
+
+        // Generate 6-digit OTP
+        String otp = String.format("%06d", new java.security.SecureRandom().nextInt(1000000));
+        long expiry = System.currentTimeMillis() + (5 * 60 * 1000); // 5 minutes
+        otpCache.put(email.trim().toLowerCase(), new OtpEntry(otp, expiry));
+
+        System.out.println("🔐 [Streetify Security] OTP generated for " + email + ": " + otp + " (Valid for 5 mins)");
+
+        return ResponseEntity.ok(java.util.Map.of(
+                "ok", true,
+                "exists", true,
+                "otp", otp, // Included for viva / testing convenience
+                "message", "OTP sent to registered contact. Valid for 5 minutes."
+        ));
     }
 
     /**
      * POST /api/auth/verify-otp
-     * Resets password in MSSQL database after OTP verification.
+     * Strictly verifies OTP before updating password in database.
      */
     @PostMapping("/verify-otp")
     public ResponseEntity<java.util.Map<String, Object>> verifyOtp(
             @RequestBody java.util.Map<String, String> body
     ) {
         String email = body.get("email");
+        String otp = body.get("otp");
         String newPassword = body.get("newPassword");
 
-        if (email != null && newPassword != null) {
-            userDAO.findByEmail(email).ifPresent(user -> {
-                user.setPasswordHash(passwordEncoder.encode(newPassword));
-                userDAO.save(user);
-            });
+        if (email == null || newPassword == null || otp == null) {
+            return ResponseEntity.badRequest().body(java.util.Map.of(
+                    "ok", false,
+                    "message", "Email, OTP, and new password are all required."
+            ));
         }
-        return ResponseEntity.ok(java.util.Map.of("ok", true, "message", "Password reset successfully."));
+
+        if (newPassword.length() < 8) {
+            return ResponseEntity.badRequest().body(java.util.Map.of(
+                    "ok", false,
+                    "message", "Password must be at least 8 characters."
+            ));
+        }
+
+        String key = email.trim().toLowerCase();
+        OtpEntry entry = otpCache.get(key);
+
+        if (entry == null) {
+            return ResponseEntity.badRequest().body(java.util.Map.of(
+                    "ok", false,
+                    "message", "No OTP requested for this email. Please request a new OTP first."
+            ));
+        }
+
+        if (System.currentTimeMillis() > entry.expiryTime()) {
+            otpCache.remove(key);
+            return ResponseEntity.badRequest().body(java.util.Map.of(
+                    "ok", false,
+                    "message", "OTP has expired. Please request a new one."
+            ));
+        }
+
+        if (!entry.code().equals(otp.trim())) {
+            return ResponseEntity.badRequest().body(java.util.Map.of(
+                    "ok", false,
+                    "message", "Invalid OTP. Please check the code and try again."
+            ));
+        }
+
+        // OTP verified successfully -> Update password
+        userDAO.findByEmail(key).ifPresent(user -> {
+            user.setPasswordHash(passwordEncoder.encode(newPassword));
+            userDAO.save(user);
+        });
+
+        // Invalidate OTP after use
+        otpCache.remove(key);
+
+        return ResponseEntity.ok(java.util.Map.of(
+                "ok", true,
+                "message", "Password reset successfully. You can now log in with your new password."
+        ));
     }
 }

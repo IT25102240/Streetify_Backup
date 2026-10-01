@@ -112,7 +112,11 @@ public class JwtUtil {
      * Extracts the user's database ID from a JWT.
      */
     public Long extractUserId(String token) {
-        return extractAllClaims(token).get("userId", Long.class);
+        Object val = extractAllClaims(token).get("userId");
+        if (val instanceof Number num) {
+            return num.longValue();
+        }
+        return null;
     }
 
     /**

@@ -26,27 +26,37 @@ export async function apiClient<T>(
 
   // Handle unauthorized/expired token
   if (response.status === 401) {
-    tabStorage.removeItem('jwt_token');
-    window.dispatchEvent(new Event('auth-expired'));
+    const isMockToken = token && token.startsWith("mock-jwt-");
+    if (!isMockToken) {
+      tabStorage.removeItem('jwt_token');
+      window.dispatchEvent(new Event('auth-expired'));
+    }
   }
 
-  // Parse JSON or throw error
+  // Parse response body safely
+  const responseText = await response.text();
+
   if (!response.ok) {
-    let errorMessage = 'An error occurred';
-    try {
-      const errorData = await response.json();
-      errorMessage = errorData.message || errorMessage;
-    } catch (e) {
-      // Not JSON
-      errorMessage = await response.text() || response.statusText;
+    let errorMessage = response.statusText || 'An error occurred';
+    if (responseText) {
+      try {
+        const errorData = JSON.parse(responseText);
+        errorMessage = errorData.message || errorData.error || responseText;
+      } catch {
+        errorMessage = responseText;
+      }
     }
     throw new Error(errorMessage);
   }
 
   // If response is empty or 204 No Content, return null instead of trying to parse JSON
-  if (response.status === 204 || response.headers.get('content-length') === '0') {
-      return null as any;
+  if (response.status === 204 || !responseText || response.headers.get('content-length') === '0') {
+    return null as any;
   }
 
-  return response.json();
+  try {
+    return JSON.parse(responseText);
+  } catch {
+    return responseText as any;
+  }
 }
