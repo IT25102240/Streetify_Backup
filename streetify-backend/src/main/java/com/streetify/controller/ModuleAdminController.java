@@ -205,21 +205,40 @@ public class ModuleAdminController {
         
         trip.setPickupLat(6.9271); trip.setPickupLng(79.8612);
         trip.setDropoffLat(6.8649); trip.setDropoffLng(79.8997);
-        trip.setRideType("CAR");
+        
+        if (data.containsKey("rideType") && data.get("rideType") != null && !data.get("rideType").toString().isBlank()) {
+            trip.setRideType(data.get("rideType").toString().toLowerCase());
+        } else {
+            trip.setRideType("standard");
+        }
+        
+        if (data.containsKey("distanceKm") && data.get("distanceKm") != null) {
+            try {
+                trip.setDistanceKm(((Number) data.get("distanceKm")).doubleValue());
+            } catch (Exception ex) {
+                trip.setDistanceKm(8.5);
+            }
+        } else {
+            trip.setDistanceKm(8.5);
+        }
+
+        if (data.containsKey("paymentMethod") && data.get("paymentMethod") != null) {
+            trip.setPaymentMethod(data.get("paymentMethod").toString().toUpperCase());
+        } else {
+            trip.setPaymentMethod("CASH");
+        }
+
         if (data.containsKey("status") && data.get("status") != null && !data.get("status").toString().isBlank()) {
             String s = data.get("status").toString().trim().toUpperCase();
             if ("ACTIVE".equals(s)) {
                 trip.setStatus(TripStatus.IN_PROGRESS);
             } else {
-                try {
-                    trip.setStatus(TripStatus.valueOf(s));
-                } catch (Exception ex) {
-                    trip.setStatus(TripStatus.REQUESTED);
-                }
+                trip.setStatus(TripStatus.fromString(s));
             }
         } else {
             trip.setStatus(TripStatus.REQUESTED);
         }
+
         double estFare = data.containsKey("estimatedFare") ? ((Number) data.get("estimatedFare")).doubleValue() : 1250.0;
         trip.setTotalFare(estFare);
         trip.setPlatformCommission(Math.round(estFare * 0.15 * 100.0) / 100.0);
@@ -230,31 +249,178 @@ public class ModuleAdminController {
         return ResponseEntity.ok(Map.of("status", "ok", "id", saved.getId()));
     }
 
+    private Map<String, Object> mapTripToBookingDetails(Trip t) {
+        Map<String, Object> map = new java.util.HashMap<>();
+        map.put("id", t.getId());
+        map.put("tripId", t.getId());
+        map.put("pickupAddress", t.getPickupAddress() != null ? t.getPickupAddress() : "Colombo Fort");
+        map.put("dropoffAddress", t.getDropoffAddress() != null ? t.getDropoffAddress() : "Bambalapitiya");
+        map.put("pickupLat", t.getPickupLat() != null ? t.getPickupLat() : 6.9271);
+        map.put("pickupLng", t.getPickupLng() != null ? t.getPickupLng() : 79.8612);
+        map.put("dropoffLat", t.getDropoffLat() != null ? t.getDropoffLat() : 6.8911);
+        map.put("dropoffLng", t.getDropoffLng() != null ? t.getDropoffLng() : 79.8550);
+        map.put("status", t.getStatus() != null ? t.getStatus().name() : "REQUESTED");
+        map.put("rideType", t.getRideType() != null ? t.getRideType().toLowerCase() : "standard");
+        map.put("distanceKm", t.getDistanceKm() != null ? t.getDistanceKm() : 8.5);
+        map.put("totalFare", t.getTotalFare() != null ? t.getTotalFare() : 1250.0);
+        map.put("estimatedFare", t.getTotalFare() != null ? t.getTotalFare() : 1250.0);
+        map.put("paymentMethod", t.getPaymentMethod() != null ? t.getPaymentMethod() : "CASH");
+        map.put("isPaid", t.isPaid());
+        map.put("paid", t.isPaid());
+        map.put("createdAt", t.getCreatedAt() != null ? t.getCreatedAt().toString() : "");
+
+        String pName = "Walk-in Passenger";
+        String pPhone = "-";
+        try {
+            if (t.getPassenger() != null) {
+                String first = t.getPassenger().getFirstName() != null ? t.getPassenger().getFirstName() : "";
+                String last = t.getPassenger().getLastName() != null ? t.getPassenger().getLastName() : "";
+                String full = (first + " " + last).trim();
+                pName = full.isEmpty() ? "Passenger #" + t.getPassenger().getId() : full;
+                pPhone = t.getPassenger().getPhone() != null ? t.getPassenger().getPhone() : "-";
+            }
+        } catch (Exception ignored) {}
+        map.put("passengerName", pName);
+        map.put("passengerPhone", pPhone);
+
+        String dName = "NOT_ASSIGNED";
+        String dPhone = "-";
+        try {
+            if (t.getDriver() != null) {
+                String first = t.getDriver().getFirstName() != null ? t.getDriver().getFirstName() : "";
+                String last = t.getDriver().getLastName() != null ? t.getDriver().getLastName() : "";
+                String full = (first + " " + last).trim();
+                dName = full.isEmpty() ? "Driver #" + t.getDriver().getId() : full;
+                dPhone = t.getDriver().getPhone() != null ? t.getDriver().getPhone() : "-";
+            }
+        } catch (Exception ignored) {}
+        map.put("driverName", dName);
+        map.put("driverPhone", dPhone);
+
+        return map;
+    }
+
     @GetMapping("/bookings")
     public ResponseEntity<List<Map<String, Object>>> getAllBookings() {
-        List<Map<String, Object>> result = tripDAO.findAll().stream().map(t -> {
-            Map<String, Object> map = new java.util.HashMap<>();
-            map.put("id", t.getId());
-            map.put("pickupAddress", t.getPickupAddress());
-            map.put("dropoffAddress", t.getDropoffAddress());
-            map.put("status", t.getStatus().name());
-            map.put("totalFare", t.getTotalFare());
-            return map;
-        }).toList();
+        List<Map<String, Object>> result = tripDAO.findAll().stream()
+            .sorted((a, b) -> Long.compare(b.getId() != null ? b.getId() : 0, a.getId() != null ? a.getId() : 0))
+            .map(this::mapTripToBookingDetails)
+            .toList();
         return ResponseEntity.ok(result);
     }
 
     @GetMapping("/bookings/{id}")
     public ResponseEntity<Map<String, Object>> getBooking(@PathVariable Long id) {
-        return tripDAO.findById(id).map(t -> {
-            Map<String, Object> map = new java.util.HashMap<>();
-            map.put("id", t.getId());
-            map.put("pickupAddress", t.getPickupAddress());
-            map.put("dropoffAddress", t.getDropoffAddress());
-            map.put("status", t.getStatus().name());
-            map.put("totalFare", t.getTotalFare());
-            return ResponseEntity.ok(map);
-        }).orElse(ResponseEntity.notFound().build());
+        return tripDAO.findById(id)
+            .map(t -> ResponseEntity.ok(mapTripToBookingDetails(t)))
+            .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * 🚖 CHANUKA'S SUMMARY DASHBOARD ENDPOINT — UC21, UC22, UC23
+     * Implements Section 2 SQL queries from 03_team_member_queries.sql:
+     * - Query 2.1: View all trip requests and statuses
+     * - Query 2.2: Filter active ongoing trips requiring live tracking
+     * - Query 2.3: Trip summary breakdown by ride type (Tuk, Car, Van, Bike)
+     */
+    @GetMapping("/bookings/summary")
+    public ResponseEntity<Map<String, Object>> getBookingsSummary() {
+        List<Trip> allTrips = tripDAO.findAll();
+        long totalTrips = allTrips.size();
+
+        long activeCount = allTrips.stream().filter(t -> {
+            TripStatus s = t.getStatus();
+            return s == TripStatus.REQUESTED || s == TripStatus.ACCEPTED || 
+                   s == TripStatus.EN_ROUTE || s == TripStatus.ARRIVED || 
+                   s == TripStatus.IN_PROGRESS || s == TripStatus.ACTIVE;
+        }).count();
+
+        long completedCount = allTrips.stream().filter(t -> t.getStatus() == TripStatus.COMPLETED).count();
+        long cancelledCount = allTrips.stream().filter(t -> t.getStatus() == TripStatus.CANCELLED).count();
+
+        double totalRevenue = allTrips.stream()
+            .mapToDouble(t -> t.getTotalFare() != null ? t.getTotalFare() : 0.0)
+            .sum();
+
+        double totalDistance = allTrips.stream()
+            .mapToDouble(t -> t.getDistanceKm() != null ? t.getDistanceKm() : 0.0)
+            .sum();
+
+        double avgDistance = totalTrips > 0 ? (totalDistance / totalTrips) : 0.0;
+        double avgFare = totalTrips > 0 ? (totalRevenue / totalTrips) : 0.0;
+
+        // Group by status
+        Map<String, Long> byStatus = allTrips.stream()
+            .collect(java.util.stream.Collectors.groupingBy(
+                t -> t.getStatus() != null ? t.getStatus().name() : "UNKNOWN",
+                java.util.stream.Collectors.counting()
+            ));
+
+        // Group by ride type (Query 2.3)
+        Map<String, List<Trip>> tripsByRideType = allTrips.stream()
+            .collect(java.util.stream.Collectors.groupingBy(
+                t -> {
+                    String rt = t.getRideType();
+                    if (rt == null || rt.isBlank()) return "standard";
+                    String lower = rt.toLowerCase().trim();
+                    if ("car".equals(lower)) return "standard";
+                    if ("van".equals(lower)) return "xl";
+                    if ("bike".equals(lower)) return "moto";
+                    return lower;
+                }
+            ));
+
+        List<Map<String, Object>> byRideTypeList = new java.util.ArrayList<>();
+        String[] standardRideTypes = new String[] { "standard", "xl", "moto", "tuk" };
+        for (String rtKey : standardRideTypes) {
+            List<Trip> rtTrips = tripsByRideType.getOrDefault(rtKey, java.util.Collections.emptyList());
+            long count = rtTrips.size();
+            double rev = rtTrips.stream().mapToDouble(t -> t.getTotalFare() != null ? t.getTotalFare() : 0.0).sum();
+            double dist = rtTrips.stream().mapToDouble(t -> t.getDistanceKm() != null ? t.getDistanceKm() : 0.0).sum();
+            double avgDist = count > 0 ? (dist / count) : 0.0;
+            double avgF = count > 0 ? (rev / count) : 0.0;
+
+            Map<String, Object> rtItem = new java.util.HashMap<>();
+            rtItem.put("rideType", rtKey);
+            rtItem.put("totalTrips", count);
+            rtItem.put("totalRevenue", Math.round(rev * 100.0) / 100.0);
+            rtItem.put("avgDistanceKm", Math.round(avgDist * 10.0) / 10.0);
+            rtItem.put("avgFare", Math.round(avgF * 100.0) / 100.0);
+            byRideTypeList.add(rtItem);
+        }
+
+        // Active ongoing trips (Query 2.2)
+        List<Map<String, Object>> activeTripsList = allTrips.stream()
+            .filter(t -> {
+                TripStatus s = t.getStatus();
+                return s == TripStatus.REQUESTED || s == TripStatus.ACCEPTED || 
+                       s == TripStatus.EN_ROUTE || s == TripStatus.ARRIVED || 
+                       s == TripStatus.IN_PROGRESS || s == TripStatus.ACTIVE;
+            })
+            .sorted((a, b) -> Long.compare(b.getId() != null ? b.getId() : 0, a.getId() != null ? a.getId() : 0))
+            .map(this::mapTripToBookingDetails)
+            .toList();
+
+        // Recent trips (Query 2.1)
+        List<Map<String, Object>> recentTripsList = allTrips.stream()
+            .sorted((a, b) -> Long.compare(b.getId() != null ? b.getId() : 0, a.getId() != null ? a.getId() : 0))
+            .map(this::mapTripToBookingDetails)
+            .toList();
+
+        Map<String, Object> resp = new java.util.HashMap<>();
+        resp.put("totalBookings", totalTrips);
+        resp.put("activeTrips", activeCount);
+        resp.put("completedTrips", completedCount);
+        resp.put("cancelledTrips", cancelledCount);
+        resp.put("totalRevenue", Math.round(totalRevenue * 100.0) / 100.0);
+        resp.put("avgDistanceKm", Math.round(avgDistance * 10.0) / 10.0);
+        resp.put("avgFare", Math.round(avgFare * 100.0) / 100.0);
+        resp.put("byStatus", byStatus);
+        resp.put("byRideType", byRideTypeList);
+        resp.put("activeOngoingTrips", activeTripsList);
+        resp.put("recentTrips", recentTripsList);
+
+        return ResponseEntity.ok(resp);
     }
 
     @PutMapping("/bookings/{id}")

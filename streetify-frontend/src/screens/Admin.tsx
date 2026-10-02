@@ -5,8 +5,9 @@ import BranchKiosk from "./BranchKiosk";
 import SystemStatusIndicator, { CompactStatusIndicator } from "../components/SystemStatusIndicator";
 import { tabStorage } from "../utils/storage";
 import { tripSyncService } from "../services/tripSyncService";
+import ChanukaBookingDashboard from "../components/ChanukaBookingDashboard";
 
-type AdminTab = "analytics" | "users" | "drivers" | "bookings" | "driver-trips" | "driver-docs" | "payments" | "reviews" | "cancellation" | "export" | "rbac" | "system" | "branch-kiosk";
+type AdminTab = "analytics" | "users" | "drivers" | "bookings" | "driver-trips" | "driver-docs" | "payments" | "reviews" | "cancellation" | "export" | "rbac" | "system" | "branch-kiosk" | "booking-summary";
 
 export type FormField = {
   id: string;
@@ -129,40 +130,56 @@ export default function AdminDashboard() {
   const adminRole = tabStorage.getItem("admin_role") || "UNKNOWN";
   const adminEmail = tabStorage.getItem("user_name") || "Admin";
 
-  const allowedTabs: { key: string; icon: string; label: string; external?: string }[] = [];
-  // Analytics dashboard — visible to all admin roles
-  allowedTabs.push({ key: "analytics", icon: "📊", label: "Dashboard" });
+  const isSuperAdmin = adminRole === "SUPER_ADMIN" || adminEmail.toLowerCase().includes("vidura");
+  const isChanukaBookingAdmin = adminRole === "BOOKING_MGMT" || adminEmail.toLowerCase().includes("chanuka");
 
-  if (adminRole === "SUPER_ADMIN" || adminRole === "USER_MGMT") {
-    allowedTabs.push({ key: "users", icon: "🧑", label: "User Management" });
-    allowedTabs.push({ key: "rbac", icon: "🔑", label: "RBAC Roles" });
-  }
-  if (adminRole === "SUPER_ADMIN" || adminRole === "BOOKING_MGMT") {
+  const allowedTabs: { key: AdminTab; icon: string; label: string; external?: string }[] = [];
+
+  if (isChanukaBookingAdmin) {
+    // Chanuka's dedicated custom dashboard only for summary booking/trip details of platform
+    allowedTabs.push({ key: "booking-summary", icon: "📊", label: "Booking Summary Dashboard" });
     allowedTabs.push({ key: "bookings", icon: "🗺️", label: "Booking Management" });
-  }
-  // Official Branch Walk-in Counter & Telephone Booking Desk
-  if (adminRole === "SUPER_ADMIN" || adminRole === "BOOKING_MGMT" || adminRole === "USER_MGMT" || adminRole === "REVIEW_MGMT" || adminRole === "UNKNOWN") {
     allowedTabs.push({ key: "branch-kiosk", icon: "🏢", label: "Branch Walk-in Desk" });
-  }
-  if (adminRole === "SUPER_ADMIN" || adminRole === "DRIVER_MGMT") {
-    allowedTabs.push({ key: "drivers", icon: "👨‍✈️", label: "Driver Profiles" });
-    allowedTabs.push({ key: "driver-trips", icon: "🚗", label: "Driver Trips" });
-    allowedTabs.push({ key: "driver-docs", icon: "📄", label: "Driver Verifications" });
-    allowedTabs.push({ key: "cancellation", icon: "📉", label: "Cancellation Rates" });
-  }
-  if (adminRole === "SUPER_ADMIN" || adminRole === "PAYMENT_MGMT") {
-    allowedTabs.push({ key: "payments", icon: "💳", label: "Payment Management" });
-    allowedTabs.push({ key: "export", icon: "📁", label: "Export Reports" });
-  }
-  if (adminRole === "SUPER_ADMIN" || adminRole === "REVIEW_MGMT") {
-    allowedTabs.push({ key: "reviews", icon: "⭐", label: "Review Management" });
-    allowedTabs.push({ key: "disputes", icon: "🎧", label: "Dispute Tickets", external: "support" });
-  }
-  if (adminRole === "SUPER_ADMIN") {
-    allowedTabs.push({ key: "system", icon: "🛡️", label: "System Control" });
+  } else {
+    // Analytics dashboard — visible to all admin roles
+    allowedTabs.push({ key: "analytics", icon: "📊", label: "Dashboard" });
+
+    if (adminRole === "SUPER_ADMIN" || adminRole === "USER_MGMT") {
+      allowedTabs.push({ key: "users", icon: "🧑", label: "User Management" });
+      allowedTabs.push({ key: "rbac", icon: "🔑", label: "RBAC Roles" });
+    }
+    if (adminRole === "SUPER_ADMIN" || adminRole === "BOOKING_MGMT") {
+      allowedTabs.push({ key: "bookings", icon: "🗺️", label: "Booking Management" });
+    }
+    if (isSuperAdmin) {
+      // Super Admin Vidura has overall access to Chanuka's platform trip summary dashboard
+      allowedTabs.push({ key: "booking-summary", icon: "🚖", label: "Trip Summary (Chanuka)" });
+    }
+    // Official Branch Walk-in Counter & Telephone Booking Desk
+    if (adminRole === "SUPER_ADMIN" || adminRole === "BOOKING_MGMT" || adminRole === "USER_MGMT" || adminRole === "REVIEW_MGMT" || adminRole === "UNKNOWN") {
+      allowedTabs.push({ key: "branch-kiosk", icon: "🏢", label: "Branch Walk-in Desk" });
+    }
+    if (adminRole === "SUPER_ADMIN" || adminRole === "DRIVER_MGMT") {
+      allowedTabs.push({ key: "drivers", icon: "👨‍✈️", label: "Driver Profiles" });
+      allowedTabs.push({ key: "driver-trips", icon: "🚗", label: "Driver Trips" });
+      allowedTabs.push({ key: "driver-docs", icon: "📄", label: "Driver Verifications" });
+      allowedTabs.push({ key: "cancellation", icon: "📉", label: "Cancellation Rates" });
+    }
+    if (adminRole === "SUPER_ADMIN" || adminRole === "PAYMENT_MGMT") {
+      allowedTabs.push({ key: "payments", icon: "💳", label: "Payment Management" });
+      allowedTabs.push({ key: "export", icon: "📁", label: "Export Reports" });
+    }
+    if (adminRole === "SUPER_ADMIN" || adminRole === "REVIEW_MGMT") {
+      allowedTabs.push({ key: "reviews", icon: "⭐", label: "Review Management" });
+      allowedTabs.push({ key: "disputes", icon: "🎧", label: "Dispute Tickets", external: "support" });
+    }
+    if (adminRole === "SUPER_ADMIN") {
+      allowedTabs.push({ key: "system", icon: "🛡️", label: "System Control" });
+    }
   }
 
-  const [tab, setTab] = useState<AdminTab>(allowedTabs[0]?.key || "system");
+  const defaultTabKey = isChanukaBookingAdmin ? "booking-summary" : (allowedTabs[0]?.key || "analytics");
+  const [tab, setTab] = useState<AdminTab>(defaultTabKey);
 
   return (
     <div className="min-h-screen flex relative z-0" >
@@ -212,10 +229,10 @@ export default function AdminDashboard() {
         <header className="bg-navy border-eco/10 border-b border-slate-800 px-6 py-3.5 flex items-center justify-between flex-none shadow-sm">
           <div>
             <h1 className="font-extrabold text-white text-lg leading-tight">
-              {allowedTabs.find(t => t.key === tab)?.label || "Dashboard"}
+              {allowedTabs.find(t => t.key === tab)?.label || (tab === "booking-summary" ? "Booking Summary Dashboard" : "Dashboard")}
             </h1>
             <p className="text-[11px] text-slate-400 font-mono mt-0.5">
-              MSSQL · /api/module-admin/{tab}
+              MSSQL · /api/module-admin/{tab === "booking-summary" ? "bookings/summary" : tab}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -231,7 +248,8 @@ export default function AdminDashboard() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {tab === "analytics"   && <AnalyticsPanel />}
+          {tab === "booking-summary" && <ChanukaBookingDashboard />}
+          {tab === "analytics"   && (isChanukaBookingAdmin ? <ChanukaBookingDashboard /> : <AnalyticsPanel />)}
           {tab === "users"       && <UsersPanel />}
           {tab === "drivers"     && <DriversPanel />}
           {tab === "bookings"    && <BookingsPanel />}
@@ -349,6 +367,8 @@ function UsersPanel() {
 
 function BookingsPanel() {
   const [trips, setTrips] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<"summary" | "table">("summary");
   const adminRole = tabStorage.getItem("admin_role") || "";
   const adminUser = (tabStorage.getItem("user_name") || "").toLowerCase();
   
@@ -360,18 +380,37 @@ function BookingsPanel() {
   const canManageBooking = isSuperAdmin || isChanukaBookingAdmin;
 
   const fetchTrips = async () => {
+    setLoading(true);
     try {
       const data = await apiClient<any[]>('/module-admin/bookings');
       setTrips(data || []);
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { fetchTrips(); }, []);
+  useEffect(() => { 
+    fetchTrips(); 
+    const unsub = tripSyncService.subscribeAll(() => {
+      fetchTrips();
+    });
+    return () => unsub();
+  }, []);
 
   const handleAdd = async () => {
     const fields: FormField[] = [
       { id: "pickupAddress", label: "Pickup Address", defaultValue: "" },
-      { id: "dropoffAddress", label: "Dropoff Address", defaultValue: "" }
+      { id: "dropoffAddress", label: "Dropoff Address", defaultValue: "" },
+      {
+        id: "rideType",
+        label: "Vehicle Tier",
+        type: "select",
+        options: ["standard", "xl", "moto", "tuk"],
+        defaultValue: "standard",
+        helpText: "Select vehicle category for dispatch engine"
+      }
     ];
 
     // Booking Admin (Chanuka) + Super Admin (Vidura) can select initial status when creating a new booking
@@ -395,6 +434,7 @@ function BookingsPanel() {
         body: JSON.stringify({
           pickupAddress: data.pickupAddress,
           dropoffAddress: data.dropoffAddress,
+          rideType: data.rideType || "standard",
           status: data.status || "REQUESTED"
         }) 
       });
@@ -447,10 +487,35 @@ function BookingsPanel() {
   };
 
   return (
-    <Card>
-      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <p className="font-extrabold text-slate-100">Booking Management</p>
+    <div className="space-y-4">
+      {/* Top Toggle Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-900/90 border border-teal-500/20 p-3 rounded-2xl gap-3 shadow-md">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center p-1 rounded-xl bg-slate-950 border border-slate-800">
+            <button
+              onClick={() => setViewMode("summary")}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === "summary"
+                  ? "bg-teal-600 text-white shadow-md shadow-teal-600/30"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <span>📊</span> Platform Summary Dashboard
+            </button>
+            <button
+              onClick={() => setViewMode("table")}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === "table"
+                  ? "bg-teal-600 text-white shadow-md shadow-teal-600/30"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <span>📋</span> Booking Registry Table
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
           {isSuperAdmin ? (
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-red-500/15 text-red-300 border border-red-500/30">
               VIDURA · SUPER ADMIN (FULL ACCESS)
@@ -460,44 +525,90 @@ function BookingsPanel() {
               CHANUKA · BOOKING LEAD
             </span>
           ) : null}
+
+          <button 
+            onClick={fetchTrips} 
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all disabled:opacity-50"
+            title="Refresh bookings from MSSQL database"
+          >
+            <span className={loading ? "animate-spin" : ""}>🔄</span>
+            <span>Refresh</span>
+          </button>
+          <Btn size="sm" onClick={handleAdd}>+ Add Booking</Btn>
         </div>
-        <Btn size="sm" onClick={handleAdd}>+ Add Booking</Btn>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-slate-950 border-b border-slate-800">
-              <th className="px-4 py-3 text-left">Trip ID</th>
-              <th className="px-4 py-3 text-left">Pickup</th>
-              <th className="px-4 py-3 text-left">Dropoff</th>
-              <th className="px-4 py-3 text-left">Status</th>
-              {canManageBooking && <th className="px-4 py-3 text-left">Est. Fare</th>}
-              <th className="px-4 py-3 text-left">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {trips.map(t => (
-              <tr key={t.id} className="border-b border-slate-100 hover:bg-slate-950 transition-colors">
-                <td className="px-4 py-3 font-mono">{t.id}</td>
-                <td className="px-4 py-3 max-w-xs truncate">{t.pickupAddress}</td>
-                <td className="px-4 py-3 max-w-xs truncate">{t.dropoffAddress}</td>
-                <td className="px-4 py-3"><Pill>{t.status}</Pill></td>
-                {canManageBooking && (
-                  <td className="px-4 py-3 font-mono font-bold text-emerald-400">
-                    LKR {(t.totalFare ?? t.estimatedFare ?? 0).toLocaleString()}
-                  </td>
+
+      {viewMode === "summary" ? (
+        <ChanukaBookingDashboard onOpenCreateModal={handleAdd} onOpenEditModal={handleEdit} />
+      ) : (
+        <Card>
+          <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
+            <div>
+              <p className="font-extrabold text-white text-sm">Active Booking Registry</p>
+              <p className="text-xs text-slate-400">Direct MSSQL /api/module-admin/bookings records</p>
+            </div>
+            <button
+              onClick={() => setViewMode("summary")}
+              className="text-xs font-bold text-teal-400 hover:text-teal-300 underline"
+            >
+              ← Back to Summary Dashboard
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-950 border-b border-slate-800 text-slate-400 text-xs">
+                  <th className="px-4 py-3 text-left">Trip ID</th>
+                  <th className="px-4 py-3 text-left">Pickup</th>
+                  <th className="px-4 py-3 text-left">Dropoff</th>
+                  <th className="px-4 py-3 text-left">Status</th>
+                  {canManageBooking && <th className="px-4 py-3 text-left">Est. Fare</th>}
+                  <th className="px-4 py-3 text-left">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={canManageBooking ? 6 : 5} className="text-center py-8 text-slate-400 font-mono text-xs">
+                      <span className="inline-block animate-spin mr-2">🔄</span> Loading bookings from MSSQL database…
+                    </td>
+                  </tr>
+                ) : trips.length === 0 ? (
+                  <tr>
+                    <td colSpan={canManageBooking ? 6 : 5} className="text-center py-8 text-slate-400">
+                      <p className="font-semibold text-slate-300">No bookings found</p>
+                      <p className="text-xs text-slate-500 mt-1">Click "+ Add Booking" to create a new ride booking or refresh.</p>
+                      <button onClick={fetchTrips} className="mt-3 px-3 py-1 text-xs bg-slate-800 hover:bg-slate-700 rounded-lg text-emerald-400 font-bold border border-slate-700">
+                        🔄 Refresh from Database
+                      </button>
+                    </td>
+                  </tr>
+                ) : (
+                  trips.map(t => (
+                    <tr key={t.id} className="border-b border-slate-800/80 hover:bg-slate-950 transition-colors">
+                      <td className="px-4 py-3 font-mono font-bold text-teal-400">#{t.id}</td>
+                      <td className="px-4 py-3 max-w-xs truncate text-slate-200">{t.pickupAddress}</td>
+                      <td className="px-4 py-3 max-w-xs truncate text-slate-200">{t.dropoffAddress}</td>
+                      <td className="px-4 py-3"><Pill>{t.status}</Pill></td>
+                      {canManageBooking && (
+                        <td className="px-4 py-3 font-mono font-bold text-emerald-400">
+                          LKR {(t.totalFare ?? t.estimatedFare ?? 0).toLocaleString()}
+                        </td>
+                      )}
+                      <td className="px-4 py-3 flex gap-2">
+                        <Btn size="xs" v="secondary" onClick={() => handleEdit(t)}>Edit</Btn>
+                        <Btn size="xs" v="danger" onClick={() => handleCancel(t.id)}>Cancel</Btn>
+                      </td>
+                    </tr>
+                  ))
                 )}
-                <td className="px-4 py-3 flex gap-2">
-                  <Btn size="xs" v="secondary" onClick={() => handleEdit(t)}>Edit</Btn>
-                  <Btn size="xs" v="danger" onClick={() => handleCancel(t.id)}>Cancel</Btn>
-                </td>
-              </tr>
-            ))}
-            {trips.length === 0 && <tr><td colSpan={canManageBooking ? 6 : 5} className="text-center p-4">No bookings found</td></tr>}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+    </div>
   );
 }
 

@@ -85,9 +85,10 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
+        ex.printStackTrace();
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(errorBody(500, "Internal Server Error",
-                        "An unexpected error occurred. Please contact support."));
+                        ex.getMessage() != null ? ex.getMessage() : "An unexpected error occurred."));
     }
 
     // ─── Helper ───────────────────────────────────────────────────────────────
