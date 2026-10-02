@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { apiClient } from "../api/apiClient";
 import { tabStorage } from "../utils/storage";
 

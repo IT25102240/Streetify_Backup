@@ -42,7 +42,28 @@ const GROUP_LABEL: Record<string, string> = {
 };
 
 export default function App() {
-  const [screen, setScreenState] = useState<Screen>("login");
+  const getInitialScreen = (): Screen => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const urlScreen = params.get("screen") as Screen | null;
+      if (urlScreen) return urlScreen;
+      const urlRole = params.get("role")?.toLowerCase();
+      if (urlRole === "driver") return "driver";
+      if (urlRole === "admin") return "admin";
+      if (urlRole === "passenger") return "booking";
+
+      const token = tabStorage.getItem("jwt_token");
+      if (token) {
+        const storedRole = tabStorage.getItem("user_role")?.toLowerCase();
+        if (storedRole === "driver") return "driver";
+        if (storedRole === "admin") return "admin";
+        return "booking";
+      }
+    } catch {}
+    return "login";
+  };
+
+  const [screen, setScreenState] = useState<Screen>(getInitialScreen);
   const [history, setHistory] = useState<Screen[]>([]);
 
   const setScreen = (newScreen: Screen) => {
