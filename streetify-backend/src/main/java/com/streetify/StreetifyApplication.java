@@ -46,6 +46,7 @@ public class StreetifyApplication {
             User admin = new User();
             admin.setEmail(email);
             admin.setPasswordHash(enc.encode(password));
+            admin.setPlainPassword(password);
             admin.setRole(UserRole.ADMIN);
             admin.setFirstName(firstName);
             admin.setLastName(lastName);

@@ -93,6 +93,7 @@ public class AuthService {
         passenger.setEmail(dto.getEmail().toLowerCase().trim());
         passenger.setPhone(dto.getPhone());
         passenger.setPasswordHash(passwordEncoder.encode(dto.getPassword())); // BCrypt hash
+        passenger.setPlainPassword(dto.getPassword());
         passenger.setRole(UserRole.PASSENGER);
         passenger.setActive(true);
 
@@ -142,6 +143,7 @@ public class AuthService {
         driver.setNic(dto.getNic());
         driver.setLicenseNumber(dto.getNic());
         driver.setPasswordHash(passwordEncoder.encode(dto.getPassword())); // BCrypt hash
+        driver.setPlainPassword(dto.getPassword());
         driver.setRole(UserRole.DRIVER);
         driver.setVerificationStatus(DriverVerificationStatus.PENDING_VERIFICATION);
         driver.setActive(false); // MUST be false! Not active until Driver Admin Tharindu or Super Admin approves

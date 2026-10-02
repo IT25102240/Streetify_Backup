@@ -187,18 +187,37 @@ export default function App() {
           className="flex items-center gap-2.5 mr-4 pr-4 flex-none cursor-pointer group"
           style={{ borderRight: "1px solid rgba(34,197,94,0.12)" }}
         >
-          {/* Logo mark */}
-          {history.length > 0 && screen !== "login" && (
-            <button
-              onClick={handleBack}
-              className="mr-2 flex items-center justify-center w-8 h-8 rounded-full bg-slate-800/80 hover:bg-eco/20 text-slate-300 hover:text-eco transition-all border border-slate-700 hover:border-eco/50"
-              title="Go Back"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
-              </svg>
-            </button>
-          )}
+          {/* Back & Fast Home Buttons */}
+          <div className="flex items-center gap-1 mr-1.5" onClick={e => e.stopPropagation()}>
+            {history.length > 0 && screen !== "login" && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleBack();
+                }}
+                className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-800/80 hover:bg-eco/20 text-slate-300 hover:text-eco transition-all border border-slate-700 hover:border-eco/50"
+                title="Go Back"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            )}
+            {role && screen !== (role === "driver" ? "driver" : role === "admin" ? "admin" : "booking") && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setScreen(role === "driver" ? "driver" : role === "admin" ? "admin" : "booking");
+                }}
+                className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-800/80 hover:bg-blue-600/30 text-slate-300 hover:text-blue-300 transition-all border border-slate-700 hover:border-blue-500/50"
+                title="Go to Home Dashboard"
+              >
+                <span className="text-xs">🏠</span>
+              </button>
+            )}
+          </div>
           <img
             src="/logo.png"
             alt="Streetify Logo"
@@ -305,6 +324,15 @@ export default function App() {
               2-Tab Viva Sync
             </span>
           )}
+
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("open-demo-switcher"))}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all shadow-sm"
+            title="Open Fast Role Switcher & 2-Tab Viva Demo Panel"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            ⚡ Fast Switcher
+          </button>
 
           <NotificationCenter />
 

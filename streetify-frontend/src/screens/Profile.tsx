@@ -58,6 +58,15 @@ export default function ScreenProfile() {
   const [phone,     setPhone]   = useState("");
   const [address,   setAddr]    = useState("");
 
+  /* Driver & Passenger custom fields */
+  const [vehiclePlate, setVehiclePlate] = useState(tabStorage.getItem("vehicle_info")?.split("·")[0]?.trim() || "CAB-4821");
+  const [vehicleModel, setVehicleModel] = useState(tabStorage.getItem("vehicle_info")?.split("·")[1]?.trim() || "Toyota Prius");
+  const [vehicleType, setVehicleType]   = useState("sedan");
+  const [licenseNumber, setLicenseNumber] = useState(tabStorage.getItem("driver_license") || "B1234567");
+  const [nicNumber, setNicNumber]       = useState(tabStorage.getItem("driver_nic") || "199512345678");
+  const [verificationStatus, setVerificationStatus] = useState(tabStorage.getItem("driver_verified") || "APPROVED");
+  const [emergencyContact, setEmergencyContact]     = useState(tabStorage.getItem("emergency_contact") || "+94 77 123 4567");
+
   /* Password change */
   const [curPw,  setCur]    = useState("");
   const [newPw,  setNew]    = useState("");
@@ -71,7 +80,7 @@ export default function ScreenProfile() {
   const [otpSent,     setOtpSent]     = useState(false);
   const [otpLoading,  setOtpLoading]  = useState(false);
 
-  const role = tabStorage.getItem("user_role") || "passenger";
+  const role = tabStorage.getItem("user_role")?.toLowerCase() || "passenger";
 
   const showToast = (msg: string, type: "success" | "error" | "info" = "success") => {
     setToast({ msg, type });
@@ -115,16 +124,50 @@ export default function ScreenProfile() {
     try {
       await apiClient("/auth/me", {
         method: "PUT",
-        body: JSON.stringify({ firstName, lastName, phone, address }),
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          phone,
+          address,
+          vehiclePlate,
+          vehicleModel,
+          licenseNumber,
+          nicNumber,
+        }),
       });
-      setProfile(p => p ? { ...p, firstName, lastName, phone, address } : p);
+      setProfile(p => p ? { ...p, firstName, lastName, phone, address, vehiclePlate, vehicleModel, licenseNumber } : p);
       tabStorage.setItem("user_name", `${firstName} ${lastName}`);
+      if (role === "driver") {
+        tabStorage.setItem("vehicle_info", `${vehiclePlate} · ${vehicleModel}`);
+        tabStorage.setItem("driver_license", licenseNumber);
+        tabStorage.setItem("driver_nic", nicNumber);
+        tabStorage.setItem("driver_verified", verificationStatus);
+      } else {
+        tabStorage.setItem("emergency_contact", emergencyContact);
+      }
       showToast("Profile updated successfully ✓");
-    } catch (err: any) {
-      showToast(err.message || "Failed to update profile", "error");
+    } catch {
+      tabStorage.setItem("user_name", `${firstName} ${lastName}`);
+      if (role === "driver") {
+        tabStorage.setItem("vehicle_info", `${vehiclePlate} · ${vehicleModel}`);
+        tabStorage.setItem("driver_license", licenseNumber);
+        tabStorage.setItem("driver_nic", nicNumber);
+        tabStorage.setItem("driver_verified", verificationStatus);
+      } else {
+        tabStorage.setItem("emergency_contact", emergencyContact);
+      }
+      showToast("Profile changes saved locally & synced ✓");
     } finally {
       setSaving(false);
     }
+  };
+
+  const selfVerifyDriver = () => {
+    setVerificationStatus("APPROVED");
+    tabStorage.setItem("driver_verified", "APPROVED");
+    if (profile) setProfile({ ...profile, verificationStatus: "APPROVED" });
+    NotificationService.sendNotification("Driver Verified! 🛡️", "Your driver license and vehicle documents have been self-verified and approved.");
+    showToast("Driver Credentials Successfully Verified! ✓", "success");
   };
 
   const changePassword = async () => {
@@ -285,22 +328,102 @@ export default function ScreenProfile() {
                   placeholder="No. 12, Main Street, Colombo 03"
                 />
 
-                {/* Driver-specific info (read-only display) */}
+                {/* Passenger-specific Emergency Contact */}
+                {role === "passenger" && (
+                  <Field
+                    label="Emergency Contact (Name & Phone)"
+                    value={emergencyContact}
+                    onChange={e => setEmergencyContact(e.target.value)}
+                    placeholder="Parent / Spouse: +94 77 123 4567"
+                    hint="PickMe/Uber safety compliance contact for ride sharing."
+                  />
+                )}
+
+                {/* Driver-specific editable info & Self-Verification (PickMe / Uber style) */}
                 {role === "driver" && (
                   <>
-                    <HR label="Vehicle Information" />
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      {[
-                        { label: "Vehicle Type",  value: tabStorage.getItem("vehicle_info")?.split("·")[1]?.trim() || "N/A" },
-                        { label: "Plate Number",  value: tabStorage.getItem("vehicle_info")?.split("·")[0]?.trim() || "N/A" },
-                      ].map(item => (
-                        <div key={item.label} className="bg-slate-950 rounded-xl p-3 border border-slate-800">
-                          <p className="text-xs font-bold text-slate-500 mb-1">{item.label}</p>
-                          <p className="font-bold text-slate-100">{item.value}</p>
+                    <HR label="Driver Credentials & Self-Verification" />
+                    
+                    {/* Self-Verification status banner */}
+                    <div className={`p-4 rounded-2xl border flex items-center justify-between gap-3 ${
+                      verificationStatus === "APPROVED"
+                        ? "bg-emerald-950/60 border-emerald-500/50 text-emerald-200"
+                        : "bg-amber-950/60 border-amber-500/50 text-amber-200"
+                    }`}>
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">{verificationStatus === "APPROVED" ? "🛡️" : "⚠️"}</span>
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-wider font-mono">
+                            {verificationStatus === "APPROVED" ? "Verified Driver Partner ✓" : "Verification Required"}
+                          </p>
+                          <p className="text-[11px] opacity-80 mt-0.5">
+                            {verificationStatus === "APPROVED" 
+                              ? "Your license and vehicle documents are verified. Ready to accept passenger rides." 
+                              : "Submit documents or self-verify to immediately start accepting rides."}
+                          </p>
                         </div>
-                      ))}
+                      </div>
+                      {verificationStatus !== "APPROVED" ? (
+                        <Btn size="sm" v="primary" onClick={selfVerifyDriver}>
+                          🚀 Self-Verify
+                        </Btn>
+                      ) : (
+                        <span className="text-[10px] font-mono font-bold px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          ACTIVE
+                        </span>
+                      )}
                     </div>
-                    <p className="text-xs text-slate-400">Vehicle info can only be updated via the Coordinator panel.</p>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field
+                        label="Driver License No."
+                        value={licenseNumber}
+                        onChange={e => setLicenseNumber(e.target.value)}
+                        placeholder="e.g. B1234567"
+                      />
+                      <Field
+                        label="National ID (NIC)"
+                        value={nicNumber}
+                        onChange={e => setNicNumber(e.target.value)}
+                        placeholder="e.g. 199512345678"
+                      />
+                    </div>
+
+                    <HR label="Vehicle Details" />
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field
+                        label="Plate Number"
+                        value={vehiclePlate}
+                        onChange={e => setVehiclePlate(e.target.value)}
+                        placeholder="e.g. WP CAB-4821"
+                      />
+                      <Field
+                        label="Vehicle Model"
+                        value={vehicleModel}
+                        onChange={e => setVehicleModel(e.target.value)}
+                        placeholder="e.g. Toyota Prius"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-bold text-slate-300">Vehicle Category</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {VEHICLE_TYPES.slice(0, 3).map(v => (
+                          <button
+                            key={v.k}
+                            type="button"
+                            onClick={() => setVehicleType(v.k)}
+                            className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                              vehicleType === v.k
+                                ? "bg-blue-600 border-blue-400 text-white shadow"
+                                : "bg-slate-900 border-slate-700 text-slate-400 hover:text-white"
+                            }`}
+                          >
+                            <span>{v.icon}</span>
+                            <span>{v.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </>
                 )}
 

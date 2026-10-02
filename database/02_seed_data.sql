@@ -28,35 +28,35 @@ GO
 -- BCrypt for 'admin123': $2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06
 -- BCrypt for '1111':     $2a$10$cbbzAnogt7aHXIkFuSH/MezEMCiOfZuxH2Q4pDbRv8nUVfe.MJY8m
 -- ════════════════════════════════════════════════════════════════════════════════
-INSERT INTO users (dtype, active, suspended, email, first_name, last_name, password_hash, phone, role, admin_role, created_at, updated_at)
+INSERT INTO users (dtype, active, suspended, email, first_name, last_name, password_hash, plain_password, phone, role, admin_role, created_at, updated_at)
 VALUES 
-('USER', 1, 0, 'admin@streetify.com',   'System',   'Admin',            '$2a$10$cbbzAnogt7aHXIkFuSH/MezEMCiOfZuxH2Q4pDbRv8nUVfe.MJY8m', '0112000000', 'ADMIN', 'SUPER_ADMIN',  GETDATE(), GETDATE()),
-('USER', 1, 0, 'vidura@streetify.lk',    'Vidura',   'Rammandalagedara', '$2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06', '0711000001', 'ADMIN', 'SUPER_ADMIN',  GETDATE(), GETDATE()),
-('USER', 1, 0, 'lahiru@streetify.lk',    'Lahiru',   'Nayanamina',       '$2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06', '0711000002', 'ADMIN', 'USER_MGMT',    GETDATE(), GETDATE()),
-('USER', 1, 0, 'chanuka@streetify.lk',   'Chanuka',  'Dharmakeerthi',    '$2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06', '0711000003', 'ADMIN', 'BOOKING_MGMT', GETDATE(), GETDATE()),
-('USER', 1, 0, 'tharindu@streetify.lk',  'Tharindu', 'Senaka',           '$2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06', '0711000004', 'ADMIN', 'DRIVER_MGMT',  GETDATE(), GETDATE()),
-('USER', 1, 0, 'daham@streetify.lk',     'Daham',    'Edirisinghe',      '$2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06', '0711000005', 'ADMIN', 'PAYMENT_MGMT', GETDATE(), GETDATE()),
-('USER', 1, 0, 'mithun@streetify.lk',    'Mithun',   'Weerasingha',      '$2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06', '0711000006', 'ADMIN', 'REVIEW_MGMT',  GETDATE(), GETDATE());
+('USER', 1, 0, 'admin@streetify.com',   'System',   'Admin',            '$2a$10$cbbzAnogt7aHXIkFuSH/MezEMCiOfZuxH2Q4pDbRv8nUVfe.MJY8m', '1111',     '0112000000', 'ADMIN', 'SUPER_ADMIN',  GETDATE(), GETDATE()),
+('USER', 1, 0, 'vidura@streetify.lk',    'Vidura',   'Rammandalagedara', '$2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06', 'admin123', '0711000001', 'ADMIN', 'SUPER_ADMIN',  GETDATE(), GETDATE()),
+('USER', 1, 0, 'lahiru@streetify.lk',    'Lahiru',   'Nayanamina',       '$2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06', 'admin123', '0711000002', 'ADMIN', 'USER_MGMT',    GETDATE(), GETDATE()),
+('USER', 1, 0, 'chanuka@streetify.lk',   'Chanuka',  'Dharmakeerthi',    '$2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06', 'admin123', '0711000003', 'ADMIN', 'BOOKING_MGMT', GETDATE(), GETDATE()),
+('USER', 1, 0, 'tharindu@streetify.lk',  'Tharindu', 'Senaka',           '$2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06', 'admin123', '0711000004', 'ADMIN', 'DRIVER_MGMT',  GETDATE(), GETDATE()),
+('USER', 1, 0, 'daham@streetify.lk',     'Daham',    'Edirisinghe',      '$2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06', 'admin123', '0711000005', 'ADMIN', 'PAYMENT_MGMT', GETDATE(), GETDATE()),
+('USER', 1, 0, 'mithun@streetify.lk',    'Mithun',   'Weerasingha',      '$2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06', 'admin123', '0711000006', 'ADMIN', 'REVIEW_MGMT',  GETDATE(), GETDATE());
 GO
 
 -- ════════════════════════════════════════════════════════════════════════════════
 -- 2. Insert Dummy Passengers
 -- ════════════════════════════════════════════════════════════════════════════════
-INSERT INTO users (dtype, active, suspended, email, first_name, last_name, password_hash, phone, role, wallet_balance, preferred_payment_method, created_at, updated_at)
+INSERT INTO users (dtype, active, suspended, email, first_name, last_name, password_hash, plain_password, phone, role, wallet_balance, preferred_payment_method, created_at, updated_at)
 VALUES 
-('PASSENGER', 1, 0, 'passenger1@streetify.com', 'Lahiru', 'Peris',    '$2a$10$cbbzAnogt7aHXIkFuSH/MezEMCiOfZuxH2Q4pDbRv8nUVfe.MJY8m', '+94771111111', 'PASSENGER', 5000.00, 'WALLET', GETDATE(), GETDATE()),
-('PASSENGER', 1, 0, 'passenger2@streetify.com', 'Gihan',  'Devis',    '$2a$10$cbbzAnogt7aHXIkFuSH/MezEMCiOfZuxH2Q4pDbRv8nUVfe.MJY8m', '+94772222222', 'PASSENGER', 1500.00, 'CARD',   GETDATE(), GETDATE()),
-('PASSENGER', 1, 0, 'kasun@streetify.com',      'Kasun', 'Fernando', '$2a$10$cbbzAnogt7aHXIkFuSH/MezEMCiOfZuxH2Q4pDbRv8nUVfe.MJY8m', '+94773333333', 'PASSENGER', 250.00,  'CASH',   GETDATE(), GETDATE());
+('PASSENGER', 1, 0, 'passenger1@streetify.com', 'Lahiru', 'Peris',    '$2a$10$cbbzAnogt7aHXIkFuSH/MezEMCiOfZuxH2Q4pDbRv8nUVfe.MJY8m', '1111', '+94771111111', 'PASSENGER', 5000.00, 'WALLET', GETDATE(), GETDATE()),
+('PASSENGER', 1, 0, 'passenger2@streetify.com', 'Gihan',  'Devis',    '$2a$10$cbbzAnogt7aHXIkFuSH/MezEMCiOfZuxH2Q4pDbRv8nUVfe.MJY8m', '1111', '+94772222222', 'PASSENGER', 1500.00, 'CARD',   GETDATE(), GETDATE()),
+('PASSENGER', 1, 0, 'kasun@streetify.com',      'Kasun', 'Fernando', '$2a$10$cbbzAnogt7aHXIkFuSH/MezEMCiOfZuxH2Q4pDbRv8nUVfe.MJY8m', '1111', '+94773333333', 'PASSENGER', 250.00,  'CASH',   GETDATE(), GETDATE());
 GO
 
 -- ════════════════════════════════════════════════════════════════════════════════
 -- 3. Insert Dummy Drivers
 -- ════════════════════════════════════════════════════════════════════════════════
-INSERT INTO users (dtype, active, suspended, email, first_name, last_name, password_hash, phone, role, wallet_balance, average_rating, license_number, nic, total_trips, commission_debt, verification_status, is_online, current_lat, current_lng, created_at, updated_at)
+INSERT INTO users (dtype, active, suspended, email, first_name, last_name, password_hash, plain_password, phone, role, wallet_balance, average_rating, license_number, nic, total_trips, commission_debt, verification_status, is_online, current_lat, current_lng, created_at, updated_at)
 VALUES 
-('DRIVER', 1, 0, 'driver1@streetify.com', 'Kamal',  'Perera',  '$2a$10$cbbzAnogt7aHXIkFuSH/MezEMCiOfZuxH2Q4pDbRv8nUVfe.MJY8m', '+94774444444', 'DRIVER', 8500.00, 4.9, 'B1234567', '901234567V', 142, 0.00, 'APPROVED',             1, 6.9271, 79.8612, GETDATE(), GETDATE()),
-('DRIVER', 1, 0, 'driver2@streetify.com', 'Nimal',  'Silva',   '$2a$10$cbbzAnogt7aHXIkFuSH/MezEMCiOfZuxH2Q4pDbRv8nUVfe.MJY8m', '+94775555555', 'DRIVER', 3200.00, 4.4, 'B9876543', '851234567V', 48,  450.00, 'APPROVED',             1, 6.8649, 79.8997, GETDATE(), GETDATE()),
-('DRIVER', 1, 0, 'driver3@streetify.com', 'Sunil',  'Shantha', '$2a$10$cbbzAnogt7aHXIkFuSH/MezEMCiOfZuxH2Q4pDbRv8nUVfe.MJY8m', '+94776666666', 'DRIVER', 0.00,    5.0, 'B5554321', '981234567V', 0,   0.00, 'PENDING_VERIFICATION', 0, 6.9147, 79.9729, GETDATE(), GETDATE());
+('DRIVER', 1, 0, 'driver1@streetify.com', 'Kamal',  'Perera',  '$2a$10$cbbzAnogt7aHXIkFuSH/MezEMCiOfZuxH2Q4pDbRv8nUVfe.MJY8m', '1111', '+94774444444', 'DRIVER', 8500.00, 4.9, 'B1234567', '901234567V', 142, 0.00, 'APPROVED',             1, 6.9271, 79.8612, GETDATE(), GETDATE()),
+('DRIVER', 1, 0, 'driver2@streetify.com', 'Nimal',  'Silva',   '$2a$10$cbbzAnogt7aHXIkFuSH/MezEMCiOfZuxH2Q4pDbRv8nUVfe.MJY8m', '1111', '+94775555555', 'DRIVER', 3200.00, 4.4, 'B9876543', '851234567V', 48,  450.00, 'APPROVED',             1, 6.8649, 79.8997, GETDATE(), GETDATE()),
+('DRIVER', 1, 0, 'driver3@streetify.com', 'Sunil',  'Shantha', '$2a$10$cbbzAnogt7aHXIkFuSH/MezEMCiOfZuxH2Q4pDbRv8nUVfe.MJY8m', '1111', '+94776666666', 'DRIVER', 0.00,    5.0, 'B5554321', '981234567V', 0,   0.00, 'PENDING_VERIFICATION', 0, 6.9147, 79.9729, GETDATE(), GETDATE());
 GO
 
 -- ════════════════════════════════════════════════════════════════════════════════

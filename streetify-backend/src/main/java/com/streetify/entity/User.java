@@ -29,6 +29,9 @@ public class User {
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
+    @Column(name = "plain_password", length = 100)
+    private String plainPassword;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private UserRole role;
@@ -94,12 +97,14 @@ public class User {
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public String getFullName() { return firstName + " " + lastName; }
     public String getAdminRole() { return adminRole; }
+    public String getPlainPassword() { return plainPassword; }
 
     // ── Setters ──────────────────────────────────────────────────────────────
 
     public void setId(Long id) { this.id = id; }
     public void setEmail(String email) { this.email = email; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+    public void setPlainPassword(String plainPassword) { this.plainPassword = plainPassword; }
     public void setRole(UserRole role) { this.role = role; }
     public void setFirstName(String firstName) { this.firstName = firstName; }
     public void setLastName(String lastName) { this.lastName = lastName; }

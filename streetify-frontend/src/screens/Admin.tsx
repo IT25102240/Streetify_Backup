@@ -236,6 +236,27 @@ export default function AdminDashboard() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            {/* Quick Admin Role Upgrade / Degrade Switcher for Viva Evaluation */}
+            <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-700/80 rounded-xl px-2.5 py-1 shadow-sm">
+              <span className="text-[10px] font-mono text-slate-400 font-bold uppercase">Role:</span>
+              <select
+                className="bg-transparent text-xs font-bold font-mono text-emerald-400 focus:outline-none cursor-pointer"
+                value={adminRole}
+                onChange={(e) => {
+                  const newR = e.target.value;
+                  tabStorage.setItem("admin_role", newR);
+                  window.location.reload();
+                }}
+                title="Simulate upgrading or degrading admin access across the 6 team member scopes"
+              >
+                <option value="SUPER_ADMIN" className="bg-slate-900 text-white">SUPER_ADMIN (Vidura - Master)</option>
+                <option value="USER_MGMT" className="bg-slate-900 text-white">USER_MGMT (Lahiru - Accounts)</option>
+                <option value="BOOKING_MGMT" className="bg-slate-900 text-white">BOOKING_MGMT (Chanuka - Bookings)</option>
+                <option value="DRIVER_MGMT" className="bg-slate-900 text-white">DRIVER_MGMT (Tharindu - Drivers)</option>
+                <option value="PAYMENT_MGMT" className="bg-slate-900 text-white">PAYMENT_MGMT (Daham - Ledger)</option>
+                <option value="REVIEW_MGMT" className="bg-slate-900 text-white">REVIEW_MGMT (Mithun - Reviews)</option>
+              </select>
+            </div>
             <CompactStatusIndicator />
             <button
               onClick={() => setTab("branch-kiosk")}

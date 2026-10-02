@@ -187,24 +187,31 @@ export default function DemoSwitcher() {
     }
   };
 
+  useEffect(() => {
+    const handleOpen = () => setIsOpen(true);
+    window.addEventListener("open-demo-switcher", handleOpen);
+    return () => window.removeEventListener("open-demo-switcher", handleOpen);
+  }, []);
+
   return (
     <>
-      {/* Floating Demo Trigger Button */}
-      <div className="fixed bottom-6 right-6 z-40">
+      {/* Floating Demo Trigger Button — Unobstructed Bottom-Left with High Z-Index */}
+      <div className="fixed bottom-6 left-6 z-[9999]">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2 px-3.5 py-2.5 text-white rounded-full font-bold text-xs transition-all hover:scale-105 active:scale-95 group shadow-2xl"
+          className="flex items-center gap-2.5 px-4 py-2.5 text-white rounded-full font-bold text-xs transition-all hover:scale-105 active:scale-95 group shadow-2xl"
           style={{
             background: "linear-gradient(135deg, #16a34a, #22c55e, #15803d)",
-            boxShadow: "0 0 20px rgba(34,197,94,0.35), 0 4px 16px rgba(0,0,0,0.4)",
-            border: "1px solid rgba(34,197,94,0.4)",
+            boxShadow: "0 0 25px rgba(34,197,94,0.45), 0 4px 16px rgba(0,0,0,0.5)",
+            border: "1.5px solid rgba(74,222,128,0.5)",
           }}
+          title="Open Fast Role Switcher & 2-Tab Viva Demo Panel"
         >
           <span className="text-base group-hover:rotate-12 transition-transform">⚡</span>
-          <span>Fast Role Switcher</span>
+          <span className="tracking-wide">Fast Role Switcher</span>
           <span
-            className="w-2 h-2 rounded-full animate-pulse"
-            style={{ background: "#4ade80" }}
+            className="w-2.5 h-2.5 rounded-full animate-pulse"
+            style={{ background: "#4ade80", boxShadow: "0 0 8px #4ade80" }}
           ></span>
         </button>
       </div>

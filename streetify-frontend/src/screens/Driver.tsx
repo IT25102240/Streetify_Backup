@@ -26,9 +26,14 @@ interface Trip {
   rating: number;
   pickup: string;
   dropoff: string;
+  pickupLat?: number;
+  pickupLng?: number;
+  dropoffLat?: number;
+  dropoffLng?: number;
   fare: string;
   fareNum: number;
   km: string;
+  durationMin?: number;
   commission: number;
 }
 
@@ -101,18 +106,28 @@ export default function ScreenDriver() {
     if (!online) return;
 
     const unsubRequest = tripSyncService.subscribe("RIDE_REQUESTED", (data: any) => {
-      // Instant trip received from Passenger Tab 1!
+      // Instant trip received from Passenger Tab 1 with exact road calculations!
+      const distNum = typeof data.estimatedDistanceKm === "number" ? data.estimatedDistanceKm : parseFloat(data.estimatedDistanceKm || "3.5");
+      const distStr = !isNaN(distNum) ? distNum.toFixed(1) : "3.5";
+      const durNum = data.estimatedDurationMin || Math.max(3, Math.round(distNum * 2.5));
+      const fNum = data.estimatedFare || 2150;
+
       setActiveTrip({
         id: `TRIP-${data.tripId}`,
         passenger: data.passengerName || "Lahiru Peris",
         avatar: "P",
         rating: 5.0,
-        pickup: data.pickupAddress || "Mount Lavinia Hotel",
+        pickup: data.pickupAddress || "Colombo Fort",
         dropoff: data.dropoffAddress || "Galle Face Green",
-        fare: `LKR ${data.estimatedFare || 2150}`,
-        fareNum: data.estimatedFare || 2150,
-        km: data.estimatedDistanceKm?.toString() || "12.0",
-        commission: Math.round((data.estimatedFare || 2150) * 0.15),
+        pickupLat: data.pickupLat,
+        pickupLng: data.pickupLng,
+        dropoffLat: data.dropoffLat,
+        dropoffLng: data.dropoffLng,
+        fare: `LKR ${fNum}`,
+        fareNum: fNum,
+        km: distStr,
+        durationMin: durNum,
+        commission: Math.round(fNum * 0.15),
       });
       setActiveTripDbId(String(data.tripId));
       setIncoming(true);
@@ -120,7 +135,7 @@ export default function ScreenDriver() {
 
       NotificationService.sendTripAlert(
         "New Ride Request! 🔔",
-        `${data.passengerName} requested a ride: ${data.pickupAddress.slice(0, 24)} → ${data.dropoffAddress.slice(0, 24)} (LKR ${data.estimatedFare})`
+        `${data.passengerName} requested a ride: ${data.pickupAddress.slice(0, 24)} → ${data.dropoffAddress.slice(0, 24)} (${distStr} km · LKR ${fNum})`
       );
     });
 
@@ -210,6 +225,40 @@ export default function ScreenDriver() {
       mapRef.current.flyTo([driverLat, driverLng], 16, { animate: true, duration: 1 });
     }
   }, [driverLat, driverLng]);
+
+  /* Broadcast real driver presence and location to Passenger Tab 1 in real-time */
+  useEffect(() => {
+    if (!online) {
+      tripSyncService.publishDriverLocation({
+        driverId: "real-driver-active",
+        lat: driverLat,
+        lng: driverLng,
+        isOnline: false,
+      });
+      return;
+    }
+
+    const broadcastLocation = () => {
+      const p = vehicleInfo.split(' · ')[0] || "CAB-4821";
+      const m = vehicleInfo.split(' · ')[1] || "Toyota Prius";
+      tripSyncService.publishDriverLocation({
+        driverId: "real-driver-active",
+        lat: driverLat,
+        lng: driverLng,
+        heading: tripState === "in_trip" ? 180 : 45,
+        speedKmh: tripState === "in_trip" ? 42 : 0,
+        driverName: driverName,
+        vehiclePlate: p,
+        vehicleModel: m,
+        rideType: "standard",
+        isOnline: true,
+      });
+    };
+
+    broadcastLocation();
+    const interval = setInterval(broadcastLocation, 2500);
+    return () => clearInterval(interval);
+  }, [online, driverLat, driverLng, tripState, driverName, vehicleInfo]);
 
   async function acceptTrip() {
     if (!activeTrip) return;
@@ -356,8 +405,13 @@ export default function ScreenDriver() {
   };
   const curIdx = stepIndexMap[tripState];
 
-  const pCoords = resolveTripCoords(activeTrip?.pickup);
-  const dCoords = resolveTripCoords(activeTrip?.dropoff);
+  const pCoords: [number, number] = (activeTrip?.pickupLat && activeTrip?.pickupLng)
+    ? [activeTrip.pickupLat, activeTrip.pickupLng]
+    : resolveTripCoords(activeTrip?.pickup);
+
+  const dCoords: [number, number] = (activeTrip?.dropoffLat && activeTrip?.dropoffLng)
+    ? [activeTrip.dropoffLat, activeTrip.dropoffLng]
+    : resolveTripCoords(activeTrip?.dropoff);
 
   // Driver marker at real GPS location
   const driverSelfMarker: DriverMarkerData[] = online ? [{
@@ -383,7 +437,7 @@ export default function ScreenDriver() {
           dark={isDarkMode}
           animate={tripActive}
           showPickup={tripActive}
-          showDropoff={tripState === "in_trip" || tripState === "completed"}
+          showDropoff={tripActive}
           pickupAddress={activeTrip?.pickup}
           dropoffAddress={activeTrip?.dropoff}
           pickupLat={pCoords[0]}
@@ -585,7 +639,9 @@ export default function ScreenDriver() {
                 </div>
                 <div className="text-right flex-none">
                   <p className="font-black font-mono text-emerald-400 text-lg">{activeTrip.fare}</p>
-                  <p className="text-xs text-slate-400 font-mono">{activeTrip.km} km trip</p>
+                  <p className="text-xs text-slate-400 font-mono">
+                    🛣️ {activeTrip.km} km {activeTrip.durationMin ? `· ~${activeTrip.durationMin}m` : ""}
+                  </p>
                 </div>
               </div>
 
@@ -668,7 +724,9 @@ export default function ScreenDriver() {
                   </div>
                   <div className="text-right flex-none">
                     <p className="font-black font-mono text-emerald-400 text-base">{activeTrip.fare}</p>
-                    <p className="text-[11px] text-slate-400 font-mono">{activeTrip.km} km</p>
+                    <p className="text-[11px] text-slate-400 font-mono">
+                      🛣️ {activeTrip.km} km {activeTrip.durationMin ? `· ~${activeTrip.durationMin}m` : ""}
+                    </p>
                   </div>
                 </div>
 
@@ -749,24 +807,59 @@ export default function ScreenDriver() {
           {/* COMPLETED TRIP SUMMARY */}
           {tripState === "completed" && activeTrip && (
             <div
-              className="bg-slate-900 border border-emerald-500/50 rounded-3xl p-6 text-center shadow-2xl"
+              className="bg-slate-900 border border-emerald-500/50 rounded-3xl p-6 text-center shadow-2xl space-y-4"
               style={{ animation: "slide-in .4s cubic-bezier(.22,1,.36,1) both" }}
             >
-              <span className="text-5xl block mb-2">🏁</span>
-              <h2 className="font-black text-white text-xl">Trip Successfully Completed!</h2>
-              <p className="text-emerald-400 font-mono text-2xl font-black mt-2">{activeTrip.fare}</p>
-              <p className="text-xs text-slate-400 font-mono mt-1">
-                {activeTrip.id} · {activeTrip.km} km · {formatTime(elapsedSec)}
-              </p>
+              <div>
+                <span className="text-5xl block mb-2">🏁</span>
+                <h2 className="font-black text-white text-xl">Trip Successfully Completed!</h2>
+                <p className="text-emerald-400 font-mono text-3xl font-black mt-1">{activeTrip.fare}</p>
+                <p className="text-xs text-slate-400 font-mono mt-1">
+                  {activeTrip.id} · {activeTrip.km} km · {formatTime(elapsedSec)}
+                </p>
+              </div>
 
-              <div className="bg-slate-800/70 rounded-2xl p-3.5 mt-4 text-xs font-mono text-left space-y-1.5 border border-slate-700">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Total Collected</span>
-                  <span className="text-white font-bold">{activeTrip.fare}</span>
+              {/* PAYMENT COLLECTION NOTICE (For Driver to speak/confirm with passenger) */}
+              <div className="bg-emerald-950/60 border border-emerald-500/40 rounded-2xl p-3.5 text-left">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-lg">💵</span>
+                  <span className="text-xs font-black text-emerald-300 uppercase tracking-wider font-mono">
+                    Payment Collection Instruction
+                  </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Platform Commission (15%)</span>
-                  <span className="text-orange-400 font-bold">− LKR {activeTrip.commission}</span>
+                <p className="text-xs font-bold text-white leading-relaxed">
+                  • <span className="text-emerald-400 font-black">If Cash:</span> Collect exactly <span className="font-mono underline font-black text-emerald-300">{activeTrip.fare}</span> from passenger before departure.
+                </p>
+                <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
+                  • <span className="text-blue-300 font-bold">If Card / Wallet:</span> Auto-settled digitally. Advise passenger total charged is <span className="font-mono font-bold text-white">{activeTrip.fare}</span>.
+                </p>
+              </div>
+
+              {/* DETAILED COST & FUEL/FARE BREAKDOWN */}
+              <div className="bg-slate-800/70 rounded-2xl p-3.5 text-xs font-mono text-left space-y-2 border border-slate-700">
+                <div className="flex justify-between items-center pb-1.5 border-b border-slate-700/60">
+                  <span className="font-bold text-slate-300 uppercase text-[10px] tracking-wider">Fare Calculation Breakdown</span>
+                  <span className="text-[10px] text-emerald-400 font-bold">Standard Tier</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Base Vehicle Tier Rate</span>
+                  <span className="text-slate-200">LKR 200.00</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Distance & Fuel Factor ({activeTrip.km} km × LKR 33)</span>
+                  <span className="text-slate-200">LKR {(parseFloat(activeTrip.km) * 33).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Platform Operations Fee</span>
+                  <span className="text-slate-200">LKR 4.00</span>
+                </div>
+                <div className="flex justify-between font-bold text-white pt-1 border-t border-slate-700/40">
+                  <span>Total Calculated Fare</span>
+                  <span className="text-emerald-300">{activeTrip.fare}</span>
+                </div>
+                <div className="flex justify-between text-orange-400 pt-1">
+                  <span>Platform Commission (15%)</span>
+                  <span>− LKR {activeTrip.commission}</span>
                 </div>
                 <div className="flex justify-between border-t border-slate-700 pt-2 mt-1">
                   <span className="text-emerald-300 font-bold">Your Net Payout</span>
@@ -776,11 +869,19 @@ export default function ScreenDriver() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mt-5">
-                <Btn v="secondary" size="lg" full onClick={() => { setState("idle"); setActiveTrip(null); setActiveTripDbId(null); }}>
-                  Accept Next Trip
-                </Btn>
-                <Btn v="ghost" size="lg" full onClick={goOffline}>
+              {/* ACTION BUTTONS: Next Trip / View History / Go Offline */}
+              <div className="space-y-2 pt-1">
+                <div className="grid grid-cols-2 gap-2.5">
+                  <Btn v="primary" size="lg" full onClick={() => { setState("idle"); setActiveTrip(null); setActiveTripDbId(null); }}>
+                    ▶ Accept Next Trip
+                  </Btn>
+                  <Btn v="secondary" size="lg" full onClick={() => {
+                    window.dispatchEvent(new CustomEvent('navigate', { detail: { screen: 'history' } }));
+                  }}>
+                    📋 View Trip History
+                  </Btn>
+                </div>
+                <Btn v="ghost" size="md" full onClick={goOffline}>
                   Go Offline
                 </Btn>
               </div>

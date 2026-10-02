@@ -212,6 +212,8 @@ interface OsmMapProps {
   onMapClick?: (coords: { lat: number; lng: number }) => void;
   // Called when map ref is ready (for external controls)
   onMapReady?: (map: L.Map) => void;
+  // Emits accurate turn-by-turn road driving distance and duration from OSRM
+  onRouteCalculated?: (distanceKm: number, durationMin: number) => void;
 }
 
 /* ── OsmMap: real Leaflet tile map ── */
@@ -235,6 +237,7 @@ export default function OsmMap({
   autoCenter = true,
   onMapClick,
   onMapReady,
+  onRouteCalculated,
 }: OsmMapProps) {
   const h = typeof height === "number" ? `${height}px` : height;
   const containerRef     = useRef<HTMLDivElement>(null);
@@ -275,6 +278,12 @@ export default function OsmMap({
     ? '&copy; <a href="https://stadiamaps.com/" target="_blank">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'
     : '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors';
 
+  const onMapClickRef = useRef(onMapClick);
+  onMapClickRef.current = onMapClick;
+
+  const onRouteCalculatedRef = useRef(onRouteCalculated);
+  onRouteCalculatedRef.current = onRouteCalculated;
+
   /* Initialise map once */
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -285,13 +294,18 @@ export default function OsmMap({
       minZoom: 3,
       maxZoom: 19,
       zoomControl: false,
-      attributionControl: true,
+      attributionControl: false,
       scrollWheelZoom: true,
       doubleClickZoom: true,
       touchZoom: true,
     });
 
-    L.tileLayer(tileUrl, { attribution, maxZoom: 19 }).addTo(map);
+    L.tileLayer(tileUrl, { maxZoom: 19 }).addTo(map);
+
+    // Compact attribution control positioned safely in bottom-right
+    L.control.attribution({ position: "bottomright", prefix: false })
+      .addAttribution(attribution)
+      .addTo(map);
 
     // Pickup marker
     if (showPickup) {
@@ -300,9 +314,9 @@ export default function OsmMap({
         .bindTooltip(pickupAddress || "Pickup Point", { permanent: false });
     }
 
-    // Map click listener
+    // Map click listener using ref to guarantee latest state callback
     map.on("click", (e: L.LeafletMouseEvent) => {
-      onMapClick?.({ lat: e.latlng.lat, lng: e.latlng.lng });
+      onMapClickRef.current?.({ lat: e.latlng.lat, lng: e.latlng.lng });
     });
 
     mapRef.current = map;
@@ -418,6 +432,13 @@ export default function OsmMap({
               }).addTo(map);
               routeLayerRef.current = realRoad;
               map.fitBounds(realRoad.getBounds(), { padding: [60, 60] });
+
+              // Emit accurate road driving distance and duration
+              if (data?.routes?.[0]?.distance) {
+                const distKm = Math.round((data.routes[0].distance / 1000) * 10) / 10;
+                const durMin = Math.round((data.routes[0].duration || 0) / 60);
+                onRouteCalculatedRef.current?.(distKm, durMin);
+              }
             }
           })
           .catch(() => {
@@ -473,6 +494,27 @@ export default function OsmMap({
 
   return (
     <div className={`relative overflow-hidden ${className}`} style={{ height: h }}>
+      {/* Sleek Dark Leaflet CSS Overrides */}
+      <style>{`
+        .leaflet-container {
+          cursor: crosshair;
+        }
+        .leaflet-control-attribution {
+          background: rgba(8, 17, 30, 0.75) !important;
+          color: #64748b !important;
+          font-size: 9px !important;
+          backdrop-filter: blur(4px) !important;
+          border-radius: 6px !important;
+          padding: 2px 7px !important;
+          margin: 0 8px 6px 0 !important;
+          border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        }
+        .leaflet-control-attribution a {
+          color: #94a3b8 !important;
+          text-decoration: none !important;
+        }
+      `}</style>
+
       {/* Leaflet map canvas */}
       <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
 

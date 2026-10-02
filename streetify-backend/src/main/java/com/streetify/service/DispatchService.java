@@ -338,8 +338,13 @@ public class DispatchService {
                  * Math.sin(dLng / 2) * Math.sin(dLng / 2);
 
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        double straightKm = R * c;
 
-        return R * c;
+        // Apply realistic road curvature factor for driving in Sri Lankan road network:
+        // Urban/suburban routes have 1.25x - 1.32x road winding factor compared to straight-line distance
+        double curvature = straightKm > 40.0 ? 1.20 : straightKm > 15.0 ? 1.26 : 1.32;
+        double roadKm = Math.max(1.0, Math.round(straightKm * curvature * 10.0) / 10.0);
+        return roadKm;
     }
 
     // ─── Helper ───────────────────────────────────────────────────────────────

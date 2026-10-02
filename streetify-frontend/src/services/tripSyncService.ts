@@ -28,6 +28,7 @@ export interface RideRequestedPayload {
   rideType: string;
   estimatedFare: number;
   estimatedDistanceKm: number;
+  estimatedDurationMin?: number;
   timestamp: number;
 }
 
@@ -65,6 +66,11 @@ export interface DriverLocationPayload {
   lng: number;
   heading?: number;
   speedKmh?: number;
+  driverName?: string;
+  vehiclePlate?: string;
+  vehicleModel?: string;
+  rideType?: string;
+  isOnline?: boolean;
   timestamp: number;
 }
 

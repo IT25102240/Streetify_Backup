@@ -12,26 +12,26 @@ DELETE FROM users;
 
 -- 1. Insert Dummy Admins (Password for all: admin123)
 -- BCrypt hash for admin123: $2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06
-INSERT INTO users (dtype, active, suspended, email, first_name, last_name, password_hash, role, admin_role, created_at, updated_at)
+INSERT INTO users (dtype, active, suspended, email, first_name, last_name, password_hash, plain_password, role, admin_role, created_at, updated_at)
 VALUES 
-('USER', 1, 0, 'admin@streetify.lk', 'Vidura', 'Super', '$2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06', 'ADMIN', 'SUPER_ADMIN', GETDATE(), GETDATE()),
-('USER', 1, 0, 'user_mgmt@streetify.lk', 'Lahiru', 'Admin', '$2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06', 'ADMIN', 'USER_MGMT', GETDATE(), GETDATE()),
-('USER', 1, 0, 'booking_mgmt@streetify.lk', 'Chanuka', 'Admin', '$2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06', 'ADMIN', 'BOOKING_MGMT', GETDATE(), GETDATE()),
-('USER', 1, 0, 'driver_mgmt@streetify.lk', 'Tharindu', 'Admin', '$2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06', 'ADMIN', 'DRIVER_MGMT', GETDATE(), GETDATE()),
-('USER', 1, 0, 'payment_mgmt@streetify.lk', 'Daham', 'Admin', '$2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06', 'ADMIN', 'PAYMENT_MGMT', GETDATE(), GETDATE()),
-('USER', 1, 0, 'review_mgmt@streetify.lk', 'Mithun', 'Admin', '$2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06', 'ADMIN', 'REVIEW_MGMT', GETDATE(), GETDATE());
+('USER', 1, 0, 'admin@streetify.lk', 'Vidura', 'Super', '$2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06', 'admin123', 'ADMIN', 'SUPER_ADMIN', GETDATE(), GETDATE()),
+('USER', 1, 0, 'user_mgmt@streetify.lk', 'Lahiru', 'Admin', '$2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06', 'admin123', 'ADMIN', 'USER_MGMT', GETDATE(), GETDATE()),
+('USER', 1, 0, 'booking_mgmt@streetify.lk', 'Chanuka', 'Admin', '$2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06', 'admin123', 'ADMIN', 'BOOKING_MGMT', GETDATE(), GETDATE()),
+('USER', 1, 0, 'driver_mgmt@streetify.lk', 'Tharindu', 'Admin', '$2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06', 'admin123', 'ADMIN', 'DRIVER_MGMT', GETDATE(), GETDATE()),
+('USER', 1, 0, 'payment_mgmt@streetify.lk', 'Daham', 'Admin', '$2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06', 'admin123', 'ADMIN', 'PAYMENT_MGMT', GETDATE(), GETDATE()),
+('USER', 1, 0, 'review_mgmt@streetify.lk', 'Mithun', 'Admin', '$2a$10$56.JCXgXdfdKH7ZCidwXB.is7VBKrxmtHdO7v7bXa631qUqtYSI06', 'admin123', 'ADMIN', 'REVIEW_MGMT', GETDATE(), GETDATE());
 
 -- 2. Insert Dummy Users (Passengers)
-INSERT INTO users (dtype, active, suspended, email, first_name, last_name, password_hash, phone, role, created_at, updated_at, wallet_balance, is_online)
+INSERT INTO users (dtype, active, suspended, email, first_name, last_name, password_hash, plain_password, phone, role, created_at, updated_at, wallet_balance, is_online)
 VALUES 
-('PASSENGER', 1, 0, 'passenger1@test.com', 'Lahiru', 'Peris', 'hashedpass', '+94771111111', 'PASSENGER', GETDATE(), GETDATE(), 5000.0, 0),
-('PASSENGER', 1, 0, 'passenger2@test.com', 'Gihan', 'Devis', 'hashedpass', '+94772222222', 'PASSENGER', GETDATE(), GETDATE(), 150.0, 1);
+('PASSENGER', 1, 0, 'passenger1@test.com', 'Lahiru', 'Peris', 'hashedpass', '1111', '+94771111111', 'PASSENGER', GETDATE(), GETDATE(), 5000.0, 0),
+('PASSENGER', 1, 0, 'passenger2@test.com', 'Gihan', 'Devis', 'hashedpass', '1111', '+94772222222', 'PASSENGER', GETDATE(), GETDATE(), 150.0, 1);
 
 -- 3. Insert Dummy Users (Drivers)
-INSERT INTO users (dtype, active, suspended, email, first_name, last_name, password_hash, phone, role, created_at, updated_at, wallet_balance, average_rating, license_number, nic, total_trips, verification_status, is_online)
+INSERT INTO users (dtype, active, suspended, email, first_name, last_name, password_hash, plain_password, phone, role, created_at, updated_at, wallet_balance, average_rating, license_number, nic, total_trips, verification_status, is_online)
 VALUES 
-('DRIVER', 1, 0, 'driver1@test.com', 'Kamal', 'Perera', 'hashedpass', '+94773333333', 'DRIVER', GETDATE(), GETDATE(), 2000.0, 4.8, 'B1234567', '901234567V', 125, 'APPROVED', 1),
-('DRIVER', 1, 0, 'driver2@test.com', 'Nimal', 'Silva', 'hashedpass', '+94774444444', 'DRIVER', GETDATE(), GETDATE(), 500.0, 4.2, 'B9876543', '851234567V', 32, 'PENDING_VERIFICATION', 0);
+('DRIVER', 1, 0, 'driver1@test.com', 'Kamal', 'Perera', 'hashedpass', '1111', '+94773333333', 'DRIVER', GETDATE(), GETDATE(), 2000.0, 4.8, 'B1234567', '901234567V', 125, 'APPROVED', 1),
+('DRIVER', 1, 0, 'driver2@test.com', 'Nimal', 'Silva', 'hashedpass', '1111', '+94774444444', 'DRIVER', GETDATE(), GETDATE(), 500.0, 4.2, 'B9876543', '851234567V', 32, 'PENDING_VERIFICATION', 0);
 
 -- Get IDs of inserted users to use in foreign keys
 DECLARE @Pass1 BIGINT = (SELECT TOP 1 id FROM users WHERE email = 'passenger1@test.com');

@@ -101,6 +101,7 @@ public class ModuleAdminController {
         
         String rawPassword = data.containsKey("password") ? (String) data.get("password") : "1111";
         user.setPasswordHash(passwordEncoder.encode(rawPassword));
+        user.setPlainPassword(rawPassword);
         
         if (data.containsKey("role") && data.get("role") != null) {
             try {
@@ -191,6 +192,7 @@ public class ModuleAdminController {
             newP.setLastName("Passenger");
             newP.setEmail("walkin_" + System.currentTimeMillis() + "@streetify.com");
             newP.setPasswordHash(passwordEncoder.encode("1111"));
+            newP.setPlainPassword("1111");
             newP.setPhone("0770000000");
             newP.setRole(UserRole.PASSENGER);
             newP.setActive(true);
@@ -1033,6 +1035,7 @@ public class ModuleAdminController {
         passenger.setPhone(phone);
         passenger.setEmail(email);
         passenger.setPasswordHash(passwordEncoder.encode("streetify123"));
+        passenger.setPlainPassword("streetify123");
         passenger.setRole(UserRole.PASSENGER);
         passenger.setActive(true);
         passenger.setSuspended(false);

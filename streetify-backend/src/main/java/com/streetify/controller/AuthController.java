@@ -216,6 +216,7 @@ public class AuthController {
         }
 
         user.setPasswordHash(passwordEncoder.encode(newPassword));
+        user.setPlainPassword(newPassword);
         userDAO.save(user);
         return ResponseEntity.ok(java.util.Map.of("ok", true, "message", "Password changed successfully."));
     }
@@ -312,6 +313,7 @@ public class AuthController {
         // OTP verified successfully -> Update password
         userDAO.findByEmail(key).ifPresent(user -> {
             user.setPasswordHash(passwordEncoder.encode(newPassword));
+            user.setPlainPassword(newPassword);
             userDAO.save(user);
         });
 
