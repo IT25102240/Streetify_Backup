@@ -8,6 +8,10 @@ public class AvailableTripDTO {
     private Double estimatedFare;
     private Double estimatedDistanceKm;
     private Double platformCommission;
+    private Double pickupLat;
+    private Double pickupLng;
+    private Double dropoffLat;
+    private Double dropoffLng;
 
     public AvailableTripDTO() {}
 
@@ -25,4 +29,12 @@ public class AvailableTripDTO {
     public void setEstimatedDistanceKm(Double estimatedDistanceKm) { this.estimatedDistanceKm = estimatedDistanceKm; }
     public Double getPlatformCommission() { return platformCommission; }
     public void setPlatformCommission(Double platformCommission) { this.platformCommission = platformCommission; }
+    public Double getPickupLat() { return pickupLat; }
+    public void setPickupLat(Double pickupLat) { this.pickupLat = pickupLat; }
+    public Double getPickupLng() { return pickupLng; }
+    public void setPickupLng(Double pickupLng) { this.pickupLng = pickupLng; }
+    public Double getDropoffLat() { return dropoffLat; }
+    public void setDropoffLat(Double dropoffLat) { this.dropoffLat = dropoffLat; }
+    public Double getDropoffLng() { return dropoffLng; }
+    public void setDropoffLng(Double dropoffLng) { this.dropoffLng = dropoffLng; }
 }

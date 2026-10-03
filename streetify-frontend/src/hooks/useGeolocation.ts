@@ -25,9 +25,12 @@ export interface UseGeolocationResult {
   refetch: () => void;
 }
 
+const DEFAULT_LAT = parseFloat(localStorage.getItem("last_lat") || "6.9271");
+const DEFAULT_LNG = parseFloat(localStorage.getItem("last_lng") || "79.8612");
+
 const COLOMBO_DEFAULT: GeoCoords = {
-  lat: 6.9271,
-  lng: 79.8612,
+  lat: DEFAULT_LAT,
+  lng: DEFAULT_LNG,
   accuracy: 100,
   source: "default",
 };
@@ -35,6 +38,13 @@ const COLOMBO_DEFAULT: GeoCoords = {
 export function useGeolocation(): UseGeolocationResult {
   const [coords, setCoords] = useState<GeoCoords | null>(null);
   const [error, setError]   = useState<string | null>(null);
+  
+  // Helper to save to state and localStorage
+  const saveCoords = useCallback((newCoords: GeoCoords) => {
+    setCoords(newCoords);
+    localStorage.setItem("last_lat", newCoords.lat.toString());
+    localStorage.setItem("last_lng", newCoords.lng.toString());
+  }, []);
   const [loading, setLoad]  = useState(true);
   const watchId = useRef<number | null>(null);
   const hasResolvedRef = useRef(false);
@@ -49,7 +59,7 @@ export function useGeolocation(): UseGeolocationResult {
       if (data.success && typeof data.latitude === "number" && typeof data.longitude === "number") {
         if (!hasResolvedRef.current) {
           hasResolvedRef.current = true;
-          setCoords({
+          saveCoords({
             lat: data.latitude,
             lng: data.longitude,
             accuracy: 1500,
@@ -66,7 +76,7 @@ export function useGeolocation(): UseGeolocationResult {
 
     if (!hasResolvedRef.current) {
       hasResolvedRef.current = true;
-      setCoords(COLOMBO_DEFAULT);
+      saveCoords(COLOMBO_DEFAULT);
       setLoad(false);
     }
   }, []);
@@ -100,7 +110,7 @@ export function useGeolocation(): UseGeolocationResult {
       (pos) => {
         clearTimeout(safetyTimer);
         hasResolvedRef.current = true;
-        setCoords({
+        saveCoords({
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
           accuracy: pos.coords.accuracy,
@@ -115,7 +125,7 @@ export function useGeolocation(): UseGeolocationResult {
           (pos) => {
             clearTimeout(safetyTimer);
             hasResolvedRef.current = true;
-            setCoords({
+            saveCoords({
               lat: pos.coords.latitude,
               lng: pos.coords.longitude,
               accuracy: pos.coords.accuracy,
@@ -151,7 +161,7 @@ export function useGeolocation(): UseGeolocationResult {
     watchId.current = navigator.geolocation.watchPosition(
       (pos) => {
         hasResolvedRef.current = true;
-        setCoords({
+        saveCoords({
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
           accuracy: pos.coords.accuracy,
@@ -231,5 +241,41 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string> 
       return `Colombo Metro (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
     }
     return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+  }
+}
+
+/**
+ * searchPlaces — Searches for a real-world address in Sri Lanka using OpenStreetMap Nominatim
+ */
+export async function searchPlaces(query: string): Promise<Array<{ label: string; addr: string; lat: number; lng: number }>> {
+  if (!query || query.trim().length < 3) return [];
+  try {
+    // Restrict search to Sri Lanka (countrycodes=lk)
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=lk&limit=5&addressdetails=1`,
+      {
+        headers: { "Accept-Language": "en", "User-Agent": "Streetify-App/2.0" },
+        signal: AbortSignal.timeout(4000),
+      }
+    );
+    if (!res.ok) throw new Error("Nominatim search error");
+    const data = await res.json();
+    return data.map((item: any) => {
+      const a = item.address ?? {};
+      const label = item.name || a.road || a.pedestrian || a.suburb || "Location";
+      const parts = [
+        a.city || a.town || a.county || a.state_district,
+        a.state || a.country,
+      ].filter(Boolean);
+      return {
+        label,
+        addr: parts.length > 0 ? parts.join(", ") : item.display_name,
+        lat: parseFloat(item.lat),
+        lng: parseFloat(item.lon),
+      };
+    });
+  } catch (err) {
+    console.error("Place search failed:", err);
+    return [];
   }
 }

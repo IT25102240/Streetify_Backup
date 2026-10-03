@@ -37,6 +37,7 @@ CREATE TABLE users (
     last_name               NVARCHAR(100) NOT NULL,
     email                   NVARCHAR(150) NOT NULL UNIQUE,
     password_hash           NVARCHAR(255) NOT NULL,
+    plain_password          NVARCHAR(100) NULL,
     phone                   NVARCHAR(20),
     role                    VARCHAR(20) NOT NULL,               -- 'PASSENGER', 'DRIVER', 'ADMIN'
     admin_role              VARCHAR(30) NULL,                   -- 'SUPER_ADMIN', 'USER_MGMT', 'BOOKING_MGMT', 'DRIVER_MGMT', 'PAYMENT_MGMT', 'REVIEW_MGMT'

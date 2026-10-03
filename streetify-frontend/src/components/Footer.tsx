@@ -119,16 +119,20 @@ export default function Footer({ onNavigate }: FooterProps) {
             {/* ── Column 1: Brand & System ── */}
             <div className="space-y-5">
               {/* Wordmark */}
-              <div className="flex items-center gap-3">
+              <div
+                onClick={() => handleQuickNav("booking")}
+                className="flex items-center gap-3 cursor-pointer group select-none transition-transform hover:opacity-95"
+                title="Return to Streetify Home"
+              >
                 <img
                   src="/logo.png"
                   alt="Streetify Logo"
-                  className="w-10 h-10 rounded-2xl flex-none"
+                  className="w-10 h-10 rounded-2xl flex-none group-hover:scale-105 group-hover:rotate-[-3deg] transition-all"
                   style={{ boxShadow: "0 0 20px rgba(34,197,94,0.3)" }}
                 />
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-white text-xl font-black tracking-tight" style={{ fontFamily: "Outfit, sans-serif" }}>
+                    <span className="text-white text-xl font-black tracking-tight group-hover:text-eco transition-colors" style={{ fontFamily: "Outfit, sans-serif" }}>
                       Streetify
                     </span>
                     <span

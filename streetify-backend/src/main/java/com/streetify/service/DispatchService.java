@@ -43,7 +43,8 @@ public class DispatchService {
 
     // Fare configuration — matches Booking.tsx RIDE_TYPES constants
     private static final Map<String, double[]> FARE_CONFIG = Map.of(
-            "standard", new double[]{200.0, 33.0},  // {baseFare, perKmRate}
+            "tuk",      new double[]{120.0, 24.0},  // {baseFare, perKmRate}
+            "standard", new double[]{200.0, 33.0},
             "xl",       new double[]{340.0, 48.0},
             "moto",     new double[]{80.0,  18.0}
     );
@@ -228,6 +229,10 @@ public class DispatchService {
             dto.setDropoffAddress(t.getDropoffAddress());
             dto.setEstimatedFare(t.getTotalFare());
             dto.setEstimatedDistanceKm(t.getDistanceKm());
+            dto.setPickupLat(t.getPickupLat());
+            dto.setPickupLng(t.getPickupLng());
+            dto.setDropoffLat(t.getDropoffLat());
+            dto.setDropoffLng(t.getDropoffLng());
             
             Double commission = t.getPlatformCommission();
             if (commission == null && t.getTotalFare() != null) {
@@ -353,7 +358,7 @@ public class DispatchService {
         double[] rates = FARE_CONFIG.get(rideType.toLowerCase());
         if (rates == null) {
             throw new IllegalArgumentException("Unknown ride type: " + rideType +
-                    ". Valid types: standard, xl, moto");
+                    ". Valid types: tuk, standard, xl, moto");
         }
         return rates;
     }

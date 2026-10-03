@@ -29,7 +29,7 @@ public class Driver extends User {
     @Column(name = "is_online")
     private boolean online = false;
 
-    @Column(name = "commission_debt")
+    @Column(name = "commission_debt", columnDefinition = "DECIMAL(10,2)")
     private Double commissionDebt = 0.0;
 
     @Column(name = "current_lat")

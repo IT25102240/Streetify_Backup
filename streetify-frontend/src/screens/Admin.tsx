@@ -6,8 +6,9 @@ import SystemStatusIndicator, { CompactStatusIndicator } from "../components/Sys
 import { tabStorage } from "../utils/storage";
 import { tripSyncService } from "../services/tripSyncService";
 import ChanukaBookingDashboard from "../components/ChanukaBookingDashboard";
+import DahamPaymentDashboard from "../components/DahamPaymentDashboard";
 
-type AdminTab = "analytics" | "users" | "drivers" | "bookings" | "driver-trips" | "driver-docs" | "payments" | "reviews" | "cancellation" | "export" | "rbac" | "system" | "branch-kiosk" | "booking-summary";
+type AdminTab = "analytics" | "users" | "drivers" | "bookings" | "driver-trips" | "driver-docs" | "payments" | "payment-summary" | "reviews" | "cancellation" | "export" | "rbac" | "system" | "branch-kiosk" | "booking-summary" | "disputes";
 
 export type FormField = {
   id: string;
@@ -132,6 +133,7 @@ export default function AdminDashboard() {
 
   const isSuperAdmin = adminRole === "SUPER_ADMIN" || adminEmail.toLowerCase().includes("vidura");
   const isChanukaBookingAdmin = adminRole === "BOOKING_MGMT" || adminEmail.toLowerCase().includes("chanuka");
+  const isDahamPaymentAdmin = adminRole === "PAYMENT_MGMT" || adminEmail.toLowerCase().includes("daham") || adminEmail.toLowerCase().includes("finance");
 
   const allowedTabs: { key: AdminTab; icon: string; label: string; external?: string }[] = [];
 
@@ -140,6 +142,11 @@ export default function AdminDashboard() {
     allowedTabs.push({ key: "booking-summary", icon: "📊", label: "Booking Summary Dashboard" });
     allowedTabs.push({ key: "bookings", icon: "🗺️", label: "Booking Management" });
     allowedTabs.push({ key: "branch-kiosk", icon: "🏢", label: "Branch Walk-in Desk" });
+  } else if (isDahamPaymentAdmin) {
+    // Daham's dedicated custom dashboard only for summary payment/financial details of platform
+    allowedTabs.push({ key: "payment-summary", icon: "📊", label: "Payment Summary Dashboard" });
+    allowedTabs.push({ key: "payments", icon: "💳", label: "Payment Management" });
+    allowedTabs.push({ key: "export", icon: "📁", label: "Export Reports" });
   } else {
     // Analytics dashboard — visible to all admin roles
     allowedTabs.push({ key: "analytics", icon: "📊", label: "Dashboard" });
@@ -152,8 +159,9 @@ export default function AdminDashboard() {
       allowedTabs.push({ key: "bookings", icon: "🗺️", label: "Booking Management" });
     }
     if (isSuperAdmin) {
-      // Super Admin Vidura has overall access to Chanuka's platform trip summary dashboard
+      // Super Admin Vidura has overall access to both specialized summary dashboards
       allowedTabs.push({ key: "booking-summary", icon: "🚖", label: "Trip Summary (Chanuka)" });
+      allowedTabs.push({ key: "payment-summary", icon: "💰", label: "Payment Summary (Daham)" });
     }
     // Official Branch Walk-in Counter & Telephone Booking Desk
     if (adminRole === "SUPER_ADMIN" || adminRole === "BOOKING_MGMT" || adminRole === "USER_MGMT" || adminRole === "REVIEW_MGMT" || adminRole === "UNKNOWN") {
@@ -178,7 +186,7 @@ export default function AdminDashboard() {
     }
   }
 
-  const defaultTabKey = isChanukaBookingAdmin ? "booking-summary" : (allowedTabs[0]?.key || "analytics");
+  const defaultTabKey = isChanukaBookingAdmin ? "booking-summary" : isDahamPaymentAdmin ? "payment-summary" : (allowedTabs[0]?.key || "analytics");
   const [tab, setTab] = useState<AdminTab>(defaultTabKey);
 
   return (
@@ -187,19 +195,44 @@ export default function AdminDashboard() {
       <div className="absolute inset-0 -z-10 bg-[url('/hero-bg.jpg')] bg-cover bg-center opacity-30" />
       <div className="absolute inset-0 -z-10 bg-slate-950/70 backdrop-blur-[40px]" />
       <aside className="w-56 flex flex-col flex-none min-h-screen shadow-xl" style={{ background: "#041208", borderRight: "1px solid rgba(34,197,94,0.15)" }}>
-        <div className="px-4 py-5 border-b" style={{ borderColor: "rgba(34,197,94,0.15)" }}>
+        <div
+          onClick={() => {
+            setTab(defaultTabKey);
+            window.dispatchEvent(new CustomEvent("navigate", { detail: { screen: "booking" } }));
+          }}
+          className="px-4 py-5 border-b cursor-pointer hover:bg-emerald-950/30 transition-all group select-none"
+          style={{ borderColor: "rgba(34,197,94,0.15)" }}
+          title="Return to Streetify Home"
+        >
           <div className="flex items-center gap-2.5">
             <img
               src="/logo.png"
               alt="Streetify Logo"
-              className="w-9 h-9 rounded-xl flex-none"
+              className="w-9 h-9 rounded-xl flex-none group-hover:scale-105 group-hover:rotate-[-4deg] transition-all"
               style={{ boxShadow: "0 0 16px rgba(34,197,94,0.35)" }}
             />
             <div>
-              <p className="font-extrabold text-white text-sm leading-tight" style={{ fontFamily: "Outfit, sans-serif" }}>Streetify</p>
+              <div className="flex items-center gap-1.5">
+                <p className="font-extrabold text-white text-sm leading-tight group-hover:text-eco transition-colors" style={{ fontFamily: "Outfit, sans-serif" }}>Streetify</p>
+                <span className="text-[9px] px-1 py-0.5 bg-eco/20 text-eco rounded font-mono font-bold leading-none">Home ↗</span>
+              </div>
               <p className="text-[11px] font-mono tracking-widest" style={{ color: "#22c55e" }}>Admin Console</p>
             </div>
           </div>
+        </div>
+        <div className="px-3 pt-3 pb-1">
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent("navigate", { detail: { screen: "booking" } }))}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-900/80 hover:bg-eco/20 border border-slate-800 hover:border-eco/40 transition-all shadow-sm group cursor-pointer"
+            title="Go to Streetify Main / Passenger Home"
+          >
+            <span className="flex items-center gap-2">
+              <span className="text-sm">🏠</span>
+              <span>Home / Booking</span>
+            </span>
+            <span className="text-slate-500 group-hover:text-eco text-xs">←</span>
+          </button>
         </div>
         <nav className="flex-1 p-3 space-y-1">
           {allowedTabs.map(({ key, icon, label, external }) => (
@@ -229,10 +262,10 @@ export default function AdminDashboard() {
         <header className="bg-navy border-eco/10 border-b border-slate-800 px-6 py-3.5 flex items-center justify-between flex-none shadow-sm">
           <div>
             <h1 className="font-extrabold text-white text-lg leading-tight">
-              {allowedTabs.find(t => t.key === tab)?.label || (tab === "booking-summary" ? "Booking Summary Dashboard" : "Dashboard")}
+              {allowedTabs.find(t => t.key === tab)?.label || (tab === "booking-summary" ? "Booking Summary Dashboard" : tab === "payment-summary" ? "Payment Summary Dashboard" : "Dashboard")}
             </h1>
             <p className="text-[11px] text-slate-400 font-mono mt-0.5">
-              MSSQL · /api/module-admin/{tab === "booking-summary" ? "bookings/summary" : tab}
+              MSSQL · /api/module-admin/{tab === "booking-summary" ? "bookings/summary" : tab === "payment-summary" ? "payments/summary" : tab}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -270,7 +303,8 @@ export default function AdminDashboard() {
 
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
           {tab === "booking-summary" && <ChanukaBookingDashboard />}
-          {tab === "analytics"   && (isChanukaBookingAdmin ? <ChanukaBookingDashboard /> : <AnalyticsPanel />)}
+          {tab === "payment-summary" && <DahamPaymentDashboard />}
+          {tab === "analytics"   && (isChanukaBookingAdmin ? <ChanukaBookingDashboard /> : isDahamPaymentAdmin ? <DahamPaymentDashboard /> : <AnalyticsPanel />)}
           {tab === "users"       && <UsersPanel />}
           {tab === "drivers"     && <DriversPanel />}
           {tab === "bookings"    && <BookingsPanel />}
@@ -780,19 +814,6 @@ function PaymentsPanel() {
 
   useEffect(() => { fetchPayments(); }, []);
 
-  const handleAdd = async () => {
-    const data = await openAdminForm("Add Payment", [
-      { id: "tripId", label: "Trip ID", type: "number" },
-      { id: "grossAmount", label: "Amount (LKR)", type: "number" },
-      { id: "paymentMethod", label: "Method", type: "select", options: ["CASH", "CARD"], defaultValue: "CASH" }
-    ]);
-    if (!data || !data.tripId || !data.grossAmount) return;
-    try {
-      await apiClient('/module-admin/payments', { method: 'POST', body: JSON.stringify(data) });
-      fetchPayments();
-    } catch (e) { alert("Error: " + e); }
-  };
-
   const handleEdit = async (p: any) => {
     const data = await openAdminForm("Edit Payment", [
       { id: "grossAmount", label: "Gross Amount (LKR)", type: "number", defaultValue: p.grossAmount },
@@ -824,7 +845,6 @@ function PaymentsPanel() {
     <Card>
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
         <p className="font-extrabold text-slate-100">Payment Management</p>
-        <Btn size="sm" onClick={handleAdd}>+ Add Payment</Btn>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">

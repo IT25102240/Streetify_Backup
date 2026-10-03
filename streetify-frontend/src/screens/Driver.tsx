@@ -94,8 +94,8 @@ export default function ScreenDriver() {
   /* Real GPS location for driver position on map */
   const { coords: myCoords, error: geoError } = useGeolocation();
 
-  const driverLat = myCoords?.lat ?? 6.9271;
-  const driverLng = myCoords?.lng ?? 79.8612;
+  const driverLat = myCoords?.lat ?? parseFloat(localStorage.getItem("last_lat") || "6.9271");
+  const driverLng = myCoords?.lng ?? parseFloat(localStorage.getItem("last_lng") || "79.8612");
 
   const tripTimer    = useRef<ReturnType<typeof setInterval> | null>(null);
   const arrivedTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -172,6 +172,10 @@ export default function ScreenDriver() {
             rating: 5.0,
             pickup: t.pickupAddress || "Mount Lavinia Hotel",
             dropoff: t.dropoffAddress || "Galle Face Green",
+            pickupLat: t.pickupLat,
+            pickupLng: t.pickupLng,
+            dropoffLat: t.dropoffLat,
+            dropoffLng: t.dropoffLng,
             fare: `LKR ${t.estimatedFare || 2150}`,
             fareNum: t.estimatedFare || 2150,
             km: t.estimatedDistanceKm?.toString() || "12.0",
@@ -394,7 +398,7 @@ export default function ScreenDriver() {
     setIncoming(false);
   }
 
-  const tripActive = tripState !== "idle" && tripState !== "completed";
+  const tripActive = (tripState !== "idle" && tripState !== "completed") || (showIncoming && activeTrip !== null);
   const noShowMin  = arrivedSec >= 300;
   const noShowWarn = arrivedSec >= 60;
   const arrivedMin = Math.floor(arrivedSec / 60);
@@ -425,6 +429,8 @@ export default function ScreenDriver() {
     heading: tripState === "in_trip" ? 180 : 45,
   }] : [];
 
+
+
   return (
     <div className="min-h-[calc(100vh-65px)] w-full flex flex-col lg:flex-row bg-[#08111e] overflow-hidden text-white">
 
@@ -440,8 +446,8 @@ export default function ScreenDriver() {
           showDropoff={tripActive}
           pickupAddress={activeTrip?.pickup}
           dropoffAddress={activeTrip?.dropoff}
-          pickupLat={pCoords[0]}
-          pickupLng={pCoords[1]}
+          pickupLat={tripState === "in_trip" ? driverLat : pCoords[0]}
+          pickupLng={tripState === "in_trip" ? driverLng : pCoords[1]}
           dropoffLat={dCoords[0]}
           dropoffLng={dCoords[1]}
           myLat={driverLat}
@@ -598,15 +604,7 @@ export default function ScreenDriver() {
               <p className="font-black text-white text-base">Waiting for Trip Requests…</p>
               <p className="text-xs text-slate-400 font-mono">Listening on /ws/trips & Cross-Tab Sync</p>
 
-              <div className="p-3 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 text-left text-xs space-y-1 mt-3">
-                <div className="flex items-center gap-1.5 text-emerald-300 font-bold">
-                  <span>⚡</span>
-                  <span>2-Tab Viva Demo Ready</span>
-                </div>
-                <p className="text-[11px] text-slate-300 leading-relaxed">
-                  Go to <strong>Tab 1 (Passenger)</strong> and click "Confirm & Request". This console will instantly receive the ride alert in real time!
-                </p>
-              </div>
+
 
               <p className="text-[11px] text-emerald-400 font-semibold pt-1">
                 ✓ GPS Telemetry Active · Vehicle Available ({vehicleInfo})

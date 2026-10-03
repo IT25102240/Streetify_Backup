@@ -11,13 +11,13 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import OsmMap, { DriverMarkerData } from "../OsmMap";
 import { Btn, Card, Pill, WsLive } from "../ui";
 import { apiClient } from "../api/apiClient";
-import { useGeolocation, reverseGeocode } from "../hooks/useGeolocation";
+import { useGeolocation, reverseGeocode, searchPlaces } from "../hooks/useGeolocation";
 import { NotificationService } from "../services/notificationService";
 import { tabStorage } from "../utils/storage";
 import { tripSyncService } from "../services/tripSyncService";
 import type L from "leaflet";
 
-type RideType = "standard" | "xl" | "moto";
+type RideType = "tuk" | "standard" | "xl" | "moto";
 type BookingStep = "idle" | "selecting" | "estimating" | "confirm" | "searching" | "matched";
 
 interface DriverState {
@@ -33,20 +33,22 @@ interface DriverState {
 }
 
 const RIDE_TYPES: { key: RideType; label: string; icon: string; desc: string; base: number; perKm: number }[] = [
+  { key: "tuk",      label: "Tuk-Tuk",      icon: "🛺", desc: "Three-wheeler · up to 3 passengers", base: 120, perKm: 24 },
   { key: "standard", label: "Standard",     icon: "🚗",  desc: "Sedan · up to 4 passengers",   base: 200, perKm: 33 },
   { key: "xl",       label: "Streetify XL", icon: "🚐",  desc: "SUV/Van · up to 7 passengers",  base: 340, perKm: 48 },
   { key: "moto",     label: "Moto",         icon: "🏍️", desc: "Motorcycle · fastest & cheapest", base: 80,  perKm: 18 },
 ];
 
 const SAVED_PLACES = [
-  { icon: "🏠", label: "Home",           addr: "42/B Kotte Road, Nugegoda", lat: 6.8649, lng: 79.8997 },
-  { icon: "🏢", label: "Office",         addr: "World Trade Centre, Col 01", lat: 6.9329, lng: 79.8438 },
-  { icon: "✈️", label: "BIA Terminal 1", addr: "Bandaranaike Int. Airport", lat: 7.1805, lng: 79.8837 },
-  { icon: "🏥", label: "Nawaloka",       addr: "Nawaloka Hospital, Col 02", lat: 6.9208, lng: 79.8519 },
-  { icon: "🌊", label: "Galle Face",     addr: "Galle Face Green, Col 03",   lat: 6.9270, lng: 79.8450 },
+  { icon: "🏠", label: "Home",                    addr: "Deiyannewela Lane, William Gopallawa Mawatha, Kandy", lat: 7.2847, lng: 80.6275 },
+  { icon: "🎓", label: "SLIIT Kandy Uni",         addr: "SLIIT Kandy Uni, Pallekele", lat: 7.2804, lng: 80.7050 },
+  { icon: "🛍️", label: "KCC (Kandy City Centre)", addr: "Kandy City Centre, Dalada Veediya, Kandy", lat: 7.2936, lng: 80.6350 },
 ];
 
 const SL_PLACES = [
+  { label: "Deiyannewela", addr: "Deiyannewela Lane, William Gopallawa Mawatha, Kandy", lat: 7.2847, lng: 80.6275 },
+  { label: "SLIIT Kandy Uni", addr: "SLIIT Kandy Uni, Pallekele", lat: 7.2804, lng: 80.7050 },
+  { label: "KCC (Kandy City Centre)", addr: "Dalada Veediya, Kandy", lat: 7.2936, lng: 80.6350 },
   { label: "Dalada Maligawa", addr: "Temple of the Sacred Tooth Relic, Kandy", lat: 7.2936, lng: 80.6413 },
   { label: "Galle Face Green", addr: "Galle Face, Colombo 03", lat: 6.9270, lng: 79.8450 },
   { label: "BIA Terminal 1", addr: "Bandaranaike Int. Airport, Katunayake", lat: 7.1805, lng: 79.8837 },
@@ -80,7 +82,7 @@ const SL_PLACES = [
  * Calculates high-accuracy road distance between coordinates using the Haversine formula
  * combined with Sri Lankan road network topology factors (1.20x - 1.32x curvature).
  */
-export function calculateAccurateDistance(
+function calculateAccurateDistance(
   lat1: number,
   lon1: number,
   lat2: number,
@@ -116,11 +118,17 @@ function resolvePlaceCoords(text: string): { lat: number; lng: number } | null {
 export default function ScreenBooking() {
   const [pickup, setPickup]       = useState("Detecting your location…");
   const [dropoff, setDropoff]     = useState("");
-  const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number }>({ lat: 6.9271, lng: 79.8612 });
+  const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number }>({
+    lat: parseFloat(localStorage.getItem("last_lat") || "6.9271"),
+    lng: parseFloat(localStorage.getItem("last_lng") || "79.8612")
+  });
   const [dropoffCoords, setDropoffCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [mapTargetMode, setMapTargetMode] = useState<"pickup" | "dropoff">("dropoff");
   const [showPickupSuggestions, setShowPickupSuggestions] = useState(false);
   const [showDropoffSuggestions, setShowDropoffSuggestions] = useState(false);
+  const [pickupSuggList, setPickupSuggList] = useState<Array<{ label: string; addr: string; lat: number; lng: number }>>([]);
+  const [dropoffSuggList, setDropoffSuggList] = useState<Array<{ label: string; addr: string; lat: number; lng: number }>>([]);
+
 
   const [rideType, setRide]       = useState<RideType>("standard");
   const [step, setStep]           = useState<BookingStep>("idle");
@@ -158,18 +166,25 @@ export default function ScreenBooking() {
       setPickup(addr);
     });
 
-    // Populate 9 demo drivers (3 per vehicle type) around user's location
+    // Populate 12 demo drivers (3 per vehicle type) around user's location
     if (!initialLocSet.current) {
       initialLocSet.current = true;
       const bLat = myCoords.lat;
       const bLng = myCoords.lng;
       setDrivers([
+        // 3 Tuk-Tuk drivers
+        { id: "demo-t1", name: "Sunil K.", plate: "AA-1122",  lat: bLat + 0.002, lng: bLng - 0.001, eta: 3, rating: 4.9, heading: 60, type: "tuk" },
+        { id: "demo-t2", name: "Priyantha M.", plate: "WP-8877", lat: bLat - 0.003, lng: bLng + 0.002, eta: 5, rating: 4.8, heading: 150, type: "tuk" },
+        { id: "demo-t3", name: "Bandara G.", plate: "AB-4455", lat: bLat + 0.004, lng: bLng + 0.002, eta: 4, rating: 4.7, heading: 210, type: "tuk" },
+        // 3 Standard Sedan drivers
         { id: "demo-c1", name: "Kasun P.", plate: "CAB-4821", lat: bLat + 0.003, lng: bLng - 0.002, eta: 4, rating: 4.9, heading: 45, type: "standard" },
         { id: "demo-c2", name: "Nuwan M.", plate: "WP-5503",  lat: bLat - 0.004, lng: bLng + 0.003, eta: 6, rating: 4.8, heading: 180, type: "standard" },
         { id: "demo-c3", name: "Amara N.", plate: "WP-2217",  lat: bLat + 0.002, lng: bLng + 0.004, eta: 8, rating: 4.7, heading: 270, type: "standard" },
+        // 3 Streetify XL Van drivers
         { id: "demo-v1", name: "Kamal D.", plate: "VAN-8991", lat: bLat - 0.005, lng: bLng - 0.005, eta: 7, rating: 4.9, heading: 90, type: "xl" },
         { id: "demo-v2", name: "Saman K.", plate: "WP-1122",  lat: bLat + 0.006, lng: bLng + 0.001, eta: 9, rating: 4.6, heading: 120, type: "xl" },
         { id: "demo-v3", name: "Ruwan T.", plate: "WP-3344",  lat: bLat - 0.001, lng: bLng - 0.006, eta: 5, rating: 4.8, heading: 310, type: "xl" },
+        // 3 Moto Motorcycle drivers
         { id: "demo-m1", name: "Nimal S.", plate: "BCA-1020", lat: bLat + 0.001, lng: bLng + 0.002, eta: 2, rating: 4.9, heading: 15, type: "moto" },
         { id: "demo-m2", name: "Ajith W.", plate: "BCC-9988", lat: bLat - 0.002, lng: bLng + 0.001, eta: 3, rating: 4.7, heading: 195, type: "moto" },
         { id: "demo-m3", name: "Namal B.", plate: "BXZ-7766", lat: bLat + 0.003, lng: bLng - 0.004, eta: 4, rating: 4.8, heading: 75, type: "moto" },
@@ -183,18 +198,47 @@ export default function ScreenBooking() {
       const bLat = 6.9271;
       const bLng = 79.8612;
       setDrivers([
+        // 3 Tuk-Tuk drivers
+        { id: "demo-t1", name: "Sunil K.", plate: "AA-1122",  lat: bLat + 0.002, lng: bLng - 0.001, eta: 3, rating: 4.9, heading: 60, type: "tuk" },
+        { id: "demo-t2", name: "Priyantha M.", plate: "WP-8877", lat: bLat - 0.003, lng: bLng + 0.002, eta: 5, rating: 4.8, heading: 150, type: "tuk" },
+        { id: "demo-t3", name: "Bandara G.", plate: "AB-4455", lat: bLat + 0.004, lng: bLng + 0.002, eta: 4, rating: 4.7, heading: 210, type: "tuk" },
+        // 3 Standard Sedan drivers
         { id: "demo-c1", name: "Kasun P.", plate: "CAB-4821", lat: bLat + 0.003, lng: bLng - 0.002, eta: 4, rating: 4.9, heading: 45, type: "standard" },
         { id: "demo-c2", name: "Nuwan M.", plate: "WP-5503",  lat: bLat - 0.004, lng: bLng + 0.003, eta: 6, rating: 4.8, heading: 180, type: "standard" },
         { id: "demo-c3", name: "Amara N.", plate: "WP-2217",  lat: bLat + 0.002, lng: bLng + 0.004, eta: 8, rating: 4.7, heading: 270, type: "standard" },
+        // 3 Streetify XL Van drivers
         { id: "demo-v1", name: "Kamal D.", plate: "VAN-8991", lat: bLat - 0.005, lng: bLng - 0.005, eta: 7, rating: 4.9, heading: 90, type: "xl" },
         { id: "demo-v2", name: "Saman K.", plate: "WP-1122",  lat: bLat + 0.006, lng: bLng + 0.001, eta: 9, rating: 4.6, heading: 120, type: "xl" },
         { id: "demo-v3", name: "Ruwan T.", plate: "WP-3344",  lat: bLat - 0.001, lng: bLng - 0.006, eta: 5, rating: 4.8, heading: 310, type: "xl" },
+        // 3 Moto Motorcycle drivers
         { id: "demo-m1", name: "Nimal S.", plate: "BCA-1020", lat: bLat + 0.001, lng: bLng + 0.002, eta: 2, rating: 4.9, heading: 15, type: "moto" },
         { id: "demo-m2", name: "Ajith W.", plate: "BCC-9988", lat: bLat - 0.002, lng: bLng + 0.001, eta: 3, rating: 4.7, heading: 195, type: "moto" },
         { id: "demo-m3", name: "Namal B.", plate: "BXZ-7766", lat: bLat + 0.003, lng: bLng - 0.004, eta: 4, rating: 4.8, heading: 75, type: "moto" },
       ]);
     }
   }, [drivers.length]);
+
+  /* Debounced place search */
+  useEffect(() => {
+    const delay = setTimeout(async () => {
+      if (pickup.trim().length >= 3 && showPickupSuggestions) {
+        const res = await searchPlaces(pickup);
+        setPickupSuggList(res);
+      }
+    }, 400);
+    return () => clearTimeout(delay);
+  }, [pickup, showPickupSuggestions]);
+
+  useEffect(() => {
+    const delay = setTimeout(async () => {
+      if (dropoff.trim().length >= 3 && showDropoffSuggestions) {
+        const res = await searchPlaces(dropoff);
+        setDropoffSuggList(res);
+      }
+    }, 400);
+    return () => clearTimeout(delay);
+  }, [dropoff, showDropoffSuggestions]);
+
 
   /* Recenter map to real GPS on 🎯 button press */
   const recenterToMyLocation = useCallback(() => {
@@ -260,22 +304,40 @@ export default function ScreenBooking() {
     }
   };
 
-  /* Simulate dynamic real-time driver telemetry (realistic micro-movement along streets) */
-  useEffect(() => {
-    wsTickRef.current = setInterval(() => {
-      setDrivers(prev => prev.map(d => {
-        const dLat = (Math.random() - 0.48) * 0.0004;
-        const dLng = (Math.random() - 0.48) * 0.0004;
-        return {
-          ...d,
-          lat: d.lat + dLat,
-          lng: d.lng + dLng,
-          eta: Math.max(1, d.eta + (Math.random() > 0.7 ? -1 : Math.random() > 0.85 ? 1 : 0)),
-        };
-      }));
-    }, 3000);
-    return () => { if (wsTickRef.current) clearInterval(wsTickRef.current); };
-  }, []);
+  /* Handle map drag end to update pickup/dropoff in real-time */
+  const handleMapMoveEnd = async ({ lat, lng }: { lat: number; lng: number }) => {
+    // Only auto-update if we're actually picking a location
+    if (step !== "idle" && step !== "selecting") return;
+    
+    if (mapTargetMode === "pickup") {
+      setPickupCoords({ lat, lng });
+      setPickup(`Resolving...`);
+      const addr = await reverseGeocode(lat, lng);
+      if (addr) setPickup(addr);
+      
+      if (dropoffCoords) {
+        const { distanceKm, durationMin } = calculateAccurateDistance(lat, lng, dropoffCoords.lat, dropoffCoords.lng);
+        setEstimatedDistance(distanceKm);
+        setEstimatedDuration(durationMin);
+        setFareReady(true);
+      }
+    } else {
+      setDropoffCoords({ lat, lng });
+      setDropoff(`Resolving...`);
+      const addr = await reverseGeocode(lat, lng);
+      if (addr) setDropoff(addr);
+      
+      if (pickupCoords) {
+        const { distanceKm, durationMin } = calculateAccurateDistance(pickupCoords.lat, pickupCoords.lng, lat, lng);
+        setEstimatedDistance(distanceKm);
+        setEstimatedDuration(durationMin);
+        setFareReady(true);
+      }
+    }
+  };
+
+  // Real-time driver telemetry is now handled via WebSocket/tripSyncService DRIVER_LOCATION events.
+  // We removed the simulated random movement.
 
   /* Automatic high-precision distance, duration and fare calculation */
   useEffect(() => {
@@ -438,41 +500,79 @@ export default function ScreenBooking() {
     };
   }, [pickupCoords]);
 
+  const acceptWithDemoDriver = () => {
+    if (dotRef.current) clearInterval(dotRef.current);
+    const matched = drivers.find(d => d.type === rideType) ?? drivers[0] ?? {
+      id: "demo-d1",
+      name: "Kasun P.",
+      plate: "CAB-4821",
+      lat: pickupCoords.lat + 0.0015,
+      lng: pickupCoords.lng + 0.0015,
+      eta: 2,
+      rating: 4.91,
+      heading: 90,
+      type: rideType
+    };
+
+    const activeStr = tabStorage.getItem("active_trip");
+    if (activeStr) {
+      try {
+        const parsed = JSON.parse(activeStr);
+        parsed.driverName = matched.name;
+        parsed.vehiclePlate = matched.plate;
+        tabStorage.setItem("active_trip", JSON.stringify(parsed));
+      } catch {}
+    }
+
+    setMatch(matched);
+    setLiveTripStatus("ASSIGNED");
+    setStep("matched");
+    NotificationService.sendTripAlert(
+      "Driver Assigned! 🚖",
+      `${matched.name} accepted your ride in ${matched.plate} (ETA ${matched.eta}m)`
+    );
+  };
+
   /* Searching animation dots & fallback simulation if only 1 tab is running */
   useEffect(() => {
     if (step === "searching") {
       dotRef.current = setInterval(() => setDots(d => (d + 1) % 4), 500);
       const t = setTimeout(() => {
-        if (dotRef.current) clearInterval(dotRef.current);
-        const matched = drivers.find(d => d.type === rideType) ?? drivers[0] ?? {
-          id: "demo-d1", name: "Kasun P.", plate: "CAB-4821", lat: pickupCoords.lat + 0.001, lng: pickupCoords.lng + 0.001, eta: 3, rating: 4.91, heading: 90, type: rideType
-        };
-        setMatch(matched);
-        setLiveTripStatus("ASSIGNED");
-        setStep("matched");
-        NotificationService.sendTripAlert(
-          "Driver Assigned! 🚖",
-          `${matched.name} is on the way in ${matched.plate} (ETA ${matched.eta}m)`
-        );
-      }, 15000); // 15 seconds demo fallback wait
+        acceptWithDemoDriver();
+      }, 5000); // 5 seconds auto-match for fast 1-tab demo
       return () => { clearTimeout(t); if (dotRef.current) clearInterval(dotRef.current); };
     }
   }, [step, drivers, pickupCoords, rideType]);
 
-  /* Demo Driver Auto-Progression Simulator */
+  /* Demo Driver Auto-Progression Simulator (1-Tab Demo) */
   useEffect(() => {
     if (step === "matched" && matchedDriver && matchedDriver.id.startsWith("demo-")) {
       const timer = setTimeout(() => {
         if (liveTripStatus === "ASSIGNED") {
+          setLiveTripStatus("EN_ROUTE");
+          NotificationService.sendTripAlert("Driver En Route 🚗", "Driver is navigating towards your pickup location.");
           tripSyncService.publishStatusUpdate(matchedDriver.id, "EN_ROUTE");
         } else if (liveTripStatus === "EN_ROUTE") {
+          setLiveTripStatus("ARRIVED");
+          NotificationService.sendTripAlert("Driver Arrived 📍", "Driver is waiting at your pickup spot. Please board.");
           tripSyncService.publishStatusUpdate(matchedDriver.id, "ARRIVED");
         } else if (liveTripStatus === "ARRIVED") {
+          setLiveTripStatus("IN_PROGRESS");
+          NotificationService.sendTripAlert("Trip Started 🛣️", "You are en route to your destination.");
           tripSyncService.publishStatusUpdate(matchedDriver.id, "IN_PROGRESS");
         } else if (liveTripStatus === "IN_PROGRESS") {
+          setLiveTripStatus("COMPLETED");
+          NotificationService.sendTripAlert("Trip Completed 🏁", "Arrived at destination! Redirecting to payment…");
           tripSyncService.publishStatusUpdate(matchedDriver.id, "COMPLETED");
+          const activeStr = tabStorage.getItem("active_trip");
+          if (activeStr) {
+            tabStorage.setItem("last_completed_trip", activeStr);
+          }
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent("navigate", { detail: { screen: "payment" } }));
+          }, 1500);
         }
-      }, 5000); // 5 seconds per state transition for demo
+      }, 3500); // 3.5 seconds per state transition for responsive 1-tab demo
       return () => clearTimeout(timer);
     }
   }, [step, matchedDriver, liveTripStatus]);
@@ -542,14 +642,15 @@ export default function ScreenBooking() {
     .filter(d => !d.type || d.type === rideType)
     .map(d => ({
       id: d.id,
-    name: d.name,
-    plate: d.plate,
-    lat: d.lat,
-    lng: d.lng,
-    eta: d.eta,
-    rating: d.rating,
-    heading: d.heading,
-  }));
+      name: d.name,
+      plate: d.plate,
+      lat: d.lat,
+      lng: d.lng,
+      eta: d.eta,
+      rating: d.rating,
+      heading: d.heading,
+      type: d.type,
+    }));
 
   return (
     <div className="min-h-[calc(100vh-65px)] w-full flex flex-col lg:flex-row bg-[#08111e] overflow-hidden">
@@ -694,24 +795,23 @@ export default function ScreenBooking() {
                       onMouseDown={e => e.preventDefault()}
                     >
                       {(() => {
-                        const q = pickup.trim().toLowerCase();
-                        const matches = SL_PLACES.filter(p => p.label.toLowerCase().includes(q) || p.addr.toLowerCase().includes(q));
+                        const matches = pickupSuggList;
                         if (matches.length === 0) {
                           return (
                             <div className="px-3 py-2.5 text-center text-slate-400 text-xs">
-                              No matching Sri Lankan places found
+                              {pickup.length < 3 ? "Keep typing to search..." : "No matching Sri Lankan places found"}
                             </div>
                           );
                         }
-                        return matches.map(p => (
+                        return matches.map((p, idx) => (
                           <div 
-                            key={p.label}
+                            key={p.label + idx}
                             className="px-3.5 py-2.5 hover:bg-slate-800/90 active:bg-emerald-600/30 cursor-pointer text-xs transition-colors flex items-center gap-2.5"
                             onMouseDown={e => {
                               e.preventDefault();
-                              selectPickupPlace(p);
+                              selectPickupPlace(p as any);
                             }}
-                            onClick={() => selectPickupPlace(p)}
+                            onClick={() => selectPickupPlace(p as any)}
                           >
                             <span className="text-base flex-none">🟢</span>
                             <div className="min-w-0 flex-1">
@@ -767,24 +867,23 @@ export default function ScreenBooking() {
                       onMouseDown={e => e.preventDefault()}
                     >
                       {(() => {
-                        const q = dropoff.trim().toLowerCase();
-                        const matches = SL_PLACES.filter(p => p.label.toLowerCase().includes(q) || p.addr.toLowerCase().includes(q));
+                        const matches = dropoffSuggList;
                         if (matches.length === 0) {
                           return (
                             <div className="px-3 py-2.5 text-center text-slate-400 text-xs">
-                              No matching Sri Lankan places found
+                              {dropoff.length < 3 ? "Keep typing to search..." : "No matching Sri Lankan places found"}
                             </div>
                           );
                         }
-                        return matches.map(p => (
+                        return matches.map((p, idx) => (
                           <div 
-                            key={p.label}
+                            key={p.label + idx}
                             className="px-3.5 py-2.5 hover:bg-slate-800/90 active:bg-blue-600/30 cursor-pointer text-xs transition-colors flex items-center gap-2.5"
                             onMouseDown={e => {
                               e.preventDefault();
-                              selectDropoffPlace(p);
+                              selectDropoffPlace(p as any);
                             }}
-                            onClick={() => selectDropoffPlace(p)}
+                            onClick={() => selectDropoffPlace(p as any)}
                           >
                             <span className="text-base flex-none">📍</span>
                             <div className="min-w-0 flex-1">
@@ -800,9 +899,9 @@ export default function ScreenBooking() {
               </div>
             </div>
 
-            {/* Quick saved destinations */}
+            {/* Frequently Visited Places */}
             <div className="mt-3.5 pt-3 border-t border-slate-800/80">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-2">Saved & Popular Destinations</p>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-2">Frequently Visited Places</p>
               <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
                 {SAVED_PLACES.map(p => {
                   const isChosen = dropoff === p.addr;
@@ -1083,6 +1182,7 @@ export default function ScreenBooking() {
           driverMarkers={driverMarkers}
           autoCenter={true}
           onMapClick={handleMapClick}
+          onMapMoveEnd={handleMapMoveEnd}
           onMapReady={(map) => { leafletMapRef.current = map; }}
           onRouteCalculated={(distKm, durMin) => {
             if (distKm > 0) {
@@ -1109,16 +1209,46 @@ export default function ScreenBooking() {
               <h3 className="text-lg font-black text-white">Matching with Nearby Driver</h3>
               <p className="text-xs text-emerald-400 font-mono mt-1">Broadcasting request to online drivers…</p>
               
-              <div className="mt-4 p-3 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 text-left text-xs space-y-1">
-                <div className="flex items-center gap-1.5 text-emerald-300 font-bold">
+              {/* Instant 1-Tab Demo Driver Option */}
+              <div className="mt-4 pt-3.5 border-t border-slate-700/60">
+                <button
+                  type="button"
+                  onClick={acceptWithDemoDriver}
+                  className="w-full py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/30 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                >
                   <span>⚡</span>
-                  <span>2-Tab Viva Demo Active</span>
+                  <span>Ride with Demo Driver (1-Tab Demo)</span>
+                </button>
+                <p className="text-[10px] text-slate-400 mt-2 font-mono">
+                  Auto-matching demo driver in ~5 seconds…
+                </p>
+              </div>
+
+              <div className="mt-3 p-3 rounded-2xl bg-slate-900/80 border border-slate-700 text-left text-xs space-y-1">
+                <div className="flex items-center gap-1.5 text-blue-400 font-bold">
+                  <span>🔄</span>
+                  <span>2-Tab Multi-Screen Demo</span>
                 </div>
                 <p className="text-[11px] text-slate-300 leading-relaxed">
-                  Switch to <strong>Tab 2 (Driver)</strong> and click <strong>"Accept Trip"</strong> to watch real-time cross-tab synchronization.
+                  Or switch to <strong>Tab 2 (Driver)</strong> and click <strong>"Accept Trip"</strong> for live cross-tab sync!
                 </p>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Floating Center Pin for Intuitive Map Picking */}
+        {(step === "idle" || step === "selecting") && (
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[800] flex flex-col items-center drop-shadow-2xl">
+            <div className={`px-3 py-1 mb-1 rounded-full text-[10px] font-bold text-white shadow-lg shadow-black/50 ${mapTargetMode === "pickup" ? "bg-emerald-500" : "bg-blue-600"}`}>
+              Set {mapTargetMode}
+            </div>
+            <div className={`w-8 h-8 rounded-full border-4 border-white flex items-center justify-center text-lg shadow-xl ${mapTargetMode === "pickup" ? "bg-emerald-500 text-emerald-950" : "bg-blue-600 text-blue-950"}`}>
+              {mapTargetMode === "pickup" ? "🟢" : "📍"}
+            </div>
+            {/* Pin shadow/point */}
+            <div className="w-1.5 h-6 bg-slate-800 rounded-b-full"></div>
+            <div className="w-2 h-1 bg-black/40 rounded-full blur-[1px]"></div>
           </div>
         )}
 
@@ -1175,8 +1305,8 @@ export default function ScreenBooking() {
           </button>
         </div>
 
-        {/* BOTTOM RIGHT: High-Visibility Re-Center "Locate Me" Button */}
-        <div className="absolute bottom-8 right-6 z-[900] flex flex-col items-end gap-2">
+        {/* BOTTOM RIGHT: High-Visibility Re-Center "Locate Me" Button (Stacked cleanly above Fast Switcher) */}
+        <div className="absolute bottom-20 right-6 z-[900] flex flex-col items-end gap-2">
           <button
             onClick={recenterToMyLocation}
             title="Center map on my location"
@@ -1187,8 +1317,8 @@ export default function ScreenBooking() {
           </button>
         </div>
 
-        {/* BOTTOM LEFT: Interactive Hint Bar - shifted above Fast Role Switcher */}
-        <div className="absolute bottom-20 left-6 z-[800] hidden sm:block max-w-sm">
+        {/* BOTTOM LEFT: Interactive Hint Bar */}
+        <div className="absolute bottom-6 left-6 z-[900] hidden sm:block max-w-sm">
           <div className="bg-[#091426]/90 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-700/80 shadow-xl text-xs text-slate-300 flex items-center gap-2">
             <span>💡</span>
             <span>

@@ -201,7 +201,7 @@ export default function ReceiptDisplay({
               <p>📅 {trip.generatedAt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} · {trip.generatedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</p>
               <p>🗺 {trip.pickupAddress} → {trip.dropoffAddress}</p>
               <p>🚗 {trip.driverName} · {trip.vehiclePlate}</p>
-              <p>💳 {trip.paymentMethod === "card" ? "Card Payment" : trip.paymentMethod === "wallet" ? "Streetify Wallet" : "Cash to driver"}</p>
+              <p>💳 {trip.paymentMethod === "CARD" ? "Card Payment" : trip.paymentMethod === "WALLET" ? "Streetify Wallet" : "Cash to driver"}</p>
               <p className="text-emerald-400 font-bold">🔒 Receipt: {trip.receiptNumber}</p>
             </div>
 

@@ -129,6 +129,7 @@ export interface DriverMarkerData {
   rating?: number;
   heading?: number;
   isSelf?: boolean;
+  type?: string;
 }
 
 /* ── Custom Driver Icon ── */
@@ -137,6 +138,7 @@ function makeDriverIcon(d: DriverMarkerData) {
   const label = d.isSelf ? (d.name ? `You (${d.name})` : "You (Driver)") : (d.name ? `${d.name} · ${d.eta ?? 3}m` : "Driver");
   const bg = isSelf ? "linear-gradient(135deg, #2563eb, #1d4ed8)" : "linear-gradient(135deg, #10b981, #059669)";
   const ringColor = isSelf ? "rgba(37,99,235,0.4)" : "rgba(16,185,129,0.4)";
+  const iconEmoji = isSelf ? "🚘" : (d.type === "tuk" ? "🛺" : d.type === "moto" ? "🏍️" : d.type === "xl" ? "🚐" : "🚗");
 
   return L.divIcon({
     className: "driver-pin-container",
@@ -155,7 +157,7 @@ function makeDriverIcon(d: DriverMarkerData) {
           box-shadow:0 3px 12px rgba(0,0,0,0.4);
           display:flex;align-items:center;justify-content:center;
           font-size:16px;z-index:2;position:relative;">
-          ${isSelf ? "🚘" : "🚗"}
+          ${iconEmoji}
         </div>
         <!-- Badge label -->
         <div style="
@@ -212,6 +214,8 @@ interface OsmMapProps {
   onMapClick?: (coords: { lat: number; lng: number }) => void;
   // Called when map ref is ready (for external controls)
   onMapReady?: (map: L.Map) => void;
+  // Map move/drag end handler (for center pin picking)
+  onMapMoveEnd?: (coords: { lat: number; lng: number }) => void;
   // Emits accurate turn-by-turn road driving distance and duration from OSRM
   onRouteCalculated?: (distanceKm: number, durationMin: number) => void;
 }
@@ -236,6 +240,7 @@ export default function OsmMap({
   driverMarkers = [],
   autoCenter = true,
   onMapClick,
+  onMapMoveEnd,
   onMapReady,
   onRouteCalculated,
 }: OsmMapProps) {
@@ -281,6 +286,9 @@ export default function OsmMap({
   const onMapClickRef = useRef(onMapClick);
   onMapClickRef.current = onMapClick;
 
+  const onMapMoveEndRef = useRef(onMapMoveEnd);
+  onMapMoveEndRef.current = onMapMoveEnd;
+
   const onRouteCalculatedRef = useRef(onRouteCalculated);
   onRouteCalculatedRef.current = onRouteCalculated;
 
@@ -317,6 +325,11 @@ export default function OsmMap({
     // Map click listener using ref to guarantee latest state callback
     map.on("click", (e: L.LeafletMouseEvent) => {
       onMapClickRef.current?.({ lat: e.latlng.lat, lng: e.latlng.lng });
+    });
+
+    map.on("dragend", () => {
+      const center = map.getCenter();
+      onMapMoveEndRef.current?.({ lat: center.lat, lng: center.lng });
     });
 
     mapRef.current = map;

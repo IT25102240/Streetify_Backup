@@ -65,7 +65,7 @@ public class User {
     @Column(name = "admin_role", length = 30)
     private String adminRole;
 
-    @Column(name = "wallet_balance", nullable = false)
+    @Column(name = "wallet_balance", nullable = false, columnDefinition = "DECIMAL(10,2)")
     private Double walletBalance = 0.0;
 
     @CreationTimestamp

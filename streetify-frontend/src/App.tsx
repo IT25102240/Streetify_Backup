@@ -23,7 +23,7 @@ import { tabStorage } from "./utils/storage";
 type Screen = "login" | "booking" | "driver" | "payment" | "review" | "admin" | "history" | "support" | "profile" | "kiosk";
 
 const NAV: { key: Screen; label: string; icon: string; group: "passenger" | "driver" | "admin" | "support" }[] = [
-  { key: "booking", label: "Book Ride",         icon: "📍", group: "passenger" },
+  { key: "booking", label: "Home",              icon: "🏠", group: "passenger" },
   { key: "payment", label: "Payment",           icon: "💳", group: "passenger" },
   { key: "review",  label: "Rate Trip",         icon: "⭐", group: "passenger" },
   { key: "history", label: "Trip History",      icon: "📋", group: "passenger" },
@@ -75,14 +75,32 @@ export default function App() {
     });
   };
 
-  const handleBack = () => {
+  const handleBack = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     setHistory((prevHistory) => {
-      if (prevHistory.length === 0) return prevHistory;
+      if (prevHistory.length === 0) {
+        const fallbackScreen: Screen = role === "driver" ? "driver" : "booking";
+        setScreenState(fallbackScreen);
+        return [];
+      }
       const newHistory = [...prevHistory];
       const previousScreen = newHistory.pop()!;
       setScreenState(previousScreen);
       return newHistory;
     });
+  };
+
+  const handleGoHome = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const homeTarget: Screen = role === "driver" ? "driver" : "booking";
+    setScreen(homeTarget);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const [role, setRole] = useState<string | null>(
@@ -202,53 +220,49 @@ export default function App() {
           scrollbarWidth: "none",
         }}
       >
-        {/* ── Wordmark ── */}
+        {/* ── Back Navigation Button ── */}
+        {screen !== "login" && (history.length > 0 || (screen !== "booking" && screen !== (role === "driver" ? "driver" : "booking"))) && (
+          <button
+            type="button"
+            id="nav-back-button"
+            onClick={handleBack}
+            className="flex items-center gap-1.5 px-3 py-1.5 mr-2 rounded-xl bg-slate-800/90 hover:bg-eco/20 text-slate-300 hover:text-eco transition-all border border-slate-700 hover:border-eco/50 text-xs font-bold shadow-sm flex-none group cursor-pointer"
+            title="Go Back"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <span>Back</span>
+          </button>
+        )}
+
+        {/* ── Wordmark / Brand Logo (Clicks to Home) ── */}
         <div
-          onClick={() => setScreen(role === "driver" ? "driver" : role === "admin" ? "admin" : role ? "booking" : "login")}
-          className="flex items-center gap-2.5 mr-4 pr-4 flex-none cursor-pointer group"
+          id="nav-logo-home"
+          onClick={handleGoHome}
+          className="flex items-center gap-2.5 mr-4 pr-4 flex-none cursor-pointer group select-none transition-transform hover:opacity-95"
           style={{ borderRight: "1px solid rgba(34,197,94,0.12)" }}
+          title="Return to Streetify Home"
         >
-          {/* Back & Fast Home Buttons */}
-          <div className="flex items-center gap-1 mr-1.5" onClick={e => e.stopPropagation()}>
-            {history.length > 0 && screen !== "login" && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleBack();
-                }}
-                className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-800/80 hover:bg-eco/20 text-slate-300 hover:text-eco transition-all border border-slate-700 hover:border-eco/50"
-                title="Go Back"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
-                </svg>
-              </button>
-            )}
-            {role && screen !== (role === "driver" ? "driver" : role === "admin" ? "admin" : "booking") && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setScreen(role === "driver" ? "driver" : role === "admin" ? "admin" : "booking");
-                }}
-                className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-800/80 hover:bg-blue-600/30 text-slate-300 hover:text-blue-300 transition-all border border-slate-700 hover:border-blue-500/50"
-                title="Go to Home Dashboard"
-              >
-                <span className="text-xs">🏠</span>
-              </button>
-            )}
-          </div>
           <img
             src="/logo.png"
             alt="Streetify Logo"
-            className="w-8 h-8 rounded-xl flex-none group-hover:scale-105 transition-transform"
+            className="w-8 h-8 rounded-xl flex-none group-hover:scale-105 group-hover:rotate-[-3deg] transition-all"
             style={{ boxShadow: "0 0 16px rgba(34,197,94,0.35)" }}
           />
           <div>
             <div className="flex items-baseline gap-1.5">
               <span
-                className="text-white text-sm font-black tracking-tight"
+                className="text-white text-sm font-black tracking-tight group-hover:text-eco transition-colors"
                 style={{ fontFamily: "Outfit, sans-serif", letterSpacing: "-0.02em" }}
               >
                 Streetify
@@ -345,15 +359,6 @@ export default function App() {
               2-Tab Viva Sync
             </span>
           )}
-
-          <button
-            onClick={() => window.dispatchEvent(new CustomEvent("open-demo-switcher"))}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all shadow-sm"
-            title="Open Fast Role Switcher & 2-Tab Viva Demo Panel"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            ⚡ Fast Switcher
-          </button>
 
           <NotificationCenter />
 

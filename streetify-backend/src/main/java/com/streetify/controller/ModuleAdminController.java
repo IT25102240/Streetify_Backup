@@ -759,6 +759,85 @@ public class ModuleAdminController {
         return ResponseEntity.ok(Map.of("status", "ok", "message", "Payment created."));
     }
 
+    /**
+     * Dedicated Financial Analytics Summary for Finance Manager (PAYMENT_MGMT - Daham)
+     * Aggregates GMV gross revenue, 15% platform commission, 85% driver net payouts, 
+     * settlement rates, and payment gateway breakdowns.
+     */
+    @GetMapping("/payments/summary")
+    public ResponseEntity<Map<String, Object>> getPaymentsSummary() {
+        List<Payment> allPayments = paymentDAO.findAll();
+        long totalPayments = allPayments.size();
+
+        long successCount = allPayments.stream().filter(p -> p.getStatus() == PaymentStatus.SUCCESS).count();
+        long pendingCount = allPayments.stream().filter(p -> p.getStatus() == PaymentStatus.PENDING).count();
+        long failedCount  = allPayments.stream().filter(p -> p.getStatus() == PaymentStatus.FAILED).count();
+
+        double totalGrossRevenue = allPayments.stream()
+            .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+            .mapToDouble(p -> p.getGrossAmount() != null ? p.getGrossAmount() : 0.0)
+            .sum();
+
+        double totalCommission = allPayments.stream()
+            .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+            .mapToDouble(p -> p.getPlatformCommission() != null ? p.getPlatformCommission() : 0.0)
+            .sum();
+
+        double totalDriverNet = allPayments.stream()
+            .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+            .mapToDouble(p -> p.getDriverNet() != null ? p.getDriverNet() : 0.0)
+            .sum();
+
+        double avgFare = successCount > 0 ? (totalGrossRevenue / successCount) : 0.0;
+        double successRate = totalPayments > 0 ? ((double) successCount / totalPayments * 100.0) : 100.0;
+
+        // Group by payment method
+        Map<String, List<Payment>> byMethodMap = allPayments.stream()
+            .collect(java.util.stream.Collectors.groupingBy(p -> {
+                String m = p.getPaymentMethod();
+                return m != null ? m.toUpperCase().trim() : "CASH";
+            }));
+
+        List<Map<String, Object>> byMethodList = new java.util.ArrayList<>();
+        for (Map.Entry<String, List<Payment>> entry : byMethodMap.entrySet()) {
+            String method = entry.getKey();
+            List<Payment> mList = entry.getValue();
+            long count = mList.size();
+            double methodGross = mList.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+                .mapToDouble(p -> p.getGrossAmount() != null ? p.getGrossAmount() : 0.0).sum();
+            double methodCommission = mList.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+                .mapToDouble(p -> p.getPlatformCommission() != null ? p.getPlatformCommission() : 0.0).sum();
+            double methodDriverNet = mList.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+                .mapToDouble(p -> p.getDriverNet() != null ? p.getDriverNet() : 0.0).sum();
+
+            Map<String, Object> item = new java.util.HashMap<>();
+            item.put("paymentMethod", method);
+            item.put("count", count);
+            item.put("grossRevenue", Math.round(methodGross * 100.0) / 100.0);
+            item.put("commission", Math.round(methodCommission * 100.0) / 100.0);
+            item.put("driverNet", Math.round(methodDriverNet * 100.0) / 100.0);
+            item.put("percentage", totalGrossRevenue > 0 ? Math.round((methodGross / totalGrossRevenue * 100.0) * 10.0) / 10.0 : 0.0);
+            byMethodList.add(item);
+        }
+
+        Map<String, Object> summary = new java.util.HashMap<>();
+        summary.put("totalPayments", totalPayments);
+        summary.put("successCount", successCount);
+        summary.put("pendingCount", pendingCount);
+        summary.put("failedCount", failedCount);
+        summary.put("grossRevenue", Math.round(totalGrossRevenue * 100.0) / 100.0);
+        summary.put("totalCommission", Math.round(totalCommission * 100.0) / 100.0);
+        summary.put("totalDriverNet", Math.round(totalDriverNet * 100.0) / 100.0);
+        summary.put("avgFare", Math.round(avgFare * 100.0) / 100.0);
+        summary.put("successRate", Math.round(successRate * 10.0) / 10.0);
+        summary.put("byMethod", byMethodList);
+
+        return ResponseEntity.ok(summary);
+    }
+
     @GetMapping("/payments")
     public ResponseEntity<List<Map<String, Object>>> getAllPayments() {
         List<Payment> payments = paymentDAO.findAll();
@@ -776,7 +855,7 @@ public class ModuleAdminController {
         return ResponseEntity.ok(result);
     }
 
-    @GetMapping("/payments/{id}")
+    @GetMapping("/payments/{id:\\d+}")
     public ResponseEntity<Map<String, Object>> getPayment(@PathVariable Long id) {
         Payment p = paymentDAO.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Payment not found: " + id));

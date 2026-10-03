@@ -166,7 +166,11 @@ export default function ScreenProfile() {
     setVerificationStatus("APPROVED");
     tabStorage.setItem("driver_verified", "APPROVED");
     if (profile) setProfile({ ...profile, verificationStatus: "APPROVED" });
-    NotificationService.sendNotification("Driver Verified! 🛡️", "Your driver license and vehicle documents have been self-verified and approved.");
+    NotificationService.send({
+      type: "SYSTEM",
+      title: "Driver Verified! 🛡️",
+      message: "Your driver license and vehicle documents have been self-verified and approved.",
+    });
     showToast("Driver Credentials Successfully Verified! ✓", "success");
   };
 
