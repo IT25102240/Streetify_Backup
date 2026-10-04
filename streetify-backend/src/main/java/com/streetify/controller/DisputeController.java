@@ -91,7 +91,7 @@ public class DisputeController {
             @PathVariable Long id,
             @RequestBody java.util.Map<String, String> body
     ) {
-        DisputeTicket ticket = disputeDAO.findById(id)
+        DisputeTicket ticket = disputeDAO.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new IllegalArgumentException("Dispute ticket not found: " + id));
         String statusStr = body.get("status");
         if (statusStr != null) {

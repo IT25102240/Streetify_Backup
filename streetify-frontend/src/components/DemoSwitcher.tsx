@@ -246,10 +246,7 @@ export default function DemoSwitcher() {
                 >⚡</span>
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    Quick Test Accounts & Viva Demo Suite
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                      TAB ISOLATED
-                    </span>
+                    Quick Test Accounts
                   </h3>
                   <p className="text-[11px]" style={{ color: "#7a95b0" }}>
                     Each tab retains its own isolated JWT persona without session overwriting
@@ -265,22 +262,8 @@ export default function DemoSwitcher() {
               </button>
             </div>
 
-            {/* ── Viva Demonstration 2-Tab Fast Launcher ── */}
+            {/* ── 2-Tab Fast Launcher ── */}
             <div className="mb-4 p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950/60 to-blue-950/60 border border-emerald-500/30">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">🎓</span>
-                  <span className="text-xs font-black uppercase tracking-wider text-emerald-300">
-                    Lecturer Panel Viva Demonstration (Side-by-Side)
-                  </span>
-                </div>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                  REAL-TIME SYNC
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-300 mb-3 leading-relaxed">
-                Click below to launch <strong>Tab 1 (Passenger)</strong> and <strong>Tab 2 (Driver)</strong> simultaneously. Actions taken on one tab sync in under 5ms to the other tab.
-              </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <button
                   type="button"

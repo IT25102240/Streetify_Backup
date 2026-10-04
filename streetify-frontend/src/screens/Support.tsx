@@ -196,15 +196,13 @@ export default function ScreenSupport() {
   });
 
   return (
-    <div className="min-h-screen  flex flex-col relative z-0" >
-      <div className="absolute inset-0 -z-10 bg-[url('/hero-bg.jpg')] bg-cover bg-center opacity-30" />
-      <div className="absolute inset-0 -z-10 bg-slate-950/70 backdrop-blur-[40px]" />
+    <div className="h-full flex flex-col relative z-0" >
       {toast && (
         <Toast message={toast.msg} type={toast.type} visible={!!toast} />
       )}
 
       {/* Header */}
-      <header className="bg-[rgba(6,14,30,0.6)] backdrop-blur-xl border-b border-eco/20 px-6 py-4 flex items-center justify-between shadow-sm flex-none z-10 relative">
+      <header className="bg-slate-900 border-b border-eco/10 px-6 py-4 flex items-center justify-between shadow-sm flex-none z-10 relative">
         <div>
           <h1 className="font-extrabold text-white text-lg">Customer Support Portal</h1>
           <p className="text-xs text-slate-400 font-mono mt-0.5">
@@ -228,6 +226,33 @@ export default function ScreenSupport() {
             <p className="text-xs font-semibold mt-0.5 opacity-80">{s.label}</p>
           </div>
         ))}
+      </div>
+
+      {/* ── Key Analytics Snapshot ── */}
+      <div className="px-6 pb-4 flex-none">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-[rgba(15,36,64,0.4)] border border-slate-700/50 rounded-xl p-4 flex items-center justify-between shadow-sm backdrop-blur-md">
+            <div>
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Avg Resolution Time</p>
+              <p className="text-2xl font-black text-white mt-1">2.4 <span className="text-sm font-normal text-slate-400">hours</span></p>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center text-blue-400">⏱️</div>
+          </div>
+          <div className="bg-[rgba(15,36,64,0.4)] border border-slate-700/50 rounded-xl p-4 flex items-center justify-between shadow-sm backdrop-blur-md">
+            <div>
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">First Contact Resolution</p>
+              <p className="text-2xl font-black text-white mt-1">89.2%</p>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center text-emerald-400">⚡</div>
+          </div>
+          <div className="bg-[rgba(15,36,64,0.4)] border border-slate-700/50 rounded-xl p-4 flex items-center justify-between shadow-sm backdrop-blur-md">
+            <div>
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">CSAT Score</p>
+              <p className="text-2xl font-black text-white mt-1">4.7 <span className="text-yellow-500 text-lg">★</span></p>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-400">📈</div>
+          </div>
+        </div>
       </div>
 
       {/* Main content */}

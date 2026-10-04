@@ -368,6 +368,31 @@ const SEED_BOOKINGS_FALLBACK: BookingTrip[] = [
         </div>
       </Card>
 
+      {/* ── Key Analytics Snapshot ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex items-center justify-between shadow-sm">
+          <div>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Avg Trip Distance</p>
+            <p className="text-2xl font-black text-white mt-1">{summary?.avgDistanceKm || 0} <span className="text-sm font-normal text-slate-400">km</span></p>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-blue-400">📏</div>
+        </div>
+        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex items-center justify-between shadow-sm">
+          <div>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Avg Fare / Trip</p>
+            <p className="text-2xl font-black text-white mt-1">LKR {summary?.avgFare || 0}</p>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-amber-400">💰</div>
+        </div>
+        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex items-center justify-between shadow-sm">
+          <div>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Completion Rate</p>
+            <p className="text-2xl font-black text-emerald-400 mt-1">{Math.floor(((summary?.completedTrips || 0) / Math.max(summary?.totalBookings || 1, 1)) * 100)}%</p>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-emerald-400/50">✓</div>
+        </div>
+      </div>
+
       {/* ── Section 2.3: Trip Summary Breakdown by Ride Type (SQL Query 2.3) ── */}
       <Card className="p-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-4 border-b border-slate-800 gap-2">

@@ -233,14 +233,39 @@ export default function DahamPaymentDashboard() {
       <Card className="p-6 mt-6 mb-8 border border-slate-700/50 bg-slate-900/50">
         <p className="font-bold text-slate-200 mb-4 text-sm uppercase tracking-wider">Revenue Split Breakdown</p>
         <div className="w-full h-8 flex rounded-xl overflow-hidden shadow-inner bg-slate-800">
-          <div style={{width: `15%`}} className="bg-emerald-500 h-full transition-all duration-1000 ease-out flex items-center justify-center text-[10px] font-black text-slate-900">15%</div>
-          <div style={{width: `85%`}} className="bg-purple-500 h-full transition-all duration-1000 ease-out flex items-center justify-center text-[10px] font-black text-white">85%</div>
+          <div style={{width: payments.length > 0 && !loading ? `15%` : `0%`}} className="bg-emerald-500 h-full transition-all duration-1000 ease-out flex items-center justify-center text-[10px] font-black text-slate-900">{payments.length > 0 && !loading ? '15%' : ''}</div>
+          <div style={{width: payments.length > 0 && !loading ? `85%` : `0%`}} className="bg-purple-500 h-full transition-all duration-1000 ease-out flex items-center justify-center text-[10px] font-black text-white">{payments.length > 0 && !loading ? '85%' : ''}</div>
         </div>
         <div className="flex gap-6 mt-4 text-xs font-semibold">
           <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500"></div><span className="text-slate-300">Streetify Profit (LKR {summary.totalCommission.toLocaleString()})</span></div>
           <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-500"></div><span className="text-slate-300">Driver Payout (LKR {summary.totalDriverNet.toLocaleString()})</span></div>
         </div>
       </Card>
+
+      {/* ── Key Analytics Snapshot ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex items-center justify-between shadow-sm">
+          <div>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Avg Transaction Value</p>
+            <p className="text-2xl font-black text-white mt-1">LKR {summary.avgFare || 0}</p>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-blue-400">💳</div>
+        </div>
+        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex items-center justify-between shadow-sm">
+          <div>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Digital Payments Ratio</p>
+            <p className="text-2xl font-black text-white mt-1">{(summary.byMethod.find(m => m.paymentMethod !== 'CASH')?.percentage || 0).toFixed(1)}%</p>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-emerald-400">📱</div>
+        </div>
+        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 flex items-center justify-between shadow-sm">
+          <div>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Settlement Health</p>
+            <p className="text-2xl font-black text-emerald-400 mt-1">{summary.successRate}%</p>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-emerald-400/50">✓</div>
+        </div>
+      </div>
 
       {/* ── 4. FINANCIAL AUDIT LEDGER TABLE ── */}
       <Card>

@@ -154,10 +154,10 @@ public class DriverController {
                         if (!java.nio.file.Files.exists(path)) {
                             return ResponseEntity.notFound().<org.springframework.core.io.Resource>build();
                         }
-                        org.springframework.core.io.Resource resource = new org.springframework.core.io.UrlResource(path.toUri());
+                        org.springframework.core.io.Resource resource = new org.springframework.core.io.UrlResource(java.util.Objects.requireNonNull(path.toUri()));
                         String contentType = doc.getContentType() != null ? doc.getContentType() : "application/octet-stream";
                         return ResponseEntity.ok()
-                                .contentType(MediaType.parseMediaType(contentType))
+                                .contentType(MediaType.parseMediaType(java.util.Objects.requireNonNull(contentType)))
                                 .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + doc.getOriginalFilename() + "\"")
                                 .body(resource);
                     } catch (Exception e) {

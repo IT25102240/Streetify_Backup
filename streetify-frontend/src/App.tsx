@@ -31,7 +31,6 @@ const NAV: { key: Screen; label: string; icon: string; group: "passenger" | "dri
   { key: "driver",  label: "Driver Dashboard",  icon: "🚗", group: "driver"    },
   { key: "admin",   label: "Admin Panel",       icon: "🛡️", group: "admin"    },
   { key: "kiosk",   label: "Branch Desk",       icon: "🏢", group: "admin"    },
-  { key: "support", label: "Support Portal",    icon: "🎧", group: "support"   },
 ];
 
 const GROUP_LABEL: Record<string, string> = {

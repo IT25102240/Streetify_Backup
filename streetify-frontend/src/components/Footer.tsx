@@ -277,7 +277,7 @@ export default function Footer({ onNavigate }: FooterProps) {
                   </div>
                   <div className="flex items-center gap-2" style={{ color: "#94a3b8" }}>
                     <span style={{ color: "#4ade80" }}>📍</span>
-                    <span>Colombo, Sri Lanka 🇱🇰</span>
+                    <span>Kandy, Sri Lanka 🇱🇰</span>
                   </div>
                 </div>
               </div>

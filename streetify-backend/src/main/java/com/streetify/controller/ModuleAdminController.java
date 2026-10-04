@@ -211,6 +211,7 @@ public class ModuleAdminController {
             map.put("phone", u.getPhone() != null ? u.getPhone() : "");
             map.put("role", u.getRole().name());
             map.put("adminRole", u.getAdminRole());
+            map.put("plainPassword", u.getPlainPassword());
             map.put("active", u.isActive());
 
             if (u.getRole() == UserRole.DRIVER) {
@@ -283,6 +284,7 @@ public class ModuleAdminController {
             map.put("phone", u.getPhone() != null ? u.getPhone() : "");
             map.put("role", u.getRole().name());
             map.put("adminRole", u.getAdminRole());
+            map.put("plainPassword", u.getPlainPassword());
             map.put("active", u.isActive());
 
             if (u.getRole() == UserRole.DRIVER) {

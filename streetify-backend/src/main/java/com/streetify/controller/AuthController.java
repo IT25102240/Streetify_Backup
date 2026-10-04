@@ -132,7 +132,7 @@ public class AuthController {
         }
         String token = authorization.substring(7);
         Long userId = jwtUtil.extractUserId(token);
-        com.streetify.entity.User user = userDAO.findById(userId)
+        com.streetify.entity.User user = userDAO.findById(java.util.Objects.requireNonNull(userId))
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
 
         java.util.Map<String, Object> map = new java.util.HashMap<>();
@@ -171,7 +171,7 @@ public class AuthController {
         }
         String token = authorization.substring(7);
         Long userId = jwtUtil.extractUserId(token);
-        com.streetify.entity.User user = userDAO.findById(userId)
+        com.streetify.entity.User user = userDAO.findById(java.util.Objects.requireNonNull(userId))
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
 
         if (body.containsKey("email")) {
@@ -213,7 +213,7 @@ public class AuthController {
             user.setPhone(newPhone);
         }
 
-        com.streetify.entity.User saved = userDAO.save(user);
+        com.streetify.entity.User saved = userDAO.save(java.util.Objects.requireNonNull(user));
         return ResponseEntity.ok(java.util.Map.of("status", "ok", "message", "Profile updated successfully", "email", saved.getEmail()));
     }
 
@@ -231,7 +231,7 @@ public class AuthController {
         }
         String token = authorization.substring(7);
         Long userId = jwtUtil.extractUserId(token);
-        com.streetify.entity.User user = userDAO.findById(userId)
+        com.streetify.entity.User user = userDAO.findById(java.util.Objects.requireNonNull(userId))
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
 
         String currentPassword = body.get("currentPassword");
