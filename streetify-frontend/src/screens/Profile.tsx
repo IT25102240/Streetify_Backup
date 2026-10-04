@@ -15,6 +15,7 @@ import { Btn, Card, Field, Toast, PwStrength, HR } from "../ui";
 import { apiClient } from "../api/apiClient";
 import { NotificationService } from "../services/notificationService";
 import { tabStorage } from "../utils/storage";
+import { isValidDriverPhone, DRIVER_PHONE_ERROR_MSG, DRIVER_PHONE_HELP_TEXT } from "../utils/validators";
 
 interface UserProfile {
   id: number;
@@ -123,6 +124,12 @@ export default function ScreenProfile() {
   }, []);
 
   const saveProfile = async () => {
+    if (role === "driver" || profile?.role?.toLowerCase() === "driver") {
+      if (!isValidDriverPhone(phone)) {
+        showToast(DRIVER_PHONE_ERROR_MSG, "error");
+        return;
+      }
+    }
     setSaving(true);
     try {
       await apiClient("/auth/me", {
@@ -324,10 +331,11 @@ export default function ScreenProfile() {
                   type="email"
                 />
                 <Field
-                  label="Phone Number"
+                  label={role === "driver" || profile?.role?.toLowerCase() === "driver" ? "Phone Number (Driver Format)" : "Phone Number"}
                   value={phone}
                   onChange={e => setPhone(e.target.value)}
-                  placeholder="+94 71 234 5678"
+                  placeholder={role === "driver" || profile?.role?.toLowerCase() === "driver" ? "+94771234567 or 0771234567" : "+94 71 234 5678"}
+                  hint={role === "driver" || profile?.role?.toLowerCase() === "driver" ? DRIVER_PHONE_HELP_TEXT : undefined}
                   type="tel"
                 />
                 <Field

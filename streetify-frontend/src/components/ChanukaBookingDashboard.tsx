@@ -304,149 +304,67 @@ const SEED_BOOKINGS_FALLBACK: BookingTrip[] = [
       {/* ── MODULE SPECIFIC EXPORT BANNER (UC21) ── */}
       <ModuleExportCard reportKey="bookings" variant="banner" />
 
-      {/* ── 6 Core Platform KPI Cards ── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
-        {/* Total Bookings */}
-        <div className="bg-slate-900/90 border border-slate-800 hover:border-teal-500/40 rounded-2xl p-4 transition-all shadow-md">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider">Total Bookings</span>
-            <span className="text-lg">🗺️</span>
+      {/* ── SIMPLIFIED BOOKING SUMMARY DASHBOARD ── */}
+      <div className="flex flex-col gap-2 border-b border-slate-800 pb-4 mt-6">
+        <h2 className="font-extrabold text-slate-100 text-2xl tracking-tight">Booking Platform Summary</h2>
+        <p className="text-slate-400 text-sm">Real-time overview of platform ride requests, live trips, and total completions.</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+        {/* Total Bookings Card */}
+        <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-3xl p-6 text-white shadow-xl shadow-blue-900/20 hover:-translate-y-1 transition-transform cursor-pointer border border-blue-500/30">
+          <div className="flex justify-between items-start mb-4">
+            <p className="text-sm font-bold text-blue-200 uppercase tracking-wider">Total Bookings</p>
+            <div className="p-2 bg-white/10 rounded-xl">🗺️</div>
           </div>
-          <p className="text-2xl font-extrabold text-white font-mono">
-            {summary ? summary.totalBookings.toLocaleString() : "—"}
-          </p>
-          <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
-            <span>Query 2.1 total requests</span>
-          </p>
+          <p className="text-5xl font-black font-mono tracking-tighter">{summary?.totalBookings || 0}</p>
+          <p className="text-xs text-blue-200 mt-2 font-medium">All recorded trips</p>
         </div>
 
-        {/* Active Ongoing Trips */}
-        <div className="bg-gradient-to-br from-teal-950/60 to-slate-900 border border-teal-500/40 rounded-2xl p-4 transition-all shadow-md relative overflow-hidden">
-          <div className="absolute top-2 right-2 flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-teal-400 animate-ping" />
-            <span className="w-2 h-2 rounded-full bg-teal-400" />
+        {/* Active Ongoing Trips Card */}
+        <div className="bg-gradient-to-br from-cyan-500 to-cyan-700 rounded-3xl p-6 text-white shadow-xl shadow-cyan-900/20 hover:-translate-y-1 transition-transform cursor-pointer border border-cyan-400/30 relative overflow-hidden">
+          {(summary?.activeTrips || 0) > 0 && <div className="absolute top-0 right-0 w-16 h-16 bg-cyan-400 blur-2xl opacity-40 rounded-full animate-pulse"></div>}
+          <div className="flex justify-between items-start mb-4 relative z-10">
+            <p className="text-sm font-bold text-cyan-100 uppercase tracking-wider">Active Ongoing</p>
+            <div className="p-2 bg-white/10 rounded-xl">⚡</div>
           </div>
-          <div className="flex items-center justify-between text-teal-300 mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider">Active Ongoing</span>
-            <span className="text-lg">⚡</span>
-          </div>
-          <p className="text-2xl font-extrabold text-teal-300 font-mono">
-            {summary ? summary.activeTrips.toLocaleString() : "—"}
-          </p>
-          <p className="text-[11px] text-teal-400/80 mt-1">
-            Query 2.2 live tracking
-          </p>
+          <p className="text-5xl font-black font-mono tracking-tighter relative z-10">{summary?.activeTrips || 0}</p>
+          <p className="text-xs text-cyan-100 mt-2 font-medium relative z-10">Live tracking in progress</p>
         </div>
 
-        {/* Completed Trips */}
-        <div className="bg-slate-900/90 border border-slate-800 hover:border-emerald-500/40 rounded-2xl p-4 transition-all shadow-md">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider">Completed</span>
-            <span className="text-lg">✅</span>
+        {/* Completed Trips Card */}
+        <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-3xl p-6 text-white shadow-xl shadow-emerald-900/20 hover:-translate-y-1 transition-transform cursor-pointer border border-emerald-400/30">
+          <div className="flex justify-between items-start mb-4">
+            <p className="text-sm font-bold text-emerald-100 uppercase tracking-wider">Completed</p>
+            <div className="p-2 bg-white/10 rounded-xl">✅</div>
           </div>
-          <p className="text-2xl font-extrabold text-emerald-400 font-mono">
-            {summary ? summary.completedTrips.toLocaleString() : "—"}
-          </p>
-          <p className="text-[11px] text-emerald-400/80 mt-1 font-mono">
-            {completionRate}% completion rate
-          </p>
+          <p className="text-5xl font-black font-mono tracking-tighter">{summary?.completedTrips || 0}</p>
+          <p className="text-xs text-emerald-100 mt-2 font-medium">Successfully delivered</p>
         </div>
 
-        {/* Cancelled Bookings */}
-        <div className="bg-slate-900/90 border border-slate-800 hover:border-red-500/40 rounded-2xl p-4 transition-all shadow-md">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider">Cancelled</span>
-            <span className="text-lg">❌</span>
+        {/* Cancelled Bookings Card */}
+        <div className="bg-gradient-to-br from-rose-500 to-rose-700 rounded-3xl p-6 text-white shadow-xl shadow-rose-900/20 hover:-translate-y-1 transition-transform cursor-pointer border border-rose-400/30">
+          <div className="flex justify-between items-start mb-4">
+            <p className="text-sm font-bold text-rose-100 uppercase tracking-wider">Cancelled</p>
+            <div className="p-2 bg-white/10 rounded-xl">❌</div>
           </div>
-          <p className="text-2xl font-extrabold text-red-400 font-mono">
-            {summary ? summary.cancelledTrips.toLocaleString() : "—"}
-          </p>
-          <p className="text-[11px] text-red-400/80 mt-1 font-mono">
-            {cancellationRate}% drop rate
-          </p>
-        </div>
-
-        {/* Total Platform Revenue */}
-        <div className="bg-slate-900/90 border border-slate-800 hover:border-amber-500/40 rounded-2xl p-4 transition-all shadow-md">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider">Gross Revenue</span>
-            <span className="text-lg">💰</span>
-          </div>
-          <p className="text-2xl font-extrabold text-amber-400 font-mono">
-            {summary ? `LKR ${(summary.totalRevenue).toLocaleString()}` : "—"}
-          </p>
-          <p className="text-[11px] text-slate-400 mt-1 font-mono">
-            Avg: LKR {summary ? summary.avgFare.toLocaleString() : "—"}/trip
-          </p>
-        </div>
-
-        {/* Average Distance */}
-        <div className="bg-slate-900/90 border border-slate-800 hover:border-blue-500/40 rounded-2xl p-4 transition-all shadow-md">
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-semibold uppercase tracking-wider">Avg Distance</span>
-            <span className="text-lg">📏</span>
-          </div>
-          <p className="text-2xl font-extrabold text-blue-400 font-mono">
-            {summary ? `${summary.avgDistanceKm} km` : "—"}
-          </p>
-          <p className="text-[11px] text-slate-400 mt-1 font-mono">
-            Platform trip mean
-          </p>
+          <p className="text-5xl font-black font-mono tracking-tighter">{summary?.cancelledTrips || 0}</p>
+          <p className="text-xs text-rose-100 mt-2 font-medium">Aborted/Void trips</p>
         </div>
       </div>
 
-      {/* ── Status Lifecycle Pipeline Distribution ── */}
-      <Card className="p-5">
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-          <div>
-            <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
-              <span>📋 Dispatch Lifecycle Status Pipeline</span>
-              <span className="text-[10px] font-mono text-teal-400 bg-teal-950/60 px-2 py-0.5 rounded border border-teal-500/30">
-                CLICK TO FILTER
-              </span>
-            </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Monitor real-time transition of bookings across platform lifecycle phases
-            </p>
-          </div>
-          {selectedStatusFilter !== "ALL" && (
-            <button
-              onClick={() => setSelectedStatusFilter("ALL")}
-              className="text-xs text-teal-400 hover:text-teal-300 font-bold underline"
-            >
-              Reset filter (Show all)
-            </button>
-          )}
+      {/* Visual Activity Bar */}
+      <Card className="p-6 mt-6 mb-8 border border-slate-700/50 bg-slate-900/50">
+        <p className="font-bold text-slate-200 mb-4 text-sm uppercase tracking-wider">Booking Status Distribution</p>
+        <div className="w-full h-8 flex rounded-xl overflow-hidden shadow-inner bg-slate-800">
+          <div style={{width: `${Math.max(((summary?.activeTrips || 0) / Math.max(summary?.totalBookings || 1, 1)) * 100, 0)}%`}} className="bg-cyan-500 h-full transition-all duration-1000 ease-out" title={`Active: ${summary?.activeTrips}`}></div>
+          <div style={{width: `${Math.max(((summary?.completedTrips || 0) / Math.max(summary?.totalBookings || 1, 1)) * 100, 0)}%`}} className="bg-emerald-500 h-full transition-all duration-1000 ease-out" title={`Completed: ${summary?.completedTrips}`}></div>
+          <div style={{width: `${Math.max(((summary?.cancelledTrips || 0) / Math.max(summary?.totalBookings || 1, 1)) * 100, 0)}%`}} className="bg-rose-500 h-full transition-all duration-1000 ease-out" title={`Cancelled: ${summary?.cancelledTrips}`}></div>
         </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
-          {[
-            { key: "REQUESTED", label: "Requested", icon: "🟡", desc: "Waiting driver match", cls: "from-amber-950/40 to-slate-900 border-amber-500/30 text-amber-300" },
-            { key: "ACCEPTED", label: "Accepted", icon: "🔵", desc: "Driver assigned", cls: "from-blue-950/40 to-slate-900 border-blue-500/30 text-blue-300" },
-            { key: "ARRIVED", label: "Arrived", icon: "🟣", desc: "Waiting at pickup", cls: "from-purple-950/40 to-slate-900 border-purple-500/30 text-purple-300" },
-            { key: "IN_PROGRESS", label: "In Progress", icon: "🟢", desc: "Trip on road", cls: "from-emerald-950/40 to-slate-900 border-emerald-500/30 text-emerald-300" },
-            { key: "COMPLETED", label: "Completed", icon: "🏁", desc: "Delivered & paid", cls: "from-slate-900 to-slate-950 border-slate-700 text-slate-300" },
-            { key: "CANCELLED", label: "Cancelled", icon: "🔴", desc: "Aborted / void", cls: "from-red-950/40 to-slate-900 border-red-500/30 text-red-300" },
-          ].map(phase => {
-            const count = summary?.byStatus[phase.key] || 0;
-            const isSelected = selectedStatusFilter === phase.key;
-            return (
-              <button
-                key={phase.key}
-                onClick={() => setSelectedStatusFilter(isSelected ? "ALL" : phase.key)}
-                className={`p-3 rounded-xl border bg-gradient-to-b text-left transition-all relative ${phase.cls} ${
-                  isSelected ? "ring-2 ring-teal-400 shadow-lg scale-102 bg-slate-900" : "hover:border-slate-600 hover:scale-101"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-base">{phase.icon}</span>
-                  <span className="text-lg font-mono font-extrabold">{count}</span>
-                </div>
-                <p className="text-xs font-bold leading-tight truncate">{phase.label}</p>
-                <p className="text-[10px] text-slate-400 truncate mt-0.5">{phase.desc}</p>
-              </button>
-            );
-          })}
+        <div className="flex gap-6 mt-4 text-xs font-semibold">
+          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-cyan-500"></div><span className="text-slate-300">Active</span></div>
+          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500"></div><span className="text-slate-300">Completed</span></div>
+          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-rose-500"></div><span className="text-slate-300">Cancelled</span></div>
         </div>
       </Card>
 

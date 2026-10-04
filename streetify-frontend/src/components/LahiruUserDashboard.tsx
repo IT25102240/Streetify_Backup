@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { apiClient } from "../api/apiClient";
 import { tabStorage } from "../utils/storage";
+import { isValidDriverPhone, DRIVER_PHONE_ERROR_MSG, DRIVER_PHONE_HELP_TEXT, isValidEmail, EMAIL_ERROR_MSG } from "../utils/validators";
 
 interface UserRecord {
   id: number;
@@ -70,11 +71,13 @@ export default function LahiruUserDashboard() {
 
   // Modals state
   const [editUser, setEditUser] = useState<UserRecord | null>(null);
+  const [editPassword, setEditPassword] = useState("");
   const [deleteConfirmUser, setDeleteConfirmUser] = useState<UserRecord | null>(null);
   const [upgradeDriverUser, setUpgradeDriverUser] = useState<UserRecord | null>(null);
   const [addModalType, setAddModalType] = useState<"PASSENGER" | "DRIVER" | null>(null);
 
   // Form states for driver upgrade
+  const [driverPhone, setDriverPhone] = useState("");
   const [driverNic, setDriverNic] = useState("");
   const [driverLicense, setDriverLicense] = useState("");
   const [driverLicenseExpiry, setDriverLicenseExpiry] = useState("2029-12-31");
@@ -186,21 +189,36 @@ export default function LahiruUserDashboard() {
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
-  // Save Edit (Name, Email, Phone)
+  // Save Edit (Name, Email, Phone, Password)
   const handleSaveEdit = async () => {
     if (!editUser) return;
+    if (!isValidEmail(editUser.email)) {
+      showToast(EMAIL_ERROR_MSG, "error");
+      return;
+    }
+    if (editUser.role === 'DRIVER') {
+      if (!isValidDriverPhone(editUser.phone)) {
+        showToast(DRIVER_PHONE_ERROR_MSG, "error");
+        return;
+      }
+    }
     try {
+      const payload: any = {
+        firstName: editUser.firstName,
+        lastName: editUser.lastName,
+        email: editUser.email,
+        phone: editUser.phone
+      };
+      if (editPassword && editPassword.trim()) {
+        payload.password = editPassword.trim();
+      }
       await apiClient(`/module-admin/users/${editUser.id}`, {
         method: "PUT",
-        body: JSON.stringify({
-          firstName: editUser.firstName,
-          lastName: editUser.lastName,
-          email: editUser.email,
-          phone: editUser.phone
-        })
+        body: JSON.stringify(payload)
       });
       showToast(`User ${editUser.email} updated successfully! ✓`);
       setEditUser(null);
+      setEditPassword("");
       loadData();
     } catch (e: any) {
       showToast(e.message || "Failed to update user profile", "error");
@@ -239,6 +257,7 @@ export default function LahiruUserDashboard() {
   // Open Upgrade Modal
   const openUpgradeModal = (u: UserRecord) => {
     setUpgradeDriverUser(u);
+    setDriverPhone(u.phone || "");
     setDriverNic(u.nic || "1994" + (10000000 + u.id * 1234));
     setDriverLicense(u.licenseNumber || "B" + (1000000 + u.id * 876));
     setVehicleType("CAR");
@@ -252,9 +271,14 @@ export default function LahiruUserDashboard() {
   // Confirm Passenger -> Driver Upgrade
   const handleConfirmUpgrade = async () => {
     if (!upgradeDriverUser) return;
+    if (!isValidDriverPhone(driverPhone)) {
+      showToast(DRIVER_PHONE_ERROR_MSG, "error");
+      return;
+    }
     try {
       const payload = {
         targetRole: "DRIVER",
+        phone: driverPhone,
         nic: driverNic,
         licenseNumber: driverLicense,
         licenseExpiry: driverLicenseExpiry,
@@ -297,6 +321,16 @@ export default function LahiruUserDashboard() {
     if (!newEmail.trim()) {
       showToast("Email address is required!", "error");
       return;
+    }
+    if (!isValidEmail(newEmail)) {
+      showToast(EMAIL_ERROR_MSG, "error");
+      return;
+    }
+    if (addModalType === "DRIVER") {
+      if (!isValidDriverPhone(newPhone)) {
+        showToast(DRIVER_PHONE_ERROR_MSG, "error");
+        return;
+      }
     }
     try {
       const payload: any = {
@@ -447,277 +481,66 @@ export default function LahiruUserDashboard() {
         </div>
       </div>
 
-      {/* ── 2. CORE KPI METRICS (4 Clean Cards) ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Total Users */}
-        <div className="bg-slate-900/90 border border-slate-800 hover:border-blue-500/40 rounded-2xl p-4 transition-all shadow-md">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-2">
-            <span className="flex items-center gap-1.5">
-              <span>👥</span> Total Registered Accounts
-            </span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-500/15 text-blue-400 border border-blue-500/30">
-              {computedSummary.activeRate}% Active
-            </span>
-          </div>
-          <div className="text-3xl font-black text-white tracking-tight mb-2">
-            {computedSummary.totalUsers}
-          </div>
-          {/* Visual Mini Progress Bar */}
-          <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mb-2">
-            <div className="bg-gradient-to-r from-blue-500 to-cyan-400 h-full rounded-full" style={{ width: `${computedSummary.activeRate}%` }} />
-          </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
-            <span className="text-emerald-400 font-semibold">{computedSummary.activeUsers} Active</span>
-            <span className="text-slate-500">{computedSummary.inactiveUsers} Inactive</span>
-          </div>
-        </div>
-
-        {/* Card 2: Passengers */}
-        <div className="bg-slate-900/90 border border-slate-800 hover:border-cyan-500/40 rounded-2xl p-4 transition-all shadow-md">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-2">
-            <span className="flex items-center gap-1.5">
-              <span>🧳</span> Passengers (Customers)
-            </span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
-              {computedSummary.passengerPct}% Directory
-            </span>
-          </div>
-          <div className="text-3xl font-black text-white tracking-tight mb-2">
-            {computedSummary.totalPassengers}
-          </div>
-          <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mb-2">
-            <div className="bg-gradient-to-r from-cyan-500 to-teal-400 h-full rounded-full" style={{ width: `${computedSummary.passengerPct}%` }} />
-          </div>
-          <div className="text-[11px] text-slate-400">
-            Registered riders with booking & wallet privileges
-          </div>
-        </div>
-
-        {/* Card 3: Commercial Drivers */}
-        <div className="bg-slate-900/90 border border-slate-800 hover:border-emerald-500/40 rounded-2xl p-4 transition-all shadow-md">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-2">
-            <span className="flex items-center gap-1.5">
-              <span>🚗</span> Fleet Drivers (Verified)
-            </span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-              100% Approved
-            </span>
-          </div>
-          <div className="text-3xl font-black text-white tracking-tight mb-2">
-            {computedSummary.totalDrivers}
-          </div>
-          <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mb-2">
-            <div className="bg-gradient-to-r from-emerald-500 to-green-400 h-full rounded-full" style={{ width: "100%" }} />
-          </div>
-          <div className="text-[11px] text-slate-400">
-            {computedSummary.verifiedDrivers} Drivers with license, vehicle & insurance approved
-          </div>
-        </div>
-
-        {/* Card 4: Staff & RBAC Admins */}
-        <div className="bg-slate-900/90 border border-slate-800 hover:border-purple-500/40 rounded-2xl p-4 transition-all shadow-md">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-2">
-            <span className="flex items-center gap-1.5">
-              <span>🛡️</span> Staff & RBAC Admins
-            </span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-500/15 text-purple-400 border border-purple-500/30">
-              6 Modules Scoped
-            </span>
-          </div>
-          <div className="text-3xl font-black text-white tracking-tight mb-2">
-            {computedSummary.totalAdmins}
-          </div>
-          <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mb-2">
-            <div className="bg-gradient-to-r from-purple-500 to-indigo-400 h-full rounded-full" style={{ width: `${computedSummary.adminPct}%` }} />
-          </div>
-          <div className="text-[11px] text-slate-400">
-            Super Admin & 5 specialized module owners
-          </div>
-        </div>
+      {/* ── 2. SIMPLIFIED USER PLATFORM SUMMARY DASHBOARD ── */}
+      <div className="flex flex-col gap-2 border-b border-slate-800 pb-4 mt-6">
+        <h2 className="font-extrabold text-slate-100 text-2xl tracking-tight">User Platform Summary</h2>
+        <p className="text-slate-400 text-sm">Real-time overview of user registrations, roles, and platform activity.</p>
       </div>
 
-      {/* ── 3. CORE VISUAL ANALYSIS SECTION (2 Focused Cards) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Visual Card 1: Role Distribution & Fleet Breakdown */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
-                <span>📊</span> User Role Composition
-              </h3>
-              <p className="text-slate-400 text-xs mt-0.5">
-                Distribution across Passengers, Drivers, and Administrative Staff.
-              </p>
-            </div>
-            <span className="text-[11px] font-mono text-emerald-400 font-bold bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
-              N = {computedSummary.totalUsers} Accounts
-            </span>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+        {/* Total Users Card */}
+        <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-3xl p-6 text-white shadow-xl shadow-blue-900/20 hover:-translate-y-1 transition-transform cursor-pointer border border-blue-500/30">
+          <div className="flex justify-between items-start mb-4">
+            <p className="text-sm font-bold text-blue-200 uppercase tracking-wider">Total Users</p>
+            <div className="p-2 bg-white/10 rounded-xl">👥</div>
           </div>
-
-          {/* Multi-segment stacked visual bar */}
-          <div className="space-y-1.5">
-            <div className="w-full h-3.5 bg-slate-800 rounded-full overflow-hidden flex shadow-inner">
-              <div
-                style={{ width: `${computedSummary.passengerPct}%` }}
-                className="bg-gradient-to-r from-cyan-600 to-blue-500 transition-all"
-                title={`Passengers: ${computedSummary.totalPassengers} (${computedSummary.passengerPct}%)`}
-              />
-              <div
-                style={{ width: `${computedSummary.driverPct}%` }}
-                className="bg-gradient-to-r from-emerald-600 to-teal-400 transition-all"
-                title={`Drivers: ${computedSummary.totalDrivers} (${computedSummary.driverPct}%)`}
-              />
-              <div
-                style={{ width: `${computedSummary.adminPct}%` }}
-                className="bg-gradient-to-r from-purple-600 to-indigo-500 transition-all"
-                title={`Admins: ${computedSummary.totalAdmins} (${computedSummary.adminPct}%)`}
-              />
-            </div>
-
-            {/* Interactive Filter Pills */}
-            <div className="flex items-center gap-2 pt-1 flex-wrap">
-              <button
-                onClick={() => setRoleFilter("ALL")}
-                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  roleFilter === "ALL"
-                    ? "bg-slate-700 text-white border border-slate-500 shadow-sm"
-                    : "bg-slate-800/60 text-slate-400 hover:text-white border border-slate-700/50"
-                }`}
-              >
-                All ({computedSummary.totalUsers})
-              </button>
-              <button
-                onClick={() => setRoleFilter("PASSENGER")}
-                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  roleFilter === "PASSENGER"
-                    ? "bg-blue-600 text-white border border-blue-400 shadow-md shadow-blue-600/30"
-                    : "bg-blue-950/40 text-blue-300 hover:bg-blue-900/40 border border-blue-800/40"
-                }`}
-              >
-                <span className="w-2 h-2 rounded-full bg-blue-400" />
-                Passengers ({computedSummary.totalPassengers} · {computedSummary.passengerPct}%)
-              </button>
-              <button
-                onClick={() => setRoleFilter("DRIVER")}
-                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  roleFilter === "DRIVER"
-                    ? "bg-emerald-600 text-white border border-emerald-400 shadow-md shadow-emerald-600/30"
-                    : "bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/40 border border-emerald-800/40"
-                }`}
-              >
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                Drivers ({computedSummary.totalDrivers} · {computedSummary.driverPct}%)
-              </button>
-              <button
-                onClick={() => setRoleFilter("ADMIN")}
-                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  roleFilter === "ADMIN"
-                    ? "bg-purple-600 text-white border border-purple-400 shadow-md shadow-purple-600/30"
-                    : "bg-purple-950/40 text-purple-300 hover:bg-purple-900/40 border border-purple-800/40"
-                }`}
-              >
-                <span className="w-2 h-2 rounded-full bg-purple-400" />
-                Admins ({computedSummary.totalAdmins} · {computedSummary.adminPct}%)
-              </button>
-            </div>
-          </div>
-
-          {/* Vehicle Fleet Composition Pills */}
-          <div className="pt-2 border-t border-slate-800/80">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
-              🚗 Commercial Driver Fleet Types
-            </span>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-2.5 text-center">
-                <span className="text-base block mb-0.5">🚗</span>
-                <span className="text-white font-extrabold text-sm block">{computedSummary.fleetCounts.CAR || 2}</span>
-                <span className="text-[10px] text-slate-400 font-medium">Sedan / Car</span>
-              </div>
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-2.5 text-center">
-                <span className="text-base block mb-0.5">🛺</span>
-                <span className="text-white font-extrabold text-sm block">{computedSummary.fleetCounts.TUK || 1}</span>
-                <span className="text-[10px] text-slate-400 font-medium">Tuk Tuk</span>
-              </div>
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-2.5 text-center">
-                <span className="text-base block mb-0.5">🚐</span>
-                <span className="text-white font-extrabold text-sm block">{computedSummary.fleetCounts.VAN || 1}</span>
-                <span className="text-[10px] text-slate-400 font-medium">Van / XL</span>
-              </div>
-              <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-2.5 text-center">
-                <span className="text-base block mb-0.5">🏍️</span>
-                <span className="text-white font-extrabold text-sm block">{computedSummary.fleetCounts.MOTO || 1}</span>
-                <span className="text-[10px] text-slate-400 font-medium">Moto / Bike</span>
-              </div>
-            </div>
-          </div>
+          <p className="text-5xl font-black font-mono tracking-tighter">{computedSummary.totalUsers}</p>
+          <p className="text-xs text-blue-200 mt-2 font-medium">Registered on Streetify</p>
         </div>
 
-        {/* Visual Card 2: Security & IAM Verification Health */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
-                <span>🔒</span> Security & Verification Health
-              </h3>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                100% Compliant
-              </span>
-            </div>
-            <p className="text-slate-400 text-xs">
-              Cryptographic integrity, authentication tokens, and document approvals.
-            </p>
-
-            <div className="space-y-3 mt-4">
-              <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-3 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-7 h-7 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-xs font-bold">
-                    ✓
-                  </span>
-                  <div>
-                    <span className="text-xs font-bold text-white block">Credential Storage Encryption</span>
-                    <span className="text-[10px] text-slate-400">BCrypt 12-round salted hashing on all database accounts</span>
-                  </div>
-                </div>
-                <span className="text-[10px] font-mono text-emerald-400 font-bold">ACTIVE</span>
-              </div>
-
-              <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-3 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-7 h-7 rounded-lg bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 flex items-center justify-center text-xs font-bold">
-                    🔑
-                  </span>
-                  <div>
-                    <span className="text-xs font-bold text-white block">JWT Token IAM Authentication</span>
-                    <span className="text-[10px] text-slate-400">15-minute access token + 7-day refresh token rotation</span>
-                  </div>
-                </div>
-                <span className="text-[10px] font-mono text-cyan-400 font-bold">VERIFIED</span>
-              </div>
-
-              <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-3 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-7 h-7 rounded-lg bg-purple-500/15 text-purple-400 border border-purple-500/30 flex items-center justify-center text-xs font-bold">
-                    🛡️
-                  </span>
-                  <div>
-                    <span className="text-xs font-bold text-white block">Role-Based Access Control (RBAC)</span>
-                    <span className="text-[10px] text-slate-400">Strict User Admin isolation: Role transitions restricted to Lahiru & Vidura</span>
-                  </div>
-                </div>
-                <span className="text-[10px] font-mono text-purple-400 font-bold">ENFORCED</span>
-              </div>
-            </div>
+        {/* Passengers Card */}
+        <div className="bg-gradient-to-br from-cyan-500 to-cyan-700 rounded-3xl p-6 text-white shadow-xl shadow-cyan-900/20 hover:-translate-y-1 transition-transform cursor-pointer border border-cyan-400/30">
+          <div className="flex justify-between items-start mb-4">
+            <p className="text-sm font-bold text-cyan-100 uppercase tracking-wider">Passengers</p>
+            <div className="p-2 bg-white/10 rounded-xl">🧳</div>
           </div>
+          <p className="text-5xl font-black font-mono tracking-tighter">{computedSummary.totalPassengers}</p>
+          <p className="text-xs text-cyan-100 mt-2 font-medium">Active customers</p>
+        </div>
 
-          {/* Academic Callout Note for Lecturer Panel */}
-          <div className="bg-emerald-950/30 border border-emerald-500/30 rounded-xl p-3 mt-3">
-            <div className="flex items-center gap-2 text-emerald-300 font-bold text-xs mb-1">
-              <span>💡</span> Lecturer Presentation Highlight
-            </div>
-            <p className="text-[11px] text-slate-300 leading-relaxed">
-              Demonstrates <strong>Single Table Inheritance (STI)</strong> pattern in Spring Data JPA: dynamic polymorphism allows seamless role upgrades (Passenger $\rightarrow$ Driver) requiring Vehicle & Document verification, with immediate passenger rollback.
-            </p>
+        {/* Drivers Card */}
+        <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-3xl p-6 text-white shadow-xl shadow-emerald-900/20 hover:-translate-y-1 transition-transform cursor-pointer border border-emerald-400/30">
+          <div className="flex justify-between items-start mb-4">
+            <p className="text-sm font-bold text-emerald-100 uppercase tracking-wider">Drivers</p>
+            <div className="p-2 bg-white/10 rounded-xl">🚗</div>
           </div>
+          <p className="text-5xl font-black font-mono tracking-tighter">{computedSummary.totalDrivers}</p>
+          <p className="text-xs text-emerald-100 mt-2 font-medium">Verified fleet drivers</p>
+        </div>
+
+        {/* Admins Card */}
+        <div className="bg-gradient-to-br from-purple-500 to-purple-700 rounded-3xl p-6 text-white shadow-xl shadow-purple-900/20 hover:-translate-y-1 transition-transform cursor-pointer border border-purple-400/30">
+          <div className="flex justify-between items-start mb-4">
+            <p className="text-sm font-bold text-purple-100 uppercase tracking-wider">Admins</p>
+            <div className="p-2 bg-white/10 rounded-xl">🛡️</div>
+          </div>
+          <p className="text-5xl font-black font-mono tracking-tighter">{computedSummary.totalAdmins}</p>
+          <p className="text-xs text-purple-100 mt-2 font-medium">Staff & RBAC Admins</p>
+        </div>
+      </div>
+      
+      {/* Visual Activity Bar */}
+      <div className="p-6 mt-6 mb-8 border border-slate-700/50 bg-slate-900/50 rounded-xl">
+        <p className="font-bold text-slate-200 mb-4 text-sm uppercase tracking-wider">User Role Distribution</p>
+        <div className="w-full h-8 flex rounded-xl overflow-hidden shadow-inner bg-slate-800">
+          <div style={{width: `${computedSummary.passengerPct}%`}} className="bg-cyan-500 h-full transition-all duration-1000 ease-out" title={`Passengers: ${computedSummary.totalPassengers}`}></div>
+          <div style={{width: `${computedSummary.driverPct}%`}} className="bg-emerald-500 h-full transition-all duration-1000 ease-out" title={`Drivers: ${computedSummary.totalDrivers}`}></div>
+          <div style={{width: `${computedSummary.adminPct}%`}} className="bg-purple-500 h-full transition-all duration-1000 ease-out" title={`Admins: ${computedSummary.totalAdmins}`}></div>
+        </div>
+        <div className="flex gap-6 mt-4 text-xs font-semibold">
+          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-cyan-500"></div><span className="text-slate-300">Passengers ({computedSummary.passengerPct}%)</span></div>
+          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500"></div><span className="text-slate-300">Drivers ({computedSummary.driverPct}%)</span></div>
+          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-500"></div><span className="text-slate-300">Admins ({computedSummary.adminPct}%)</span></div>
         </div>
       </div>
 
@@ -864,7 +687,7 @@ export default function LahiruUserDashboard() {
                         <div className="flex items-center justify-end gap-1.5 flex-wrap">
                           {/* Edit button */}
                           <button
-                            onClick={() => setEditUser({ ...u })}
+                            onClick={() => { setEditUser({ ...u }); setEditPassword(""); }}
                             className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-bold transition-all cursor-pointer"
                             title="Edit User Profile & Email"
                           >
@@ -926,14 +749,25 @@ export default function LahiruUserDashboard() {
 
             <div className="space-y-3">
               <div>
-                <label className="text-[11px] font-bold text-slate-300 uppercase block mb-1">Email Address (Editable CRUD)</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-bold text-slate-300 uppercase">Email Address (Editable CRUD) *</label>
+                  {editUser.email && !isValidEmail(editUser.email) && (
+                    <span className="text-[10px] font-mono text-rose-400 font-bold">Must contain '@'</span>
+                  )}
+                </div>
                 <input
                   type="email"
                   value={editUser.email}
                   onChange={(e) => setEditUser({ ...editUser, email: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-emerald-500/50 text-white text-xs font-mono focus:outline-none focus:border-emerald-400"
+                  className={`w-full px-3 py-2 rounded-xl bg-slate-800 border text-white text-xs font-mono focus:outline-none ${
+                    editUser.email && !isValidEmail(editUser.email)
+                      ? "border-rose-500/80 focus:border-rose-500"
+                      : "border-emerald-500/50 focus:border-emerald-400"
+                  }`}
                 />
-                <span className="text-[10px] text-emerald-400 mt-0.5 block">✓ Updates login email with uniqueness validation</span>
+                <span className="text-[10px] text-slate-400 mt-0.5 block">
+                  Must contain '@' (e.g. user@streetify.lk). Updates login email across platform.
+                </span>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -958,13 +792,45 @@ export default function LahiruUserDashboard() {
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-slate-300 uppercase block mb-1">Phone Number</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-bold text-slate-300 uppercase">Phone Number</label>
+                  {editUser.role === "DRIVER" && (
+                    <span className="text-[10px] font-mono text-emerald-400 font-bold">Strict Driver Format</span>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={editUser.phone || ""}
                   onChange={(e) => setEditUser({ ...editUser, phone: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs font-mono focus:outline-none focus:border-emerald-400"
+                  placeholder={editUser.role === "DRIVER" ? "+94771234567 or 0771234567" : "0771234567"}
+                  className={`w-full px-3 py-2 rounded-xl bg-slate-800 border text-white text-xs font-mono focus:outline-none ${
+                    editUser.role === "DRIVER" && editUser.phone && !isValidDriverPhone(editUser.phone)
+                      ? "border-rose-500/80 focus:border-rose-500"
+                      : "border-slate-700 focus:border-emerald-400"
+                  }`}
                 />
+                {editUser.role === "DRIVER" && (
+                  <span className="text-[10px] text-emerald-400/90 font-mono mt-0.5 block">
+                    ℹ️ {DRIVER_PHONE_HELP_TEXT}
+                  </span>
+                )}
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-bold text-slate-300 uppercase">Change Login Password (Optional)</label>
+                  <span className="text-[10px] text-amber-400/90 font-mono">Leave blank to keep unchanged</span>
+                </div>
+                <input
+                  type="password"
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  placeholder="Enter new password to reset login access"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:outline-none focus:border-emerald-400"
+                />
+                <span className="text-[10px] text-slate-400 font-mono mt-0.5 block">
+                  🔐 Driver or passenger can log in with this new password immediately
+                </span>
               </div>
             </div>
 
@@ -1028,6 +894,26 @@ export default function LahiruUserDashboard() {
                       className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs font-mono"
                     />
                   </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] text-emerald-400 font-bold block">Driver Phone Number *</label>
+                    <span className="text-[9px] font-mono text-emerald-400">Required for Driver</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={driverPhone}
+                    onChange={(e) => setDriverPhone(e.target.value)}
+                    placeholder="+94771234567 or 0771234567"
+                    className={`w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border text-white text-xs font-mono focus:outline-none ${
+                      driverPhone && !isValidDriverPhone(driverPhone)
+                        ? "border-rose-500/80 focus:border-rose-500"
+                        : "border-emerald-500/50 focus:border-emerald-400"
+                    }`}
+                  />
+                  <span className="text-[9px] text-slate-400 font-mono mt-0.5 block">
+                    ℹ️ {DRIVER_PHONE_HELP_TEXT}
+                  </span>
                 </div>
               </div>
 
@@ -1180,26 +1066,50 @@ export default function LahiruUserDashboard() {
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-slate-300 uppercase block mb-1">Email Address *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-bold text-slate-300 uppercase">Email Address *</label>
+                  {newEmail && !isValidEmail(newEmail) && (
+                    <span className="text-[10px] font-mono text-rose-400 font-bold">Must contain '@'</span>
+                  )}
+                </div>
                 <input
                   type="email"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
                   placeholder="user@streetify.lk"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs font-mono"
+                  className={`w-full px-3 py-2 rounded-xl bg-slate-800 border text-white text-xs font-mono focus:outline-none ${
+                    newEmail && !isValidEmail(newEmail)
+                      ? "border-rose-500/80 focus:border-rose-500"
+                      : "border-slate-700 focus:border-emerald-400"
+                  }`}
                 />
+                <span className="text-[10px] text-slate-400 mt-0.5 block">Must contain '@' symbol</span>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[11px] font-bold text-slate-300 uppercase block mb-1">Phone</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-bold text-slate-300 uppercase">Phone</label>
+                    {addModalType === "DRIVER" && (
+                      <span className="text-[9px] font-mono text-emerald-400 font-bold">Strict Format</span>
+                    )}
+                  </div>
                   <input
                     type="text"
                     value={newPhone}
                     onChange={(e) => setNewPhone(e.target.value)}
-                    placeholder="0771234567"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs font-mono"
+                    placeholder={addModalType === "DRIVER" ? "+94771234567 or 0771234567" : "0771234567"}
+                    className={`w-full px-3 py-2 rounded-xl bg-slate-800 border text-white text-xs font-mono focus:outline-none ${
+                      addModalType === "DRIVER" && newPhone && !isValidDriverPhone(newPhone)
+                        ? "border-rose-500/80 focus:border-rose-500"
+                        : "border-slate-700 focus:border-emerald-400"
+                    }`}
                   />
+                  {addModalType === "DRIVER" && (
+                    <span className="text-[9px] text-emerald-400/90 font-mono mt-0.5 block">
+                      ℹ️ {DRIVER_PHONE_HELP_TEXT}
+                    </span>
+                  )}
                 </div>
                 <div>
                   <label className="text-[11px] font-bold text-slate-300 uppercase block mb-1">Password</label>

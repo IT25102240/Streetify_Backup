@@ -11,6 +11,7 @@ import { useState, useRef, DragEvent, ChangeEvent, useEffect } from "react";
 import { Btn, Card, Field, HR, PwStrength, Pill } from "../ui";
 import { apiClient } from "../api/apiClient";
 import { tabStorage } from "../utils/storage";
+import { isValidDriverPhone, DRIVER_PHONE_ERROR_MSG, DRIVER_PHONE_HELP_TEXT } from "../utils/validators";
 
 interface AuthResponseDTO {
   accessToken: string;
@@ -171,7 +172,7 @@ export default function ScreenLogin() {
   function validateStep1() {
     if (!firstName.trim()) { setS1Err("First name is required."); return false; }
     if (!lastName.trim())  { setS1Err("Last name is required."); return false; }
-    if (phone.replace(/\D/,"").length < 9) { setS1Err("Enter a valid mobile number."); return false; }
+    if (!isValidDriverPhone(phone)) { setS1Err(DRIVER_PHONE_ERROR_MSG); return false; }
     if (!email.includes("@")) { setS1Err("Enter a valid email address."); return false; }
     if (nic.replace(/\D/,"").length < 9)  { setS1Err("Enter a valid NIC number."); return false; }
     setS1Err(""); return true;
@@ -446,10 +447,10 @@ export default function ScreenLogin() {
                     <Field label="Last Name"  placeholder="Perera" value={lastName}  onChange={e => setLast(e.target.value)} />
                   </div>
                   <Field
-                    label="Mobile Number" type="tel"
-                    placeholder="+94 77 123 4567"
+                    label="Mobile Number (Driver Format)" type="tel"
+                    placeholder="+94771234567 or 0771234567"
                     value={phone} onChange={e => setPhone(e.target.value)}
-                    hint="Used for trip notifications and OTP"
+                    hint={DRIVER_PHONE_HELP_TEXT}
                   />
                   <Field
                     label="Email Address" type="email"

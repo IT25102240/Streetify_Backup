@@ -174,9 +174,12 @@ public class AuthController {
         com.streetify.entity.User user = userDAO.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
 
-        if (body.containsKey("email") && body.get("email") != null) {
-            String newEmail = ((String) body.get("email")).trim().toLowerCase();
-            if (!newEmail.isEmpty() && !newEmail.equalsIgnoreCase(user.getEmail())) {
+        if (body.containsKey("email")) {
+            String newEmail = body.get("email") != null ? ((String) body.get("email")).trim().toLowerCase() : "";
+            if (newEmail.isEmpty() || !com.streetify.controller.ModuleAdminController.isValidEmail(newEmail)) {
+                return ResponseEntity.badRequest().body(java.util.Map.of("status", "error", "message", "Email must be a valid email address containing the '@' symbol (e.g. user@streetify.lk)."));
+            }
+            if (!newEmail.equalsIgnoreCase(user.getEmail())) {
                 if (userDAO.existsByEmail(newEmail)) {
                     return ResponseEntity.badRequest().body(java.util.Map.of("status", "error", "message", "Email is already taken by another account."));
                 }
@@ -198,7 +201,16 @@ public class AuthController {
             }
         }
         if (body.containsKey("phone")) {
-            user.setPhone((String) body.get("phone"));
+            String newPhone = (String) body.get("phone");
+            if (user.getRole() == com.streetify.entity.UserRole.DRIVER) {
+                if (!com.streetify.controller.ModuleAdminController.isValidDriverPhone(newPhone)) {
+                    return ResponseEntity.badRequest().body(java.util.Map.of(
+                        "status", "error",
+                        "message", "Driver phone number must be either '+94' followed by 9 digits (e.g. +94771234567) or '0' followed by 9 digits (e.g. 0771234567)."
+                    ));
+                }
+            }
+            user.setPhone(newPhone);
         }
 
         com.streetify.entity.User saved = userDAO.save(user);

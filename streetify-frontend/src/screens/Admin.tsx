@@ -9,6 +9,7 @@ import ChanukaBookingDashboard from "../components/ChanukaBookingDashboard";
 import DahamPaymentDashboard from "../components/DahamPaymentDashboard";
 import LahiruUserDashboard from "../components/LahiruUserDashboard";
 import ModuleExportCard, { MODULE_REPORTS } from "../components/ModuleExportCard";
+import { isValidDriverPhone, DRIVER_PHONE_ERROR_MSG, DRIVER_PHONE_HELP_TEXT, isValidEmail, EMAIL_ERROR_MSG } from "../utils/validators";
 
 type AdminTab = "analytics" | "users" | "drivers" | "bookings" | "driver-trips" | "driver-docs" | "payments" | "payment-summary" | "reviews" | "cancellation" | "export" | "rbac" | "system" | "branch-kiosk" | "booking-summary" | "disputes" | "user-summary";
 
@@ -438,6 +439,7 @@ function UsersPanel() {
   const [deleteConfirmUser, setDeleteConfirmUser] = useState<any | null>(null);
 
   // Upgrade form state
+  const [driverPhone, setDriverPhone] = useState("");
   const [driverNic, setDriverNic] = useState("199512345678");
   const [driverLicense, setDriverLicense] = useState("B1234567");
   const [vehicleType, setVehicleType] = useState("CAR");
@@ -481,20 +483,34 @@ function UsersPanel() {
 
   useEffect(() => { fetchUsers(); }, []);
 
-  // ── Handle Edit (Name, Email, Phone) ───────────────────────────
+  // ── Handle Edit (Name, Email, Phone, Password) ───────────────────
   const handleSaveEdit = async () => {
     if (!editUser) return;
+    if (!isValidEmail(editUser.email)) {
+      showToast(EMAIL_ERROR_MSG, "error");
+      return;
+    }
+    if (editUser.role === 'DRIVER') {
+      if (!isValidDriverPhone(editUser.phone)) {
+        showToast(DRIVER_PHONE_ERROR_MSG, "error");
+        return;
+      }
+    }
+    const payload: any = {
+      firstName: editUser.firstName,
+      lastName: editUser.lastName,
+      email: editUser.email,
+      phone: editUser.phone
+    };
+    if (editUser.password && editUser.password.trim()) {
+      payload.password = editUser.password.trim();
+    }
     try {
       await apiClient(`/module-admin/users/${editUser.id}`, {
         method: 'PUT',
-        body: JSON.stringify({
-          firstName: editUser.firstName,
-          lastName: editUser.lastName,
-          email: editUser.email,
-          phone: editUser.phone
-        })
+        body: JSON.stringify(payload)
       });
-      showToast("User profile and email updated successfully! ✓");
+      showToast("User profile, email & credentials updated successfully! ✓");
       setEditUser(null);
       fetchUsers();
     } catch (e: any) {
@@ -532,6 +548,7 @@ function UsersPanel() {
   // ── Handle Passenger -> Driver Upgrade ─────────────────────────
   const openUpgradeModal = (u: any) => {
     setUpgradeDriverUser(u);
+    setDriverPhone(u.phone || "");
     setDriverNic(u.nic || "1995" + (10000000 + u.id * 1234));
     setDriverLicense(u.licenseNumber || "B" + (1000000 + u.id * 876));
     setVehicleType("CAR");
@@ -544,11 +561,16 @@ function UsersPanel() {
 
   const handleSaveUpgradeToDriver = async () => {
     if (!upgradeDriverUser) return;
+    if (!isValidDriverPhone(driverPhone)) {
+      showToast(DRIVER_PHONE_ERROR_MSG, "error");
+      return;
+    }
     try {
       await apiClient(`/module-admin/users/${upgradeDriverUser.id}/change-role`, {
         method: 'POST',
         body: JSON.stringify({
           targetRole: "DRIVER",
+          phone: driverPhone,
           nic: driverNic,
           licenseNumber: driverLicense,
           vehicleType,
@@ -588,6 +610,16 @@ function UsersPanel() {
     if (!addForm.firstName || !addForm.lastName || !addForm.email) {
       showToast("First name, last name, and email are required.", "error");
       return;
+    }
+    if (!isValidEmail(addForm.email)) {
+      showToast(EMAIL_ERROR_MSG, "error");
+      return;
+    }
+    if (addUserModal.role === 'DRIVER') {
+      if (!isValidDriverPhone(addForm.phone)) {
+        showToast(DRIVER_PHONE_ERROR_MSG, "error");
+        return;
+      }
     }
     try {
       await apiClient('/module-admin/users', {
@@ -837,14 +869,44 @@ function UsersPanel() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Phone Number</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Phone Number</label>
+                  {editUser.role === "DRIVER" && (
+                    <span className="text-[10px] font-mono text-emerald-400 font-bold">Strict Driver Format</span>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={editUser.phone || ""}
                   onChange={e => setEditUser({ ...editUser, phone: e.target.value })}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco"
-                  placeholder="0771234567"
+                  className={`w-full bg-slate-900 border rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco ${
+                    editUser.role === "DRIVER" && editUser.phone && !isValidDriverPhone(editUser.phone)
+                      ? "border-rose-500/80 focus:ring-1 focus:ring-rose-500"
+                      : "border-slate-700"
+                  }`}
+                  placeholder={editUser.role === "DRIVER" ? "+94771234567 or 0771234567" : "0771234567"}
                 />
+                {editUser.role === "DRIVER" && (
+                  <p className="text-[11px] text-emerald-400/90 font-mono">
+                    ℹ️ {DRIVER_PHONE_HELP_TEXT}
+                  </p>
+                )}
+              </div>
+
+              {/* Password update option */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Change Password (Optional)</label>
+                  <span className="text-[10px] font-mono text-slate-500">Leave blank to keep unchanged</span>
+                </div>
+                <input
+                  type="text"
+                  value={editUser.password || ""}
+                  onChange={e => setEditUser({ ...editUser, password: e.target.value })}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono text-sm outline-none focus:border-eco"
+                  placeholder="Enter new login password"
+                />
+                <p className="text-[11px] text-slate-400">Allows administrator to reset the user's platform login password.</p>
               </div>
 
               <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
@@ -933,6 +995,26 @@ function UsersPanel() {
                       placeholder="B1234567"
                     />
                   </div>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-emerald-400">Driver Phone Number *</label>
+                    <span className="text-[10px] font-mono text-emerald-400 font-bold">Required for Driver</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={driverPhone}
+                    onChange={e => setDriverPhone(e.target.value)}
+                    className={`w-full bg-slate-900 border rounded-xl px-3 py-2 text-white font-mono text-sm outline-none focus:border-eco ${
+                      driverPhone && !isValidDriverPhone(driverPhone)
+                        ? "border-rose-500/80 focus:ring-1 focus:ring-rose-500"
+                        : "border-emerald-500/50"
+                    }`}
+                    placeholder="+94771234567 or 0771234567"
+                  />
+                  <p className="text-[11px] text-slate-400 font-mono">
+                    ℹ️ {DRIVER_PHONE_HELP_TEXT}
+                  </p>
                 </div>
               </div>
 
@@ -1131,14 +1213,28 @@ function UsersPanel() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Phone Number *</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Phone Number *</label>
+                    {addUserModal.role === "DRIVER" && (
+                      <span className="text-[10px] font-mono text-emerald-400 font-bold">Strict Driver Format</span>
+                    )}
+                  </div>
                   <input
                     type="text"
                     value={addForm.phone}
                     onChange={e => setAddForm({ ...addForm, phone: e.target.value })}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco"
-                    placeholder="0771234567"
+                    className={`w-full bg-slate-900 border rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco ${
+                      addUserModal.role === "DRIVER" && addForm.phone && !isValidDriverPhone(addForm.phone)
+                        ? "border-rose-500/80 focus:ring-1 focus:ring-rose-500"
+                        : "border-slate-700"
+                    }`}
+                    placeholder={addUserModal.role === "DRIVER" ? "+94771234567 or 0771234567" : "0771234567"}
                   />
+                  {addUserModal.role === "DRIVER" && (
+                    <p className="text-[11px] text-emerald-400/90 font-mono">
+                      ℹ️ {DRIVER_PHONE_HELP_TEXT}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -1304,7 +1400,6 @@ function UsersPanel() {
 function BookingsPanel() {
   const [trips, setTrips] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<"summary" | "table">("summary");
   const adminRole = tabStorage.getItem("admin_role") || "";
   const adminUser = (tabStorage.getItem("user_name") || "").toLowerCase();
   
@@ -1424,135 +1519,119 @@ function BookingsPanel() {
 
   return (
     <div className="space-y-4">
-      {/* Top Toggle Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-900/90 border border-teal-500/20 p-3 rounded-2xl gap-3 shadow-md">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center p-1 rounded-xl bg-slate-950 border border-slate-800">
+      <ModuleExportCard reportKey="bookings" variant="banner" />
+
+      <Card>
+        <div className="px-5 py-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-extrabold text-white text-base flex items-center gap-2">
+              <span>🗺️</span>
+              <span>Active Booking Registry Table</span>
+            </p>
+            <p className="text-xs text-slate-400 font-mono mt-0.5">
+              MSSQL · /api/module-admin/bookings · Live Ride Dispatch Records & Fare Management
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {isSuperAdmin ? (
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-red-500/15 text-red-300 border border-red-500/30">
+                VIDURA · SUPER ADMIN (FULL ACCESS)
+              </span>
+            ) : isChanukaBookingAdmin ? (
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-300 border border-teal-500/30">
+                CHANUKA · BOOKING LEAD
+              </span>
+            ) : null}
+
             <button
-              onClick={() => setViewMode("summary")}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                viewMode === "summary"
-                  ? "bg-teal-600 text-white shadow-md shadow-teal-600/30"
-                  : "text-slate-400 hover:text-white"
-              }`}
+              onClick={() => window.dispatchEvent(new CustomEvent("admin-switch-tab", { detail: { tab: "booking-summary" } }))}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-teal-950/60 hover:bg-teal-900/60 text-teal-300 border border-teal-500/40 shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Switch to Platform Booking & Trip Summary Dashboard"
             >
-              <span>📊</span> Platform Summary Dashboard
+              <span>📊</span>
+              <span>View Summary Dashboard</span>
             </button>
-            <button
-              onClick={() => setViewMode("table")}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                viewMode === "table"
-                  ? "bg-teal-600 text-white shadow-md shadow-teal-600/30"
-                  : "text-slate-400 hover:text-white"
-              }`}
+
+            <button 
+              onClick={fetchTrips} 
+              disabled={loading}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all disabled:opacity-50 cursor-pointer shadow-sm"
+              title="Refresh bookings from MSSQL database"
             >
-              <span>📋</span> Booking Registry Table
+              <span className={loading ? "animate-spin" : ""}>🔄</span>
+              <span>Refresh</span>
+            </button>
+
+            <button
+              onClick={handleAdd}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white shadow-md shadow-teal-600/25 transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>+</span>
+              <span>Add Booking</span>
             </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          {isSuperAdmin ? (
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-red-500/15 text-red-300 border border-red-500/30">
-              VIDURA · SUPER ADMIN (FULL ACCESS)
-            </span>
-          ) : isChanukaBookingAdmin ? (
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-300 border border-teal-500/30">
-              CHANUKA · BOOKING LEAD
-            </span>
-          ) : null}
-
-          <button 
-            onClick={fetchTrips} 
-            disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all disabled:opacity-50"
-            title="Refresh bookings from MSSQL database"
-          >
-            <span className={loading ? "animate-spin" : ""}>🔄</span>
-            <span>Refresh</span>
-          </button>
-          <Btn size="sm" onClick={handleAdd}>+ Add Booking</Btn>
-        </div>
-      </div>
-
-      {viewMode === "summary" ? (
-        <ChanukaBookingDashboard onOpenCreateModal={handleAdd} onOpenEditModal={handleEdit} />
-      ) : (
-        <div className="space-y-4">
-          <ModuleExportCard reportKey="bookings" variant="banner" />
-          <Card>
-            <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
-              <div>
-                <p className="font-extrabold text-white text-sm">Active Booking Registry</p>
-                <p className="text-xs text-slate-400">Direct MSSQL /api/module-admin/bookings records</p>
-              </div>
-              <button
-                onClick={() => setViewMode("summary")}
-                className="text-xs font-bold text-teal-400 hover:text-teal-300 underline"
-              >
-                ← Back to Summary Dashboard
-              </button>
-            </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-slate-950 border-b border-slate-800 text-slate-400 text-xs">
-                  <th className="px-4 py-3 text-left">Trip ID</th>
-                  <th className="px-4 py-3 text-left">Pickup</th>
-                  <th className="px-4 py-3 text-left">Dropoff</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                  {canManageBooking && <th className="px-4 py-3 text-left">Est. Fare</th>}
-                  <th className="px-4 py-3 text-left">Actions</th>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-slate-950 border-b border-slate-800 text-slate-400 text-xs">
+                <th className="px-4 py-3 text-left">Trip ID</th>
+                <th className="px-4 py-3 text-left">Pickup</th>
+                <th className="px-4 py-3 text-left">Dropoff</th>
+                <th className="px-4 py-3 text-left">Status</th>
+                {canManageBooking && <th className="px-4 py-3 text-left">Est. Fare</th>}
+                <th className="px-4 py-3 text-left">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={canManageBooking ? 6 : 5} className="text-center py-8 text-slate-400 font-mono text-xs">
+                    <span className="inline-block animate-spin mr-2">🔄</span> Loading bookings from MSSQL database…
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={canManageBooking ? 6 : 5} className="text-center py-8 text-slate-400 font-mono text-xs">
-                      <span className="inline-block animate-spin mr-2">🔄</span> Loading bookings from MSSQL database…
-                    </td>
-                  </tr>
-                ) : trips.length === 0 ? (
-                  <tr>
-                    <td colSpan={canManageBooking ? 6 : 5} className="text-center py-8 text-slate-400">
-                      <p className="font-semibold text-slate-300">No bookings found</p>
-                      <p className="text-xs text-slate-500 mt-1">Click "+ Add Booking" to create a new ride booking or refresh.</p>
-                      <button onClick={fetchTrips} className="mt-3 px-3 py-1 text-xs bg-slate-800 hover:bg-slate-700 rounded-lg text-emerald-400 font-bold border border-slate-700">
-                        🔄 Refresh from Database
-                      </button>
-                    </td>
-                  </tr>
-                ) : (
-                  trips.map(t => (
-                    <tr key={t.id} className="border-b border-slate-800/80 hover:bg-slate-950 transition-colors">
-                      <td className="px-4 py-3 font-mono font-bold text-teal-400">#{t.id}</td>
-                      <td className="px-4 py-3 max-w-xs truncate text-slate-200">{t.pickupAddress}</td>
-                      <td className="px-4 py-3 max-w-xs truncate text-slate-200">{t.dropoffAddress}</td>
-                      <td className="px-4 py-3"><Pill>{t.status}</Pill></td>
-                      {canManageBooking && (
-                        <td className="px-4 py-3 font-mono font-bold text-emerald-400">
-                          LKR {(t.totalFare ?? t.estimatedFare ?? 0).toLocaleString()}
-                        </td>
-                      )}
-                      <td className="px-4 py-3 flex gap-2">
-                        <Btn size="xs" v="secondary" onClick={() => handleEdit(t)}>Edit</Btn>
-                        <Btn size="xs" v="danger" onClick={() => handleCancel(t.id)}>Cancel</Btn>
+              ) : trips.length === 0 ? (
+                <tr>
+                  <td colSpan={canManageBooking ? 6 : 5} className="text-center py-8 text-slate-400">
+                    <p className="font-semibold text-slate-300">No bookings found</p>
+                    <p className="text-xs text-slate-500 mt-1">Click "+ Add Booking" to create a new ride booking or refresh.</p>
+                    <button onClick={fetchTrips} className="mt-3 px-3 py-1 text-xs bg-slate-800 hover:bg-slate-700 rounded-lg text-emerald-400 font-bold border border-slate-700 cursor-pointer">
+                      🔄 Refresh from Database
+                    </button>
+                  </td>
+                </tr>
+              ) : (
+                trips.map(t => (
+                  <tr key={t.id} className="border-b border-slate-800/80 hover:bg-slate-950 transition-colors">
+                    <td className="px-4 py-3 font-mono font-bold text-teal-400">#{t.id}</td>
+                    <td className="px-4 py-3 max-w-xs truncate text-slate-200">{t.pickupAddress}</td>
+                    <td className="px-4 py-3 max-w-xs truncate text-slate-200">{t.dropoffAddress}</td>
+                    <td className="px-4 py-3"><Pill>{t.status}</Pill></td>
+                    {canManageBooking && (
+                      <td className="px-4 py-3 font-mono font-bold text-emerald-400">
+                        LKR {(t.totalFare ?? t.estimatedFare ?? 0).toLocaleString()}
                       </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      </div>
-      )}
+                    )}
+                    <td className="px-4 py-3 flex gap-2">
+                      <Btn size="xs" v="secondary" onClick={() => handleEdit(t)}>Edit</Btn>
+                      <Btn size="xs" v="danger" onClick={() => handleCancel(t.id)}>Cancel</Btn>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
   );
 }
 
 function DriverTripsPanel() {
   const [trips, setTrips] = useState<any[]>([]);
+  const [selectedDriver, setSelectedDriver] = useState<any>(null);
 
   const fetchTrips = async () => {
     try {
@@ -1589,16 +1668,24 @@ function DriverTripsPanel() {
     } catch (e) { alert("Error: " + e); }
   };
 
-  const handleEdit = async (t: any) => {
-    const data = await openAdminForm("Edit Trip Details", [
-      { id: "pickupAddress", label: "Pickup Address", defaultValue: t.pickupAddress || "Dummy Pickup Address" },
-      { id: "dropoffAddress", label: "Dropoff Address", defaultValue: t.dropoffAddress || "Dummy Dropoff Address" }
+  const handleManageTrip = async (t: any) => {
+    const data = await openAdminForm("Manage Trip", [
+      { id: "driverId", label: "Driver ID (Optional)", type: "number", defaultValue: t.driver?.id || "" },
+      { id: "status", label: "Status", type: "select", options: ["REQUESTED", "ACCEPTED", "IN_PROGRESS", "COMPLETED", "CANCELLED"], defaultValue: t.status },
+      { id: "pickupAddress", label: "Pickup Address", defaultValue: t.pickupAddress || "" },
+      { id: "dropoffAddress", label: "Dropoff Address", defaultValue: t.dropoffAddress || "" }
     ]);
     if (!data) return;
+
     try {
       await apiClient(`/module-admin/driver-trips/${t.id}`, { 
         method: 'PUT', 
-        body: JSON.stringify(data) 
+        body: JSON.stringify({
+          driverId: data.driverId ? Number(data.driverId) : null,
+          status: data.status,
+          pickupAddress: data.pickupAddress,
+          dropoffAddress: data.dropoffAddress
+        }) 
       });
       fetchTrips();
     } catch (e) { alert("Error: " + e); }
@@ -1612,38 +1699,8 @@ function DriverTripsPanel() {
     } catch (e) { alert("Error: " + e); }
   };
 
-  const assignDriver = async (t: any) => {
-    const data = await openAdminForm("Assign Driver", [
-      { id: "driverId", label: "Driver ID", type: "number", defaultValue: t.driver?.id || "" }
-    ]);
-    if (!data || !data.driverId) return;
-
-    try {
-      await apiClient(`/module-admin/driver-trips/${t.id}`, { method: 'PUT', body: JSON.stringify({ driverId: Number(data.driverId) }) });
-      fetchTrips();
-    } catch (e) { alert("Error: " + e); }
-  };
-
-  const updateStatus = async (t: any) => {
-    const data = await openAdminForm("Update Status", [
-      { id: "status", label: "Status", type: "select", options: ["REQUESTED", "ACCEPTED", "IN_PROGRESS", "COMPLETED", "CANCELLED"], defaultValue: t.status }
-    ]);
-    if (!data || !data.status) return;
-
-    try {
-      await apiClient(`/module-admin/driver-trips/${t.id}`, { method: 'PUT', body: JSON.stringify({ status: data.status }) });
-      fetchTrips();
-    } catch (e) { alert("Error: " + e); }
-  };
-
-  const unassignDriver = async (id: number) => {
-    try {
-      await apiClient(`/module-admin/driver-trips/${id}`, { method: 'PUT', body: JSON.stringify({ driverId: null }) });
-      fetchTrips();
-    } catch (e) { alert("Error: " + e); }
-  };
-
   return (
+    <>
     <Card>
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
         <p className="font-extrabold text-slate-100">Driver Trip Management</p>
@@ -1655,6 +1712,8 @@ function DriverTripsPanel() {
             <tr className="bg-slate-950 border-b border-slate-800">
               <th className="px-4 py-3 text-left">Trip ID</th>
               <th className="px-4 py-3 text-left">Driver</th>
+              <th className="px-4 py-3 text-left">Pickup Route</th>
+              <th className="px-4 py-3 text-left">Dropoff Route</th>
               <th className="px-4 py-3 text-left">Status</th>
               <th className="px-4 py-3 text-left">Actions</th>
             </tr>
@@ -1664,25 +1723,74 @@ function DriverTripsPanel() {
               <tr key={t.id} className="border-b border-slate-100 hover:bg-slate-950 transition-colors">
                 <td className="px-4 py-3 font-mono">{t.id}</td>
                 <td className="px-4 py-3 font-bold">{t.driver ? `${t.driver.firstName} ${t.driver.lastName}` : "Unassigned"}</td>
+                <td className="px-4 py-3">{t.pickupAddress || "N/A"}</td>
+                <td className="px-4 py-3">{t.dropoffAddress || "N/A"}</td>
                 <td className="px-4 py-3"><Pill>{t.status}</Pill></td>
                 <td className="px-4 py-3 flex gap-2">
-                  <Btn size="xs" v="primary" onClick={() => assignDriver(t)}>
-                    {t.driver ? "Reassign" : "Assign"}
-                  </Btn>
-                  <Btn size="xs" v="secondary" onClick={() => updateStatus(t)}>Update Status</Btn>
-                  <Btn size="xs" v="secondary" onClick={() => handleEdit(t)}>Edit Route</Btn>
-                  {t.driver && (
-                    <Btn size="xs" v="danger" onClick={() => unassignDriver(t.id)}>Unassign</Btn>
-                  )}
+                  <Btn size="xs" v="primary" onClick={() => handleManageTrip(t)}>Manage Trip</Btn>
+                  <Btn size="xs" v="secondary" onClick={() => { if (t.driver) setSelectedDriver(t.driver); else alert("No driver assigned to this trip."); }}>Dossier</Btn>
                   <Btn size="xs" v="danger" onClick={() => handleDelete(t.id)}>Delete</Btn>
                 </td>
               </tr>
             ))}
-            {trips.length === 0 && <tr><td colSpan={4} className="text-center p-4">No driver trips found</td></tr>}
+            {trips.length === 0 && <tr><td colSpan={6} className="text-center p-4">No driver trips found</td></tr>}
           </tbody>
         </table>
       </div>
     </Card>
+
+      {selectedDriver && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-slate-900 border border-eco/30 rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4 my-8 relative">
+            <button onClick={() => setSelectedDriver(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white">✕</button>
+            <h2 className="text-lg font-extrabold text-white">Driver Dossier</h2>
+            <div className="space-y-4">
+              <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/60">
+                <h3 className="text-xs font-bold text-slate-300 uppercase mb-2">Driver Profile (ID: {selectedDriver.id})</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm text-white">
+                  <p><span className="text-slate-400">Name:</span> {selectedDriver.firstName} {selectedDriver.lastName}</p>
+                  <p><span className="text-slate-400">Email:</span> {selectedDriver.email || 'N/A'}</p>
+                  <p><span className="text-slate-400">Phone:</span> {selectedDriver.phone || 'N/A'}</p>
+                  <p><span className="text-slate-400">NIC:</span> {selectedDriver.nic || 'N/A'}</p>
+                  <p><span className="text-slate-400">License:</span> {selectedDriver.licenseNumber || 'N/A'}</p>
+                </div>
+              </div>
+
+              {selectedDriver.vehicle && (
+                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/60">
+                  <h3 className="text-xs font-bold text-slate-300 uppercase mb-2">Vehicle Information</h3>
+                  <div className="grid grid-cols-2 gap-2 text-sm text-white">
+                    <p><span className="text-slate-400">Type:</span> {selectedDriver.vehicle.type || 'N/A'}</p>
+                    <p><span className="text-slate-400">Plate:</span> {selectedDriver.vehicle.plate || 'N/A'}</p>
+                    <p><span className="text-slate-400">Make/Model:</span> {selectedDriver.vehicle.make || 'N/A'} {selectedDriver.vehicle.model || 'N/A'}</p>
+                    <p><span className="text-slate-400">Year/Color:</span> {selectedDriver.vehicle.year || 'N/A'} - {selectedDriver.vehicle.color || 'N/A'}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/60">
+                <h3 className="text-xs font-bold text-slate-300 uppercase mb-2">Submitted Documents ({selectedDriver.documents?.length || 0})</h3>
+                {selectedDriver.documents && selectedDriver.documents.length > 0 ? (
+                  <ul className="space-y-2">
+                    {selectedDriver.documents.map((doc: any, i: number) => (
+                      <li key={i} className="text-xs text-white">
+                        <span className="font-mono text-eco">[{doc.docType.toUpperCase()}]</span> {doc.originalFilename} 
+                        <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] ${doc.status === 'APPROVED' ? 'bg-green-500/20 text-green-400' : doc.status === 'REJECTED' ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                          {doc.status}
+                        </span>
+                        <div className="text-slate-500 font-mono text-[10px] mt-0.5 break-all">Path: {doc.filePath}</div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-slate-400">No document records found in DB.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -2007,6 +2115,7 @@ function DriverDocsPanel() {
   const [drivers, setDrivers] = useState<any[]>([]);
   const [allDocs, setAllDocs] = useState<any[]>([]);
   const [activeSubTab, setActiveSubTab] = useState<'pending' | 'all-docs'>('pending');
+  const [selectedDriver, setSelectedDriver] = useState<any>(null);
 
   const fetchDrivers = async () => {
     try {
@@ -2051,31 +2160,7 @@ function DriverDocsPanel() {
   };
 
   const handleViewDetails = (d: any) => {
-    let details = `Driver Profile (ID: ${d.id}):\n`;
-    details += `Name: ${d.firstName} ${d.lastName}\n`;
-    details += `Email: ${d.email || 'N/A'}\n`;
-    details += `Phone: ${d.phone || 'N/A'}\n`;
-    details += `NIC: ${d.nic || 'N/A'}\n`;
-    details += `License: ${d.licenseNumber || 'N/A'}\n\n`;
-    
-    if (d.vehicle) {
-      details += `Vehicle Information:\n`;
-      details += `Type: ${d.vehicle.type || 'N/A'}\n`;
-      details += `Make & Model: ${d.vehicle.make || 'N/A'} ${d.vehicle.model || 'N/A'} (${d.vehicle.year || 'N/A'})\n`;
-      details += `Color: ${d.vehicle.color || 'N/A'}\n`;
-      details += `Plate: ${d.vehicle.plate || 'N/A'}\n\n`;
-    }
-
-    if (d.documents && d.documents.length > 0) {
-      details += `Submitted Documents (${d.documents.length}):\n`;
-      d.documents.forEach((doc: any, i: number) => {
-        details += `${i+1}. [${doc.docType.toUpperCase()}] ${doc.originalFilename} — Status: ${doc.status}\n   Path: ${doc.filePath}\n`;
-      });
-    } else {
-      details += `No document records found in DB.\n`;
-    }
-    
-    alert(details);
+    setSelectedDriver(d);
   };
 
   return (
@@ -2249,6 +2334,58 @@ function DriverDocsPanel() {
           </div>
         </Card>
       )}
+
+      {selectedDriver && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-slate-900 border border-eco/30 rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4 my-8 relative">
+            <button onClick={() => setSelectedDriver(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white">✕</button>
+            <h2 className="text-lg font-extrabold text-white">Driver Dossier</h2>
+            <div className="space-y-4">
+              <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/60">
+                <h3 className="text-xs font-bold text-slate-300 uppercase mb-2">Driver Profile (ID: {selectedDriver.id})</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm text-white">
+                  <p><span className="text-slate-400">Name:</span> {selectedDriver.firstName} {selectedDriver.lastName}</p>
+                  <p><span className="text-slate-400">Email:</span> {selectedDriver.email || 'N/A'}</p>
+                  <p><span className="text-slate-400">Phone:</span> {selectedDriver.phone || 'N/A'}</p>
+                  <p><span className="text-slate-400">NIC:</span> {selectedDriver.nic || 'N/A'}</p>
+                  <p><span className="text-slate-400">License:</span> {selectedDriver.licenseNumber || 'N/A'}</p>
+                </div>
+              </div>
+
+              {selectedDriver.vehicle && (
+                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/60">
+                  <h3 className="text-xs font-bold text-slate-300 uppercase mb-2">Vehicle Information</h3>
+                  <div className="grid grid-cols-2 gap-2 text-sm text-white">
+                    <p><span className="text-slate-400">Type:</span> {selectedDriver.vehicle.type || 'N/A'}</p>
+                    <p><span className="text-slate-400">Plate:</span> {selectedDriver.vehicle.plate || 'N/A'}</p>
+                    <p><span className="text-slate-400">Make/Model:</span> {selectedDriver.vehicle.make || 'N/A'} {selectedDriver.vehicle.model || 'N/A'}</p>
+                    <p><span className="text-slate-400">Year/Color:</span> {selectedDriver.vehicle.year || 'N/A'} - {selectedDriver.vehicle.color || 'N/A'}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/60">
+                <h3 className="text-xs font-bold text-slate-300 uppercase mb-2">Submitted Documents ({selectedDriver.documents?.length || 0})</h3>
+                {selectedDriver.documents && selectedDriver.documents.length > 0 ? (
+                  <ul className="space-y-2">
+                    {selectedDriver.documents.map((doc: any, i: number) => (
+                      <li key={i} className="text-xs text-white">
+                        <span className="font-mono text-eco">[{doc.docType.toUpperCase()}]</span> {doc.originalFilename} 
+                        <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] ${doc.status === 'APPROVED' ? 'bg-green-500/20 text-green-400' : doc.status === 'REJECTED' ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                          {doc.status}
+                        </span>
+                        <div className="text-slate-500 font-mono text-[10px] mt-0.5 break-all">Path: {doc.filePath}</div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-slate-400">No document records found in DB.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2269,27 +2406,55 @@ function DriversPanel() {
     const data = await openAdminForm("Add New Driver", [
       { id: "firstName", label: "First Name" },
       { id: "lastName", label: "Last Name" },
-      { id: "email", label: "Email" },
-      { id: "phone", label: "Phone" }
+      { id: "email", label: "Email Address", helpText: "Must contain '@' (e.g. driver@streetify.lk)" },
+      { id: "phone", label: "Phone Number", helpText: DRIVER_PHONE_HELP_TEXT },
+      { id: "password", label: "Login Password", defaultValue: "1111", helpText: "Driver login password (default: 1111)" }
     ]);
     if (!data || !data.firstName || !data.lastName || !data.email) return;
+    if (!isValidEmail(data.email)) {
+      alert(EMAIL_ERROR_MSG);
+      return;
+    }
+    if (!isValidDriverPhone(data.phone)) {
+      alert("Invalid Driver Phone Number!\n\n" + DRIVER_PHONE_ERROR_MSG);
+      return;
+    }
     try {
       await apiClient('/module-admin/drivers', { method: 'POST', body: JSON.stringify(data) });
       fetchDrivers();
-    } catch (e) { alert("Error: " + e); }
+    } catch (e: any) { alert("Error: " + (e.message || e)); }
   };
 
   const handleEdit = async (d: any) => {
     const data = await openAdminForm("Edit Driver Profile", [
       { id: "firstName", label: "First Name", defaultValue: d.firstName },
       { id: "lastName", label: "Last Name", defaultValue: d.lastName },
-      { id: "phone", label: "Phone", defaultValue: d.phone }
+      { id: "email", label: "Email Address", defaultValue: d.email, helpText: "Must contain '@'. Used by driver to log in." },
+      { id: "phone", label: "Phone Number", defaultValue: d.phone, helpText: DRIVER_PHONE_HELP_TEXT },
+      { id: "password", label: "Change Password (Optional)", defaultValue: "", helpText: "Enter a new password to reset login access, or leave blank to keep unchanged." }
     ]);
     if (!data) return;
+    if (data.email && !isValidEmail(data.email)) {
+      alert(EMAIL_ERROR_MSG);
+      return;
+    }
+    if (data.phone && !isValidDriverPhone(data.phone)) {
+      alert("Invalid Driver Phone Number!\n\n" + DRIVER_PHONE_ERROR_MSG);
+      return;
+    }
+    const payload: any = {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      email: data.email,
+      phone: data.phone
+    };
+    if (data.password && data.password.trim()) {
+      payload.password = data.password.trim();
+    }
     try {
-      await apiClient(`/module-admin/users/${d.id}`, { method: 'PUT', body: JSON.stringify(data) });
+      await apiClient(`/module-admin/users/${d.id}`, { method: 'PUT', body: JSON.stringify(payload) });
       fetchDrivers();
-    } catch (e) { alert("Error: " + e); }
+    } catch (e: any) { alert("Error: " + (e.message || e)); }
   };
 
   const handleToggleStatus = async (d: any) => {
@@ -2301,6 +2466,15 @@ function DriversPanel() {
       }
       fetchDrivers();
     } catch (e) { alert("Error: " + e); }
+  };
+
+  const handleDelete = async (d: any) => {
+    const confirm = window.confirm(`Permanently delete driver "${d.firstName} ${d.lastName}" (${d.email})?\n\nThis will completely remove the driver account and fleet record from the database.`);
+    if (!confirm) return;
+    try {
+      await apiClient(`/module-admin/users/${d.id}/permanent`, { method: 'DELETE' });
+      fetchDrivers();
+    } catch (e: any) { alert("Error deleting driver: " + (e.message || e)); }
   };
 
   return (
@@ -2328,16 +2502,23 @@ function DriversPanel() {
                 <tr key={d.id} className="border-b border-slate-100 hover:bg-slate-950 transition-colors">
                   <td className="px-4 py-3 font-mono">{d.id}</td>
                   <td className="px-4 py-3 font-bold">{d.firstName} {d.lastName}</td>
-                  <td className="px-4 py-3 text-slate-500">{d.email}</td>
+                  <td className="px-4 py-3 text-slate-300 font-mono">{d.email}</td>
                   <td className="px-4 py-3 font-mono">{d.phone}</td>
                   <td className="px-4 py-3">
                     <Pill color={d.active ? "green" : "red"}>{d.active ? "Active" : "Inactive"}</Pill>
                   </td>
-                  <td className="px-4 py-3 flex gap-2">
-                    <Btn size="xs" v="secondary" onClick={() => handleEdit(d)}>Edit Name</Btn>
+                  <td className="px-4 py-3 flex items-center gap-1.5 flex-wrap">
+                    <Btn size="xs" v="secondary" onClick={() => handleEdit(d)}>Edit Details</Btn>
                     <Btn size="xs" v={d.active ? "danger" : "primary"} onClick={() => handleToggleStatus(d)}>
                       {d.active ? "Deactivate" : "Activate"}
                     </Btn>
+                    <button
+                      onClick={() => handleDelete(d)}
+                      className="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/40 transition-all flex items-center gap-1 shadow-sm cursor-pointer"
+                      title="Permanently remove driver from database"
+                    >
+                      <span>🗑️</span> Delete
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -2355,94 +2536,90 @@ function DriversPanel() {
    ───────────────────────────────────────────── */
 function AnalyticsPanel() {
   const [stats, setStats] = useState<any>(null);
-  const [trips, setTrips] = useState<any[]>([]);
+  const [drivers, setDrivers] = useState<any[]>([]);
+  const [pendingDocs, setPendingDocs] = useState<number>(0);
 
   useEffect(() => {
     const loadStats = async () => {
       try {
-        const [s, t] = await Promise.all([
+        const [s, dList, dDocs] = await Promise.all([
           apiClient<any>('/module-admin/stats'),
-          apiClient<any[]>('/module-admin/bookings'),
+          apiClient<any[]>('/module-admin/drivers'),
+          apiClient<any[]>('/module-admin/driver-docs')
         ]);
         setStats(s);
-        setTrips(t || []);
+        setDrivers(dList || []);
+        setPendingDocs(dDocs ? dDocs.length : 0);
       } catch {
-        // Demo fallback
-        setStats({ totalUsers: 142, totalDrivers: 38, totalTrips: 1204, totalRevenue: 487320, openDisputes: 3 });
-        setTrips([]);
+        setStats({ totalUsers: 142, totalDrivers: 38, totalTrips: 1204, totalRevenue: 487320 });
+        setDrivers([{id: 1, active: true}, {id: 2, active: true}, {id: 3, active: false}]);
+        setPendingDocs(5);
       }
     };
     loadStats();
   }, []);
 
-  const kpis = stats ? [
-    { icon: "👤", label: "Total Users",       value: stats.totalUsers?.toLocaleString()   ?? "—", color: "bg-blue-600"    },
-    { icon: "🚗", label: "Active Drivers",    value: stats.totalDrivers?.toLocaleString()  ?? "—", color: "bg-emerald-600" },
-    { icon: "📍", label: "Total Trips",       value: stats.totalTrips?.toLocaleString()    ?? "—", color: "bg-violet-600"  },
-    { icon: "💰", label: "Revenue (LKR)",     value: stats.totalRevenue ? `${(stats.totalRevenue/1000).toFixed(0)}K` : "—", color: "bg-amber-600" },
-    { icon: "🎫", label: "Open Disputes",     value: stats.openDisputes?.toString()        ?? "—", color: "bg-red-600"     },
-    { icon: "📊", label: "Commission (15%)",  value: stats.totalRevenue ? `${(stats.totalRevenue*0.15/1000).toFixed(0)}K` : "—", color: "bg-pink-600" },
-  ] : [];
-
-  /* Peak hours bar chart — simulated */
-  const HOURS = Array.from({ length: 8 }, (_, i) => ({
-    label: `${(i * 3).toString().padStart(2,"0")}:00`,
-    pct: [8, 3, 2, 1, 5, 25, 18, 38][i],
-  }));
-
-  const STATUS_COUNTS = trips.reduce((acc: Record<string,number>, t) => {
-    const s = t.status || "unknown";
-    acc[s] = (acc[s] || 0) + 1;
-    return acc;
-  }, {});
+  const activeDriversCount = drivers.filter(d => d.active).length;
+  const inactiveDriversCount = drivers.filter(d => !d.active).length;
+  const totalDrivers = drivers.length || stats?.totalDrivers || 0;
 
   return (
-    <div className="space-y-5">
-      <p className="font-extrabold text-slate-100 text-lg">Real-Time Dashboard</p>
-
-      {/* KPI Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        {kpis.map(k => (
-          <div key={k.label} className={`${k.color} rounded-2xl p-4 text-white shadow-sm`}>
-            <p className="text-2xl mb-2">{k.icon}</p>
-            <p className="text-2xl font-extrabold font-mono">{k.value}</p>
-            <p className="text-xs font-semibold opacity-80 mt-0.5">{k.label}</p>
-          </div>
-        ))}
+    <div className="space-y-6">
+      <div className="flex flex-col gap-2 border-b border-slate-800 pb-4">
+        <h2 className="font-extrabold text-slate-100 text-2xl tracking-tight">Driver Platform Summary</h2>
+        <p className="text-slate-400 text-sm">Real-time overview of driver registrations, activity, and platform health.</p>
       </div>
 
-      {/* Peak Trip Hours */}
-      <Card className="p-5">
-        <p className="font-extrabold text-slate-100 mb-4">🕐 Trip Demand & Peak Hours (UC30)</p>
-        <div className="flex items-end gap-2 h-32">
-          {HOURS.map(h => (
-            <div key={h.label} className="flex-1 flex flex-col items-center gap-1">
-              <div
-                className="w-full rounded-t-md bg-gradient-to-t from-blue-600 to-blue-400 transition-all"
-                style={{ height: `${h.pct * 3}px` }}
-              />
-              <p className="text-[10px] font-mono text-slate-500">{h.label}</p>
-            </div>
-          ))}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-3xl p-6 text-white shadow-xl shadow-blue-900/20 hover:-translate-y-1 transition-transform cursor-pointer border border-blue-500/30">
+          <div className="flex justify-between items-start mb-4">
+            <p className="text-sm font-bold text-blue-200 uppercase tracking-wider">Total Drivers</p>
+            <div className="p-2 bg-white/10 rounded-xl">👥</div>
+          </div>
+          <p className="text-5xl font-black font-mono tracking-tighter">{totalDrivers}</p>
+          <p className="text-xs text-blue-200 mt-2 font-medium">Registered on Streetify</p>
         </div>
-        <p className="text-xs text-slate-400 mt-2">Peak demand 18:00–21:00 · Colombo metro zone</p>
-      </Card>
 
-      {/* Trip Status Breakdown */}
-      <Card className="p-5">
-        <p className="font-extrabold text-slate-100 mb-3">📋 Trip Status Breakdown</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: "Completed",  key: "COMPLETED",  color: "text-green-700 bg-green-50 border-green-200" },
-            { label: "Cancelled",  key: "CANCELLED",  color: "text-red-700 bg-red-50 border-red-200"     },
-            { label: "In Progress",key: "IN_PROGRESS", color: "text-eco bg-eco-dark/20 border-blue-200" },
-            { label: "Requested",  key: "REQUESTED",  color: "text-orange-700 bg-orange-50 border-orange-200" },
-          ].map(s => (
-            <div key={s.label} className={`rounded-xl border p-3 ${s.color}`}>
-              <p className="text-xl font-extrabold font-mono">{STATUS_COUNTS[s.key] ?? "—"}</p>
-              <p className="text-xs font-semibold mt-0.5">{s.label}</p>
-            </div>
-          ))}
+        <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-3xl p-6 text-white shadow-xl shadow-emerald-900/20 hover:-translate-y-1 transition-transform cursor-pointer border border-emerald-400/30">
+          <div className="flex justify-between items-start mb-4">
+            <p className="text-sm font-bold text-emerald-100 uppercase tracking-wider">Active Today</p>
+            <div className="p-2 bg-white/10 rounded-xl">🚗</div>
+          </div>
+          <p className="text-5xl font-black font-mono tracking-tighter">{activeDriversCount}</p>
+          <p className="text-xs text-emerald-100 mt-2 font-medium">Verified & ready for trips</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-3xl p-6 text-white shadow-xl shadow-orange-900/20 hover:-translate-y-1 transition-transform cursor-pointer border border-amber-400/30 relative overflow-hidden">
+          {pendingDocs > 0 && <div className="absolute top-0 right-0 w-16 h-16 bg-red-500 blur-2xl opacity-50 rounded-full animate-pulse"></div>}
+          <div className="flex justify-between items-start mb-4 relative z-10">
+            <p className="text-sm font-bold text-amber-100 uppercase tracking-wider">Pending Docs</p>
+            <div className="p-2 bg-white/10 rounded-xl">📋</div>
+          </div>
+          <p className="text-5xl font-black font-mono tracking-tighter relative z-10">{pendingDocs}</p>
+          <p className="text-xs text-amber-100 mt-2 font-medium relative z-10">Awaiting admin review</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-rose-500 to-rose-700 rounded-3xl p-6 text-white shadow-xl shadow-rose-900/20 hover:-translate-y-1 transition-transform cursor-pointer border border-rose-400/30">
+          <div className="flex justify-between items-start mb-4">
+            <p className="text-sm font-bold text-rose-100 uppercase tracking-wider">Inactive</p>
+            <div className="p-2 bg-white/10 rounded-xl">🛑</div>
+          </div>
+          <p className="text-5xl font-black font-mono tracking-tighter">{inactiveDriversCount}</p>
+          <p className="text-xs text-rose-100 mt-2 font-medium">Suspended or incomplete</p>
+        </div>
+      </div>
+      
+      <Card className="p-6 mt-6 border border-slate-700/50 bg-slate-900/50">
+        <p className="font-bold text-slate-200 mb-4 text-sm uppercase tracking-wider">Driver Fleet Status Breakdown</p>
+        <div className="w-full h-8 flex rounded-xl overflow-hidden shadow-inner bg-slate-800">
+          <div style={{width: `${(activeDriversCount/Math.max(totalDrivers, 1))*100}%`}} className="bg-emerald-500 h-full transition-all duration-1000 ease-out" title={`Active: ${activeDriversCount}`}></div>
+          <div style={{width: `${(pendingDocs/Math.max(totalDrivers, 1))*100}%`}} className="bg-amber-500 h-full transition-all duration-1000 ease-out" title={`Pending: ${pendingDocs}`}></div>
+          <div style={{width: `${(inactiveDriversCount/Math.max(totalDrivers, 1))*100}%`}} className="bg-rose-500 h-full transition-all duration-1000 ease-out" title={`Inactive: ${inactiveDriversCount}`}></div>
+        </div>
+        <div className="flex gap-6 mt-4 text-xs font-semibold">
+          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500"></div><span className="text-slate-300">Active Fleet</span></div>
+          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500"></div><span className="text-slate-300">Pending Review</span></div>
+          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-rose-500"></div><span className="text-slate-300">Inactive/Suspended</span></div>
         </div>
       </Card>
     </div>

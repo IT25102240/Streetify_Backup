@@ -174,164 +174,73 @@ export default function DahamPaymentDashboard() {
         </div>
       </div>
 
-      {/* ── 2. CORE FINANCIAL KPI CARDS (THE 4 ESSENTIAL METRICS) ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Gross Revenue */}
-        <div className="bg-slate-900/90 border border-blue-500/30 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-blue-300">Gross Platform Revenue</span>
-            <span className="text-lg">💰</span>
+      {/* ── SIMPLIFIED PAYMENT SUMMARY DASHBOARD ── */}
+      <div className="flex flex-col gap-2 border-b border-slate-800 pb-4 mt-6">
+        <h2 className="font-extrabold text-slate-100 text-2xl tracking-tight">Payment Platform Summary</h2>
+        <p className="text-slate-400 text-sm">Real-time overview of platform revenue, profit splits, and settlement health.</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+        {/* Gross Revenue Card */}
+        <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-3xl p-6 text-white shadow-xl shadow-blue-900/20 hover:-translate-y-1 transition-transform cursor-pointer border border-blue-500/30">
+          <div className="flex justify-between items-start mb-4">
+            <p className="text-sm font-bold text-blue-200 uppercase tracking-wider">Gross Revenue</p>
+            <div className="p-2 bg-white/10 rounded-xl">💰</div>
           </div>
-          <p className="text-3xl font-black font-mono text-white tracking-tight">
+          <p className="text-3xl font-black font-mono tracking-tighter truncate" title={`LKR ${summary.grossRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
             LKR {summary.grossRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
-          <div className="flex items-center justify-between text-xs text-slate-400 mt-2.5 pt-2 border-t border-slate-800">
-            <span>Total GMV Billed</span>
-            <span className="font-mono text-blue-300 font-bold">{summary.successCount} Settled Rides</span>
-          </div>
+          <p className="text-xs text-blue-200 mt-2 font-medium">Total GMV Billed</p>
         </div>
 
-        {/* Streetify Profit (15%) */}
-        <div className="bg-slate-900/90 border border-emerald-500/30 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-emerald-300">Streetify Profit (15%)</span>
-            <span className="text-lg">🏦</span>
+        {/* Platform Profit Card */}
+        <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-3xl p-6 text-white shadow-xl shadow-emerald-900/20 hover:-translate-y-1 transition-transform cursor-pointer border border-emerald-400/30">
+          <div className="flex justify-between items-start mb-4">
+            <p className="text-sm font-bold text-emerald-100 uppercase tracking-wider">Streetify Profit</p>
+            <div className="p-2 bg-white/10 rounded-xl">🏦</div>
           </div>
-          <p className="text-3xl font-black font-mono text-emerald-400 tracking-tight">
+          <p className="text-3xl font-black font-mono tracking-tighter truncate" title={`LKR ${summary.totalCommission.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
             LKR {summary.totalCommission.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
-          <div className="flex items-center justify-between text-xs text-slate-400 mt-2.5 pt-2 border-t border-slate-800">
-            <span>Platform Commission</span>
-            <span className="font-mono text-emerald-400 font-bold">15.0% Fixed Cut</span>
-          </div>
+          <p className="text-xs text-emerald-100 mt-2 font-medium">15% Fixed Cut</p>
         </div>
 
-        {/* Driver Net Payout (85%) */}
-        <div className="bg-slate-900/90 border border-purple-500/30 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-purple-300">Driver Net Payout (85%)</span>
-            <span className="text-lg">🚗</span>
+        {/* Driver Net Card */}
+        <div className="bg-gradient-to-br from-purple-500 to-purple-700 rounded-3xl p-6 text-white shadow-xl shadow-purple-900/20 hover:-translate-y-1 transition-transform cursor-pointer border border-purple-400/30">
+          <div className="flex justify-between items-start mb-4">
+            <p className="text-sm font-bold text-purple-100 uppercase tracking-wider">Driver Payout</p>
+            <div className="p-2 bg-white/10 rounded-xl">🚗</div>
           </div>
-          <p className="text-3xl font-black font-mono text-purple-300 tracking-tight">
+          <p className="text-3xl font-black font-mono tracking-tighter truncate" title={`LKR ${summary.totalDriverNet.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}>
             LKR {summary.totalDriverNet.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
-          <div className="flex items-center justify-between text-xs text-slate-400 mt-2.5 pt-2 border-t border-slate-800">
-            <span>Disbursed to Wallets</span>
-            <span className="font-mono text-purple-300 font-bold">85.0% Partner Share</span>
-          </div>
+          <p className="text-xs text-purple-100 mt-2 font-medium">85% Partner Share</p>
         </div>
 
-        {/* Settlement Health */}
-        <div className="bg-slate-900/90 border border-amber-500/30 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-300">Settlement Health</span>
-            <span className="text-lg">📈</span>
+        {/* Settlement Health Card */}
+        <div className="bg-gradient-to-br from-amber-500 to-amber-700 rounded-3xl p-6 text-white shadow-xl shadow-amber-900/20 hover:-translate-y-1 transition-transform cursor-pointer border border-amber-400/30 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-amber-400 blur-2xl opacity-40 rounded-full animate-pulse"></div>
+          <div className="flex justify-between items-start mb-4 relative z-10">
+            <p className="text-sm font-bold text-amber-100 uppercase tracking-wider">Settlement Health</p>
+            <div className="p-2 bg-white/10 rounded-xl">📈</div>
           </div>
-          <p className="text-3xl font-black font-mono text-amber-300 tracking-tight">
-            {summary.successRate}%
-          </p>
-          <div className="flex items-center justify-between text-xs text-slate-400 mt-2.5 pt-2 border-t border-slate-800">
-            <span>Avg Ride Fare</span>
-            <span className="font-mono text-amber-300 font-bold">LKR {summary.avgFare}</span>
-          </div>
+          <p className="text-5xl font-black font-mono tracking-tighter relative z-10">{summary.successRate}%</p>
+          <p className="text-xs text-amber-100 mt-2 font-medium relative z-10">{summary.successCount} Settled Rides</p>
         </div>
       </div>
 
-      {/* ── 3. VISUAL BREAKDOWN (2 CLEAN CARDS SIDE-BY-SIDE) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Payment Channels Distribution */}
-        <Card className="p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="font-extrabold text-white text-base">Payment Gateway & Channel Distribution</p>
-              <p className="text-xs text-slate-400 mt-0.5">Transactions across Card, Digital Wallet, and Cash</p>
-            </div>
-            <span className="text-xs font-mono text-slate-400">{summary.totalPayments} Total</span>
-          </div>
-
-          <div className="space-y-3.5">
-            {summary.byMethod.map(m => {
-              const isCard = m.paymentMethod.includes("CARD");
-              const isCash = m.paymentMethod.includes("CASH");
-              const icon = isCard ? "💳" : isCash ? "💵" : "📱";
-              const label = isCard ? "Card Gateway (3D-Secure)" : isCash ? "Physical Cash (Driver Debt)" : "Streetify Digital Wallet";
-              const colorCls = isCard ? "bg-cyan-500" : isCash ? "bg-amber-500" : "bg-purple-500";
-
-              return (
-                <div key={m.paymentMethod} className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">{icon}</span>
-                      <div>
-                        <p className="font-bold text-white leading-tight">{label}</p>
-                        <p className="text-[10px] text-slate-400 font-mono">{m.count} Transactions ({m.percentage}% of GMV)</p>
-                      </div>
-                    </div>
-                    <div className="text-right font-mono">
-                      <p className="font-extrabold text-white text-xs">LKR {m.grossRevenue.toFixed(2)}</p>
-                      <p className="text-[10px] text-emerald-400">+LKR {m.commission.toFixed(2)} Platform Cut</p>
-                    </div>
-                  </div>
-
-                  <div className="w-full bg-slate-800 rounded-full h-2 mt-2.5 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-700 ${colorCls}`}
-                      style={{ width: `${Math.min(100, Math.max(8, m.percentage))}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-
-        {/* 15% Platform Split Illustration */}
-        <Card className="p-5 flex flex-col justify-between">
-          <div>
-            <p className="font-extrabold text-white text-base">Revenue Split Logic</p>
-            <p className="text-xs text-slate-400 mt-0.5">ACID-compliant real-time automated split</p>
-
-            <div className="my-4 p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3.5">
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                  <span className="font-bold text-slate-200">Streetify Platform Cut</span>
-                </div>
-                <span className="font-mono font-bold text-emerald-400">15.0%</span>
-              </div>
-
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-purple-500" />
-                  <span className="font-bold text-slate-200">Driver Partner Net</span>
-                </div>
-                <span className="font-mono font-bold text-purple-300">85.0%</span>
-              </div>
-
-              {/* Visual Split Bar */}
-              <div className="w-full h-4 rounded-full overflow-hidden flex shadow-inner">
-                <div className="bg-emerald-500 w-[15%] flex items-center justify-center text-[9px] font-black text-slate-950">
-                  15%
-                </div>
-                <div className="bg-purple-600 w-[85%] flex items-center justify-center text-[9px] font-black text-white">
-                  85% Driver
-                </div>
-              </div>
-            </div>
-
-            <div className="text-xs text-slate-400 space-y-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800/80">
-              <p className="flex items-start gap-1.5">
-                <span className="text-emerald-400 font-bold">✓</span>
-                <span><strong>Online Card & Wallet:</strong> 15% retained in platform escrow; 85% disbursed to driver wallet.</span>
-              </p>
-              <p className="flex items-start gap-1.5">
-                <span className="text-amber-400 font-bold">✓</span>
-                <span><strong>Cash Rides:</strong> Driver collects 100%; 15% platform fee recorded as commission debt.</span>
-              </p>
-            </div>
-          </div>
-        </Card>
-      </div>
+      {/* Visual Activity Bar */}
+      <Card className="p-6 mt-6 mb-8 border border-slate-700/50 bg-slate-900/50">
+        <p className="font-bold text-slate-200 mb-4 text-sm uppercase tracking-wider">Revenue Split Breakdown</p>
+        <div className="w-full h-8 flex rounded-xl overflow-hidden shadow-inner bg-slate-800">
+          <div style={{width: `15%`}} className="bg-emerald-500 h-full transition-all duration-1000 ease-out flex items-center justify-center text-[10px] font-black text-slate-900">15%</div>
+          <div style={{width: `85%`}} className="bg-purple-500 h-full transition-all duration-1000 ease-out flex items-center justify-center text-[10px] font-black text-white">85%</div>
+        </div>
+        <div className="flex gap-6 mt-4 text-xs font-semibold">
+          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500"></div><span className="text-slate-300">Streetify Profit (LKR {summary.totalCommission.toLocaleString()})</span></div>
+          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-500"></div><span className="text-slate-300">Driver Payout (LKR {summary.totalDriverNet.toLocaleString()})</span></div>
+        </div>
+      </Card>
 
       {/* ── 4. FINANCIAL AUDIT LEDGER TABLE ── */}
       <Card>

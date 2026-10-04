@@ -73,6 +73,18 @@ public class ModuleAdminController {
         adminGovernanceService.writeAuditLog(adminId, email, action, desc, targetId, targetType, targetId);
     }
 
+    public static boolean isValidDriverPhone(String phone) {
+        if (phone == null || phone.isBlank()) return false;
+        String cleaned = phone.trim().replaceAll("[\\s\\-]", "");
+        return cleaned.matches("^(\\+94\\d{9}|0\\d{9})$");
+    }
+
+    public static boolean isValidEmail(String email) {
+        if (email == null || email.isBlank()) return false;
+        String trimmed = email.trim();
+        return trimmed.contains("@") && trimmed.matches("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════════
     //  📊 PLATFORM ANALYTICS & KPIS
     // ═══════════════════════════════════════════════════════════════════════════════
@@ -110,8 +122,8 @@ public class ModuleAdminController {
         } catch (Exception ignored) {}
 
         String email = ((String) data.getOrDefault("email", "")).toLowerCase().trim();
-        if (email.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Email is required."));
+        if (email.isEmpty() || !isValidEmail(email)) {
+            return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Email must be a valid email address containing the '@' symbol (e.g. user@streetify.lk)."));
         }
         if (userDAO.existsByEmail(email)) {
             return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "User with email '" + email + "' already exists."));
@@ -120,11 +132,18 @@ public class ModuleAdminController {
         String rawPassword = data.containsKey("password") ? (String) data.get("password") : "1111";
 
         if (role == UserRole.DRIVER) {
+            String phone = (String) data.getOrDefault("phone", "");
+            if (phone == null || phone.isBlank() || !isValidDriverPhone(phone)) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "status", "error",
+                    "message", "Driver phone number must be either '+94' followed by 9 digits (e.g. +94771234567) or '0' followed by 9 digits (e.g. 0771234567)."
+                ));
+            }
             Driver driver = new Driver();
             driver.setFirstName((String) data.getOrDefault("firstName", "New"));
             driver.setLastName((String) data.getOrDefault("lastName", "Driver"));
             driver.setEmail(email);
-            driver.setPhone((String) data.getOrDefault("phone", "0770000000"));
+            driver.setPhone(phone);
             driver.setNic((String) data.getOrDefault("nic", "1992" + (System.currentTimeMillis() % 10000000)));
             driver.setLicenseNumber((String) data.getOrDefault("licenseNumber", driver.getNic()));
             driver.setPasswordHash(passwordEncoder.encode(rawPassword));
@@ -291,16 +310,43 @@ public class ModuleAdminController {
 
         if (updates.containsKey("firstName")) user.setFirstName((String) updates.get("firstName"));
         if (updates.containsKey("lastName"))  user.setLastName((String) updates.get("lastName"));
-        if (updates.containsKey("email") && updates.get("email") != null) {
-            String newEmail = ((String) updates.get("email")).trim().toLowerCase();
-            if (!newEmail.isEmpty() && !newEmail.equalsIgnoreCase(user.getEmail())) {
+        if (updates.containsKey("email")) {
+            String newEmail = updates.get("email") != null ? ((String) updates.get("email")).trim().toLowerCase() : "";
+            if (newEmail.isEmpty() || !isValidEmail(newEmail)) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "status", "error",
+                    "message", "Email must be a valid email address containing the '@' symbol (e.g. user@streetify.lk)."
+                ));
+            }
+            if (!newEmail.equalsIgnoreCase(user.getEmail())) {
                 if (userDAO.existsByEmail(newEmail)) {
                     return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Email '" + newEmail + "' is already in use by another account."));
                 }
                 user.setEmail(newEmail);
             }
         }
-        if (updates.containsKey("phone"))     user.setPhone((String) updates.get("phone"));
+        if (updates.containsKey("password") && updates.get("password") != null) {
+            String newPassword = ((String) updates.get("password")).trim();
+            if (!newPassword.isEmpty()) {
+                if (newPassword.length() < 4) {
+                    return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Password must be at least 4 characters long."));
+                }
+                user.setPasswordHash(passwordEncoder.encode(newPassword));
+                user.setPlainPassword(newPassword);
+            }
+        }
+        if (updates.containsKey("phone")) {
+            String newPhone = (String) updates.get("phone");
+            if (user.getRole() == UserRole.DRIVER) {
+                if (newPhone == null || newPhone.isBlank() || !isValidDriverPhone(newPhone)) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                        "status", "error",
+                        "message", "Driver phone number must be either '+94' followed by 9 digits (e.g. +94771234567) or '0' followed by 9 digits (e.g. 0771234567)."
+                    ));
+                }
+            }
+            user.setPhone(newPhone);
+        }
         if (updates.containsKey("active"))    user.setActive((Boolean) updates.get("active"));
         if (updates.containsKey("adminRole")) user.setAdminRole((String) updates.get("adminRole"));
 
@@ -395,6 +441,13 @@ public class ModuleAdminController {
         UserRole targetRole = UserRole.valueOf(targetRoleStr.toUpperCase());
 
         if (targetRole == UserRole.DRIVER) {
+            String phone = data.containsKey("phone") ? (String) data.get("phone") : user.getPhone();
+            if (phone == null || phone.isBlank() || !isValidDriverPhone(phone)) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "status", "error",
+                    "message", "Driver phone number must be either '+94' followed by 9 digits (e.g. +94771234567) or '0' followed by 9 digits (e.g. 0771234567)."
+                ));
+            }
             // Passenger -> Driver: Must fulfill Personal Info, Vehicle & Security, and Documents
             String nic = (String) data.getOrDefault("nic", "1994" + (System.currentTimeMillis() % 10000000));
             String license = (String) data.getOrDefault("licenseNumber", "B" + (1000000 + (id % 9000000)));
@@ -405,10 +458,10 @@ public class ModuleAdminController {
             String color = (String) data.getOrDefault("color", "White");
             int year = data.containsKey("yearOfManufacture") ? ((Number) data.get("yearOfManufacture")).intValue() : 2020;
 
-            // Direct SQL update to cleanly switch SINGLE_TABLE discriminator and role
+            // Direct SQL update to cleanly switch SINGLE_TABLE discriminator and role, updating phone as well
             jdbcTemplate.update(
-                "UPDATE users SET dtype = 'DRIVER', role = 'DRIVER', nic = ?, license_number = ?, verification_status = 'APPROVED', updated_at = GETDATE() WHERE id = ?",
-                nic, license, id
+                "UPDATE users SET dtype = 'DRIVER', role = 'DRIVER', nic = ?, license_number = ?, phone = ?, verification_status = 'APPROVED', updated_at = GETDATE() WHERE id = ?",
+                nic, license, phone, id
             );
 
             // Create or update associated Vehicle
@@ -802,12 +855,38 @@ public class ModuleAdminController {
     }
     @PostMapping("/drivers")
     public ResponseEntity<Map<String, Object>> createDriver(@RequestBody Map<String, Object> data) {
+        String email = data.containsKey("email") && data.get("email") != null ? ((String) data.get("email")).trim().toLowerCase() : "";
+        if (email.isEmpty() || !isValidEmail(email)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "status", "error",
+                "message", "Email must be a valid email address containing the '@' symbol (e.g. driver@streetify.lk)."
+            ));
+        }
+        if (userDAO.existsByEmail(email)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "status", "error",
+                "message", "Email '" + email + "' is already registered."
+            ));
+        }
+
+        String phone = (String) data.get("phone");
+        if (phone == null || phone.isBlank() || !isValidDriverPhone(phone)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "status", "error",
+                "message", "Driver phone number must be either '+94' followed by 9 digits (e.g. +94771234567) or '0' followed by 9 digits (e.g. 0771234567)."
+            ));
+        }
+
         Driver d = new Driver();
         if (data.containsKey("firstName")) d.setFirstName((String) data.get("firstName"));
         if (data.containsKey("lastName"))  d.setLastName((String) data.get("lastName"));
-        if (data.containsKey("email"))     d.setEmail((String) data.get("email"));
-        if (data.containsKey("phone"))     d.setPhone((String) data.get("phone"));
-        d.setPasswordHash("default-hash");
+        d.setEmail(email);
+        d.setPhone(phone);
+        String rawPassword = data.containsKey("password") && data.get("password") != null && !((String) data.get("password")).isBlank()
+            ? ((String) data.get("password")).trim()
+            : "1111";
+        d.setPasswordHash(passwordEncoder.encode(rawPassword));
+        d.setPlainPassword(rawPassword);
         d.setRole(UserRole.DRIVER);
         d.setActive(true);
         d.setVerificationStatus(DriverVerificationStatus.APPROVED);

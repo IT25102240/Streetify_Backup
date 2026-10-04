@@ -134,6 +134,12 @@ public class AuthService {
             throw new IllegalArgumentException("This number plate is already registered.");
         }
 
+        // Validate driver phone format: +94 followed by 9 digits or 0 followed by 9 digits
+        String cleanedPhone = dto.getPhone() != null ? dto.getPhone().trim().replaceAll("[\\s\\-]", "") : "";
+        if (!cleanedPhone.matches("^(\\+94\\d{9}|0\\d{9})$")) {
+            throw new IllegalArgumentException("Driver phone number must be either '+94' followed by 9 digits (e.g. +94771234567) or '0' followed by 9 digits (e.g. 0771234567).");
+        }
+
         // Step 2: Build Driver entity
         Driver driver = new Driver();
         driver.setFirstName(dto.getFirstName());

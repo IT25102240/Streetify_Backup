@@ -15,7 +15,7 @@ public class DriverRegistrationDTO {
     @NotBlank(message = "Email is required") @Email
     private String email;
     @NotBlank(message = "Phone number is required")
-    @Pattern(regexp = "^[+]?[0-9]{9,15}$")
+    @Pattern(regexp = "^(\\+94[0-9]{9}|0[0-9]{9})$", message = "Driver phone number must be either '+94' followed by 9 digits (e.g. +94771234567) or '0' followed by 9 digits (e.g. 0771234567)")
     private String phone;
     @NotBlank(message = "NIC number is required") @Size(min = 9, max = 20)
     private String nic;
