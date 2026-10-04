@@ -58,8 +58,12 @@ function formatTime(sec: number) {
 
 // Helper to resolve coordinates for known trip destinations
 function resolveTripCoords(addr?: string): [number, number] {
-  if (!addr) return [6.9271, 79.8612];
+  if (!addr) return [7.2847, 80.6275];
   const l = addr.toLowerCase();
+  if (l.includes("deiyannewela")) return [7.2847, 80.6275];
+  if (l.includes("sliit") || l.includes("pallekele")) return [7.2804, 80.7050];
+  if (l.includes("kcc") || l.includes("city centre")) return [7.2936, 80.6350];
+  if (l.includes("kandy")) return [7.2906, 80.6337];
   if (l.includes("mount lavinia")) return [6.8333, 79.8656];
   if (l.includes("galle face")) return [6.9270, 79.8450];
   if (l.includes("kotte") || l.includes("nugegoda")) return [6.8649, 79.8997];
@@ -67,7 +71,7 @@ function resolveTripCoords(addr?: string): [number, number] {
   if (l.includes("world trade") || l.includes("wtc")) return [6.9329, 79.8438];
   if (l.includes("nawaloka")) return [6.9208, 79.8519];
   if (l.includes("fort")) return [6.9337, 79.8452];
-  return [6.9271, 79.8612];
+  return [7.2847, 80.6275];
 }
 
 export default function ScreenDriver() {
@@ -94,8 +98,8 @@ export default function ScreenDriver() {
   /* Real GPS location for driver position on map */
   const { coords: myCoords, error: geoError } = useGeolocation();
 
-  const driverLat = myCoords?.lat ?? parseFloat(localStorage.getItem("last_lat") || "6.9271");
-  const driverLng = myCoords?.lng ?? parseFloat(localStorage.getItem("last_lng") || "79.8612");
+  const driverLat = myCoords?.lat ?? parseFloat(localStorage.getItem("last_lat") || "7.2847");
+  const driverLng = myCoords?.lng ?? parseFloat(localStorage.getItem("last_lng") || "80.6275");
 
   const tripTimer    = useRef<ReturnType<typeof setInterval> | null>(null);
   const arrivedTimer = useRef<ReturnType<typeof setInterval> | null>(null);

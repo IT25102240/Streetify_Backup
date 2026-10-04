@@ -23,16 +23,24 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadowUrl,
 });
 
-/* ── Colombo fallback + known Sri Lankan locations ── */
-const COLOMBO = { lat: 6.9271, lng: 79.8612 };
+/* ── Default fallback (Kandy - Deiyannewela Lane) + known Sri Lankan locations ── */
+const DEFAULT_MAP_CENTER = { lat: 7.2847, lng: 80.6275 };
 
 const LOCATION_COORDS: Record<string, [number, number]> = {
+  "home":                         [7.2847, 80.6275],
+  "deiyannewela":                 [7.2847, 80.6275],
+  "deiyannewela lane":            [7.2847, 80.6275],
+  "deiyannewela lane, william gopallawa mawatha, kandy": [7.2847, 80.6275],
+  "sliit kandy uni":              [7.2804, 80.7050],
+  "sliit kandy uni, pallekele":   [7.2804, 80.7050],
+  "kcc":                          [7.2936, 80.6350],
+  "kandy city centre":            [7.2936, 80.6350],
+  "kandy":                        [7.2906, 80.6337],
   "colombo fort railway station": [6.9337, 79.8452],
   "42/b kotte road, nugegoda":    [6.8649, 79.8997],
   "world trade centre, col 01":   [6.9329, 79.8438],
   "bandaranaike int. airport":    [7.1805, 79.8837],
   "nawaloka hospital, col 02":    [6.9208, 79.8519],
-  "home":                         [6.8649, 79.8997],
   "office":                       [6.9329, 79.8438],
   "bia terminal 1":               [7.1805, 79.8837],
   "nawaloka":                     [6.9208, 79.8519],
@@ -261,7 +269,7 @@ export default function OsmMap({
       ? [pickupLat, pickupLng]
       : resolveLatLng(pickupAddress)
         ?? (myLat && myLng ? [myLat, myLng] : null)
-        ?? [COLOMBO.lat, COLOMBO.lng];
+        ?? [DEFAULT_MAP_CENTER.lat, DEFAULT_MAP_CENTER.lng];
 
   const dCoords: [number, number] | null =
     showDropoff

@@ -25,18 +25,19 @@ export interface UseGeolocationResult {
   refetch: () => void;
 }
 
-const DEFAULT_LAT = parseFloat(localStorage.getItem("last_lat") || "6.9271");
-const DEFAULT_LNG = parseFloat(localStorage.getItem("last_lng") || "79.8612");
-
-const COLOMBO_DEFAULT: GeoCoords = {
-  lat: DEFAULT_LAT,
-  lng: DEFAULT_LNG,
-  accuracy: 100,
-  source: "default",
-};
+const DEFAULT_LAT = 7.2847; // Deiyannewela Lane, William Gopallawa Mawatha, Kandy
+const DEFAULT_LNG = 80.6275;
 
 export function useGeolocation(): UseGeolocationResult {
-  const [coords, setCoords] = useState<GeoCoords | null>(null);
+  const [coords, setCoords] = useState<GeoCoords | null>(() => {
+    const savedLat = parseFloat(localStorage.getItem("last_lat") || "");
+    const savedLng = parseFloat(localStorage.getItem("last_lng") || "");
+    // If previous saved coords are not the stale Colombo fallback (6.9271)
+    if (!isNaN(savedLat) && !isNaN(savedLng) && Math.abs(savedLat - 6.9271) > 0.05) {
+      return { lat: savedLat, lng: savedLng, accuracy: 25, source: "default" };
+    }
+    return { lat: DEFAULT_LAT, lng: DEFAULT_LNG, accuracy: 25, source: "default" };
+  });
   const [error, setError]   = useState<string | null>(null);
   
   // Helper to save to state and localStorage
@@ -59,9 +60,14 @@ export function useGeolocation(): UseGeolocationResult {
       if (data.success && typeof data.latitude === "number" && typeof data.longitude === "number") {
         if (!hasResolvedRef.current) {
           hasResolvedRef.current = true;
+          // Sri Lankan ISPs often route IP traffic through Colombo gateway (~6.92...).
+          // If the user's location is Kandy, do not overwrite it with Colombo IP gateway.
+          const isColomboGateway = Math.abs(data.latitude - 6.9271) < 0.1;
+          const latToUse = isColomboGateway ? DEFAULT_LAT : data.latitude;
+          const lngToUse = isColomboGateway ? DEFAULT_LNG : data.longitude;
           saveCoords({
-            lat: data.latitude,
-            lng: data.longitude,
+            lat: latToUse,
+            lng: lngToUse,
             accuracy: 1500,
             source: "ip",
           });
@@ -76,10 +82,15 @@ export function useGeolocation(): UseGeolocationResult {
 
     if (!hasResolvedRef.current) {
       hasResolvedRef.current = true;
-      saveCoords(COLOMBO_DEFAULT);
+      saveCoords({
+        lat: DEFAULT_LAT,
+        lng: DEFAULT_LNG,
+        accuracy: 100,
+        source: "default",
+      });
       setLoad(false);
     }
-  }, []);
+  }, [saveCoords]);
 
   const start = useCallback(() => {
     hasResolvedRef.current = false;

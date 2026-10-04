@@ -30,8 +30,8 @@ export interface DemoDriver {
   currentTripId?: string;
 }
 
-// Base coordinates around Colombo for demo drivers
-const COLOMBO_CENTER = { lat: 6.9271, lng: 79.8612 };
+// Base coordinates for demo drivers (default: Kandy - Deiyannewela Lane)
+const COLOMBO_CENTER = { lat: 7.2847, lng: 80.6275 };
 
 // Demo driver templates - 3 per vehicle type
 const DEMO_DRIVER_TEMPLATES: Omit<DemoDriver, "id" | "lat" | "lng" | "heading" | "eta" | "status" | "currentTripId">[] = [

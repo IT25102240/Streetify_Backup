@@ -115,12 +115,53 @@ function resolvePlaceCoords(text: string): { lat: number; lng: number } | null {
   return match ? { lat: match.lat, lng: match.lng } : null;
 }
 
+export const SRI_LANKA_DEMO_LOCATIONS = [
+  { name: "Deiyannewela Lane, Kandy", addr: "Deiyannewela Lane, William Gopallawa Mawatha, Kandy", lat: 7.2847, lng: 80.6275 },
+  { name: "KCC (Kandy City Centre)", addr: "Dalada Veediya, Kandy", lat: 7.2936, lng: 80.6350 },
+  { name: "SLIIT Kandy Uni, Pallekele", addr: "SLIIT Kandy Uni, Pallekele", lat: 7.2804, lng: 80.7050 },
+  { name: "Dalada Maligawa (Temple of Tooth)", addr: "Temple of the Sacred Tooth Relic, Kandy", lat: 7.2936, lng: 80.6413 },
+  { name: "Peradeniya Royal Botanical Gardens", addr: "Royal Botanical Gardens, Peradeniya, Kandy", lat: 7.2687, lng: 80.5968 },
+  { name: "Galle Face Green, Colombo", addr: "Galle Face, Colombo 03", lat: 6.9270, lng: 79.8450 },
+  { name: "Colombo Fort Railway Station", addr: "Station Rd, Colombo Fort", lat: 6.9337, lng: 79.8452 },
+  { name: "Lotus Tower, Colombo", addr: "Colombo Lotus Tower, Colombo 10", lat: 6.9273, lng: 79.8584 },
+  { name: "Galle Dutch Fort", addr: "Church St, Galle", lat: 6.0270, lng: 80.2170 },
+  { name: "Negombo Beach", addr: "Porutota Rd, Negombo", lat: 7.2275, lng: 79.8407 },
+  { name: "Lake Gregory, Nuwara Eliya", addr: "Peradeniya-Badulla Rd, Nuwara Eliya", lat: 6.9530, lng: 80.7819 },
+];
+
+function getRandomSriLankaLocation() {
+  const idx = Math.floor(Math.random() * SRI_LANKA_DEMO_LOCATIONS.length);
+  return SRI_LANKA_DEMO_LOCATIONS[idx];
+}
+
+function generate12DemoDrivers(bLat: number, bLng: number): DriverState[] {
+  return [
+    // 3 Tuk-Tuk drivers
+    { id: "demo-t1", name: "Sunil K.",     plate: "AA-1122",  lat: bLat + 0.002, lng: bLng - 0.001, eta: 3, rating: 4.9, heading: 60,  type: "tuk" },
+    { id: "demo-t2", name: "Priyantha M.", plate: "WP-8877", lat: bLat - 0.003, lng: bLng + 0.002, eta: 5, rating: 4.8, heading: 150, type: "tuk" },
+    { id: "demo-t3", name: "Bandara G.",   plate: "AB-4455", lat: bLat + 0.004, lng: bLng + 0.002, eta: 4, rating: 4.7, heading: 210, type: "tuk" },
+    // 3 Standard Sedan drivers
+    { id: "demo-c1", name: "Kasun P.",     plate: "CAB-4821", lat: bLat + 0.003, lng: bLng - 0.002, eta: 4, rating: 4.9, heading: 45,  type: "standard" },
+    { id: "demo-c2", name: "Nuwan M.",     plate: "WP-5503",  lat: bLat - 0.004, lng: bLng + 0.003, eta: 6, rating: 4.8, heading: 180, type: "standard" },
+    { id: "demo-c3", name: "Amara N.",     plate: "WP-2217",  lat: bLat + 0.002, lng: bLng + 0.004, eta: 8, rating: 4.7, heading: 270, type: "standard" },
+    // 3 Streetify XL Van drivers
+    { id: "demo-v1", name: "Kamal D.",     plate: "VAN-8991", lat: bLat - 0.005, lng: bLng - 0.005, eta: 7, rating: 4.9, heading: 90,  type: "xl" },
+    { id: "demo-v2", name: "Saman K.",     plate: "WP-1122",  lat: bLat + 0.006, lng: bLng + 0.001, eta: 9, rating: 4.6, heading: 120, type: "xl" },
+    { id: "demo-v3", name: "Ruwan T.",     plate: "WP-3344",  lat: bLat - 0.001, lng: bLng - 0.006, eta: 5, rating: 4.8, heading: 310, type: "xl" },
+    // 3 Moto Motorcycle drivers
+    { id: "demo-m1", name: "Nimal S.",     plate: "BCA-1020", lat: bLat + 0.001, lng: bLng + 0.002, eta: 2, rating: 4.9, heading: 15,  type: "moto" },
+    { id: "demo-m2", name: "Ajith W.",     plate: "BCC-9988", lat: bLat - 0.002, lng: bLng + 0.001, eta: 3, rating: 4.7, heading: 195, type: "moto" },
+    { id: "demo-m3", name: "Namal B.",     plate: "BXZ-7766", lat: bLat + 0.003, lng: bLng - 0.004, eta: 4, rating: 4.8, heading: 75,  type: "moto" },
+  ];
+}
+
 export default function ScreenBooking() {
-  const [pickup, setPickup]       = useState("Detecting your location…");
+  const [randomStartLoc] = useState(() => getRandomSriLankaLocation());
+  const [pickup, setPickup]       = useState(randomStartLoc.addr);
   const [dropoff, setDropoff]     = useState("");
   const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number }>({
-    lat: parseFloat(localStorage.getItem("last_lat") || "6.9271"),
-    lng: parseFloat(localStorage.getItem("last_lng") || "79.8612")
+    lat: randomStartLoc.lat,
+    lng: randomStartLoc.lng,
   });
   const [dropoffCoords, setDropoffCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [mapTargetMode, setMapTargetMode] = useState<"pickup" | "dropoff">("dropoff");
@@ -129,12 +170,13 @@ export default function ScreenBooking() {
   const [pickupSuggList, setPickupSuggList] = useState<Array<{ label: string; addr: string; lat: number; lng: number }>>([]);
   const [dropoffSuggList, setDropoffSuggList] = useState<Array<{ label: string; addr: string; lat: number; lng: number }>>([]);
 
-
   const [rideType, setRide]       = useState<RideType>("standard");
   const [step, setStep]           = useState<BookingStep>("idle");
   const [fareReady, setFareReady] = useState(false);
   const [wsConnected, setWsConn]  = useState(true);
-  const [drivers, setDrivers]     = useState<DriverState[]>([]);
+  const [drivers, setDrivers]     = useState<DriverState[]>(() => 
+    generate12DemoDrivers(randomStartLoc.lat, randomStartLoc.lng)
+  );
   const [matchedDriver, setMatch] = useState<DriverState | null>(null);
   const [liveTripStatus, setLiveTripStatus] = useState<"IDLE" | "REQUESTED" | "ASSIGNED" | "EN_ROUTE" | "ARRIVED" | "IN_PROGRESS" | "COMPLETED">("IDLE");
   const [searchDots, setDots]     = useState(0);
@@ -155,68 +197,37 @@ export default function ScreenBooking() {
   const [bookingError, setBookingError] = useState("");
   const fare = estimatedFare || Math.round(selected.base + (estimatedDistance > 0 ? estimatedDistance : 0) * selected.perKm);
 
-  /* When live GPS resolves, update pickup and coordinates */
+  /* Shuffle to another random Sri Lankan city / location on demand */
+  const switchToRandomLocation = () => {
+    const loc = getRandomSriLankaLocation();
+    setPickup(loc.addr);
+    setPickupCoords({ lat: loc.lat, lng: loc.lng });
+    setDrivers(generate12DemoDrivers(loc.lat, loc.lng));
+    if (leafletMapRef.current) {
+      leafletMapRef.current.flyTo([loc.lat, loc.lng], 15, { animate: true, duration: 1.2 });
+    }
+    NotificationService.sendTripAlert("Location Switched 📍", `Centered map on ${loc.name}`);
+  };
+
+  /* When live hardware GPS resolves, optionally update pickup and coordinates */
   useEffect(() => {
-    if (!myCoords) return;
+    if (!myCoords || myCoords.source !== "gps") return;
 
     setPickupCoords({ lat: myCoords.lat, lng: myCoords.lng });
-
-    // Reverse geocode to get nice street address
     reverseGeocode(myCoords.lat, myCoords.lng).then(addr => {
-      setPickup(addr);
+      if (addr) setPickup(addr);
     });
 
-    // Populate 12 demo drivers (3 per vehicle type) around user's location
     if (!initialLocSet.current) {
       initialLocSet.current = true;
       const bLat = myCoords.lat;
       const bLng = myCoords.lng;
-      setDrivers([
-        // 3 Tuk-Tuk drivers
-        { id: "demo-t1", name: "Sunil K.", plate: "AA-1122",  lat: bLat + 0.002, lng: bLng - 0.001, eta: 3, rating: 4.9, heading: 60, type: "tuk" },
-        { id: "demo-t2", name: "Priyantha M.", plate: "WP-8877", lat: bLat - 0.003, lng: bLng + 0.002, eta: 5, rating: 4.8, heading: 150, type: "tuk" },
-        { id: "demo-t3", name: "Bandara G.", plate: "AB-4455", lat: bLat + 0.004, lng: bLng + 0.002, eta: 4, rating: 4.7, heading: 210, type: "tuk" },
-        // 3 Standard Sedan drivers
-        { id: "demo-c1", name: "Kasun P.", plate: "CAB-4821", lat: bLat + 0.003, lng: bLng - 0.002, eta: 4, rating: 4.9, heading: 45, type: "standard" },
-        { id: "demo-c2", name: "Nuwan M.", plate: "WP-5503",  lat: bLat - 0.004, lng: bLng + 0.003, eta: 6, rating: 4.8, heading: 180, type: "standard" },
-        { id: "demo-c3", name: "Amara N.", plate: "WP-2217",  lat: bLat + 0.002, lng: bLng + 0.004, eta: 8, rating: 4.7, heading: 270, type: "standard" },
-        // 3 Streetify XL Van drivers
-        { id: "demo-v1", name: "Kamal D.", plate: "VAN-8991", lat: bLat - 0.005, lng: bLng - 0.005, eta: 7, rating: 4.9, heading: 90, type: "xl" },
-        { id: "demo-v2", name: "Saman K.", plate: "WP-1122",  lat: bLat + 0.006, lng: bLng + 0.001, eta: 9, rating: 4.6, heading: 120, type: "xl" },
-        { id: "demo-v3", name: "Ruwan T.", plate: "WP-3344",  lat: bLat - 0.001, lng: bLng - 0.006, eta: 5, rating: 4.8, heading: 310, type: "xl" },
-        // 3 Moto Motorcycle drivers
-        { id: "demo-m1", name: "Nimal S.", plate: "BCA-1020", lat: bLat + 0.001, lng: bLng + 0.002, eta: 2, rating: 4.9, heading: 15, type: "moto" },
-        { id: "demo-m2", name: "Ajith W.", plate: "BCC-9988", lat: bLat - 0.002, lng: bLng + 0.001, eta: 3, rating: 4.7, heading: 195, type: "moto" },
-        { id: "demo-m3", name: "Namal B.", plate: "BXZ-7766", lat: bLat + 0.003, lng: bLng - 0.004, eta: 4, rating: 4.8, heading: 75, type: "moto" },
-      ]);
+      if (leafletMapRef.current) {
+        leafletMapRef.current.flyTo([bLat, bLng], 15, { animate: true, duration: 1 });
+      }
+      setDrivers(generate12DemoDrivers(bLat, bLng));
     }
-  }, [myCoords?.lat, myCoords?.lng]);
-
-  /* Fallback initial drivers if GPS takes time */
-  useEffect(() => {
-    if (drivers.length === 0) {
-      const bLat = 6.9271;
-      const bLng = 79.8612;
-      setDrivers([
-        // 3 Tuk-Tuk drivers
-        { id: "demo-t1", name: "Sunil K.", plate: "AA-1122",  lat: bLat + 0.002, lng: bLng - 0.001, eta: 3, rating: 4.9, heading: 60, type: "tuk" },
-        { id: "demo-t2", name: "Priyantha M.", plate: "WP-8877", lat: bLat - 0.003, lng: bLng + 0.002, eta: 5, rating: 4.8, heading: 150, type: "tuk" },
-        { id: "demo-t3", name: "Bandara G.", plate: "AB-4455", lat: bLat + 0.004, lng: bLng + 0.002, eta: 4, rating: 4.7, heading: 210, type: "tuk" },
-        // 3 Standard Sedan drivers
-        { id: "demo-c1", name: "Kasun P.", plate: "CAB-4821", lat: bLat + 0.003, lng: bLng - 0.002, eta: 4, rating: 4.9, heading: 45, type: "standard" },
-        { id: "demo-c2", name: "Nuwan M.", plate: "WP-5503",  lat: bLat - 0.004, lng: bLng + 0.003, eta: 6, rating: 4.8, heading: 180, type: "standard" },
-        { id: "demo-c3", name: "Amara N.", plate: "WP-2217",  lat: bLat + 0.002, lng: bLng + 0.004, eta: 8, rating: 4.7, heading: 270, type: "standard" },
-        // 3 Streetify XL Van drivers
-        { id: "demo-v1", name: "Kamal D.", plate: "VAN-8991", lat: bLat - 0.005, lng: bLng - 0.005, eta: 7, rating: 4.9, heading: 90, type: "xl" },
-        { id: "demo-v2", name: "Saman K.", plate: "WP-1122",  lat: bLat + 0.006, lng: bLng + 0.001, eta: 9, rating: 4.6, heading: 120, type: "xl" },
-        { id: "demo-v3", name: "Ruwan T.", plate: "WP-3344",  lat: bLat - 0.001, lng: bLng - 0.006, eta: 5, rating: 4.8, heading: 310, type: "xl" },
-        // 3 Moto Motorcycle drivers
-        { id: "demo-m1", name: "Nimal S.", plate: "BCA-1020", lat: bLat + 0.001, lng: bLng + 0.002, eta: 2, rating: 4.9, heading: 15, type: "moto" },
-        { id: "demo-m2", name: "Ajith W.", plate: "BCC-9988", lat: bLat - 0.002, lng: bLng + 0.001, eta: 3, rating: 4.7, heading: 195, type: "moto" },
-        { id: "demo-m3", name: "Namal B.", plate: "BXZ-7766", lat: bLat + 0.003, lng: bLng - 0.004, eta: 4, rating: 4.8, heading: 75, type: "moto" },
-      ]);
-    }
-  }, [drivers.length]);
+  }, [myCoords]);
 
   /* Debounced place search */
   useEffect(() => {
@@ -502,17 +513,22 @@ export default function ScreenBooking() {
 
   const acceptWithDemoDriver = () => {
     if (dotRef.current) clearInterval(dotRef.current);
-    const matched = drivers.find(d => d.type === rideType) ?? drivers[0] ?? {
-      id: "demo-d1",
-      name: "Kasun P.",
-      plate: "CAB-4821",
-      lat: pickupCoords.lat + 0.0015,
-      lng: pickupCoords.lng + 0.0015,
-      eta: 2,
-      rating: 4.91,
-      heading: 90,
-      type: rideType
-    };
+    
+    // Pick random driver matching requested vehicle type (tuk, standard, xl, moto)
+    const matchingDrivers = drivers.filter(d => d.type === rideType && d.id !== "real-driver-active");
+    const matched = matchingDrivers.length > 0
+      ? matchingDrivers[Math.floor(Math.random() * matchingDrivers.length)]
+      : (drivers.filter(d => d.id !== "real-driver-active")[Math.floor(Math.random() * drivers.length)] ?? {
+          id: `demo-${rideType}-${Date.now()}`,
+          name: "Kasun P.",
+          plate: "CAB-4821",
+          lat: pickupCoords.lat + (Math.random() - 0.5) * 0.003,
+          lng: pickupCoords.lng + (Math.random() - 0.5) * 0.003,
+          eta: Math.floor(Math.random() * 4) + 2,
+          rating: 4.91,
+          heading: 90,
+          type: rideType
+        });
 
     const activeStr = tabStorage.getItem("active_trip");
     if (activeStr) {
@@ -529,7 +545,7 @@ export default function ScreenBooking() {
     setStep("matched");
     NotificationService.sendTripAlert(
       "Driver Assigned! 🚖",
-      `${matched.name} accepted your ride in ${matched.plate} (ETA ${matched.eta}m)`
+      `${matched.name} (${selected.label}) accepted your ride in ${matched.plate} (ETA ${matched.eta}m)`
     );
   };
 
@@ -1151,7 +1167,7 @@ export default function ScreenBooking() {
           {step === "idle" && (
             <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 text-center text-slate-400">
               <span className="text-4xl block mb-2">🗺️</span>
-              <p className="font-extrabold text-white text-sm">Explore Colombo Metro on the Map</p>
+              <p className="font-extrabold text-white text-sm">Explore Kandy & Sri Lanka on the Map</p>
               <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                 Click anywhere on the wide map to instantly set your pickup or destination, or type in the boxes above.
               </p>
@@ -1217,10 +1233,10 @@ export default function ScreenBooking() {
                   className="w-full py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/30 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
                 >
                   <span>⚡</span>
-                  <span>Ride with Demo Driver (1-Tab Demo)</span>
+                  <span>Match with Random Demo {selected.label} (1-Tab Demo)</span>
                 </button>
                 <p className="text-[10px] text-slate-400 mt-2 font-mono">
-                  Auto-matching demo driver in ~5 seconds…
+                  Auto-matching random {selected.label} cab in ~5s if no live driver accepts…
                 </p>
               </div>
 
@@ -1260,6 +1276,15 @@ export default function ScreenBooking() {
               {drivers.length} Nearby Eco-Cabs Active
             </span>
           </div>
+
+          <button
+            onClick={switchToRandomLocation}
+            title="Shuffle to another random Sri Lankan city / location"
+            className="bg-[#091426]/90 hover:bg-slate-800 text-amber-300 hover:text-amber-200 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-amber-500/40 shadow-lg text-[11px] font-bold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+          >
+            <span>🎲</span>
+            <span>Random SL Location</span>
+          </button>
 
           <div className="hidden sm:flex bg-[#091426]/90 backdrop-blur-md px-3 py-1.5 rounded-full border border-slate-700/80 shadow-lg text-[11px] font-mono text-slate-300 items-center gap-1.5">
             <span>📍 Map target:</span>

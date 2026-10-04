@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Btn, Card, Pill } from "../ui";
 import { apiClient } from "../api/apiClient";
 import BranchKiosk from "./BranchKiosk";
-import SystemStatusIndicator, { CompactStatusIndicator } from "../components/SystemStatusIndicator";
+import SystemStatusIndicator from "../components/SystemStatusIndicator";
 import { tabStorage } from "../utils/storage";
 import { tripSyncService } from "../services/tripSyncService";
 import ChanukaBookingDashboard from "../components/ChanukaBookingDashboard";
@@ -278,6 +278,19 @@ export default function AdminDashboard() {
                 onChange={(e) => {
                   const newR = e.target.value;
                   tabStorage.setItem("admin_role", newR);
+                  const memberMap: Record<string, { email: string; name: string }> = {
+                    PAYMENT_MGMT: { email: "daham@streetify.lk", name: "Daham Edirisinghe" },
+                    BOOKING_MGMT: { email: "chanuka@streetify.lk", name: "Chanuka Dharmakeerthi" },
+                    USER_MGMT:    { email: "lahiru@streetify.lk", name: "Lahiru Nayanamina" },
+                    DRIVER_MGMT:  { email: "tharindu@streetify.lk", name: "Tharindu Senaka" },
+                    REVIEW_MGMT:  { email: "mithun@streetify.lk", name: "Mithun Weerasingha" },
+                    SUPER_ADMIN:  { email: "admin@streetify.com", name: "System Admin (Vidura)" },
+                  };
+                  if (memberMap[newR]) {
+                    tabStorage.setItem("user_email", memberMap[newR].email);
+                    tabStorage.setItem("user_name", memberMap[newR].name);
+                  }
+                  tabStorage.removeItem("jwt_token");
                   window.location.reload();
                 }}
                 title="Simulate upgrading or degrading admin access across the 6 team member scopes"
@@ -290,7 +303,6 @@ export default function AdminDashboard() {
                 <option value="REVIEW_MGMT" className="bg-slate-900 text-white">REVIEW_MGMT (Mithun - Reviews)</option>
               </select>
             </div>
-            <CompactStatusIndicator />
             <button
               onClick={() => setTab("branch-kiosk")}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-50 to-amber-100 hover:from-amber-100 hover:to-amber-200 text-amber-900 border border-amber-300 text-xs font-bold shadow-sm transition-all"
