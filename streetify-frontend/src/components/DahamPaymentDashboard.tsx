@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Btn, Card, Pill } from "../ui";
 import { apiClient } from "../api/apiClient";
 import { tripSyncService } from "../services/tripSyncService";
+import ModuleExportCard from "./ModuleExportCard";
 
 interface PaymentRecord {
   id: number;
@@ -13,8 +14,6 @@ interface PaymentRecord {
   processedAt?: string;
   createdAt?: string;
   tripId?: number;
-  passengerName?: string;
-  driverName?: string;
 }
 
 interface MethodBreakdown {
@@ -26,83 +25,69 @@ interface MethodBreakdown {
   percentage: number;
 }
 
-interface PaymentSummaryData {
-  totalPayments: number;
-  successCount: number;
-  pendingCount: number;
-  failedCount: number;
-  grossRevenue: number;
-  totalCommission: number;
-  totalDriverNet: number;
-  avgFare: number;
-  successRate: number;
-  byMethod: MethodBreakdown[];
-}
-
 const SEED_PAYMENTS_FALLBACK: PaymentRecord[] = [
-  { id: 1, tripId: 1, grossAmount: 300.00, platformCommission: 45.00, driverNet: 255.00, paymentMethod: "CASH", status: "SUCCESS", passengerName: "Amara (Passenger)", driverName: "Kamal Perera", createdAt: "2026-09-28 10:15:00" },
-  { id: 2, tripId: 2, grossAmount: 485.00, platformCommission: 72.75, driverNet: 412.25, paymentMethod: "CASH", status: "SUCCESS", passengerName: "Nimal (Passenger)", driverName: "Sunil Bandara", createdAt: "2026-09-29 14:30:00" },
-  { id: 3, tripId: 3, grossAmount: 500.00, platformCommission: 75.00, driverNet: 425.00, paymentMethod: "CARD", status: "SUCCESS", passengerName: "Kasun (Passenger)", driverName: "Nuwan Pradeep", createdAt: "2026-09-30 08:45:00" },
-  { id: 4, tripId: 4, grossAmount: 2501.00, platformCommission: 375.15, driverNet: 2125.85, paymentMethod: "CARD", status: "SUCCESS", passengerName: "Dilani (Passenger)", driverName: "Kamal Perera", createdAt: "2026-10-01 19:20:00" },
-  { id: 5, tripId: 5, grossAmount: 299.00, platformCommission: 44.85, driverNet: 254.15, paymentMethod: "WALLET", status: "SUCCESS", passengerName: "Saman (Passenger)", driverName: "Sunil Bandara", createdAt: "2026-10-02 12:10:00" },
+  { id: 1, tripId: 1, grossAmount: 1925.00, platformCommission: 288.75, driverNet: 1636.25, paymentMethod: "CARD", status: "SUCCESS", createdAt: "2026-10-04T08:00:00" },
+  { id: 2, tripId: 2, grossAmount: 1076.00, platformCommission: 161.40, driverNet: 914.60, paymentMethod: "WALLET", status: "SUCCESS", createdAt: "2026-10-04T08:15:00" },
+  { id: 3, tripId: 3, grossAmount: 485.00, platformCommission: 72.75, driverNet: 412.25, paymentMethod: "CARD", status: "SUCCESS", createdAt: "2026-10-04T08:20:00" },
+  { id: 4, tripId: 4, grossAmount: 313.00, platformCommission: 46.95, driverNet: 266.05, paymentMethod: "CASH", status: "SUCCESS", createdAt: "2026-10-04T08:30:00" },
+  { id: 5, tripId: 5, grossAmount: 286.00, platformCommission: 42.90, driverNet: 243.10, paymentMethod: "CARD", status: "SUCCESS", createdAt: "2026-10-04T08:45:00" },
 ];
 
 export default function DahamPaymentDashboard() {
-  const [summary, setSummary] = useState<PaymentSummaryData | null>(null);
-  const [payments, setPayments] = useState<PaymentRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [payments, setPayments] = useState<PaymentRecord[]>(SEED_PAYMENTS_FALLBACK);
+  const [loading, setLoading] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<string>(new Date().toLocaleTimeString());
-  const [methodFilter, setMethodFilter] = useState<string>("ALL");
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
-  const [searchQuery, setSearchQuery] = useState("");
 
   const loadData = async () => {
     setLoading(true);
     let rawList: PaymentRecord[] = [];
 
-    // 1. Fetch aggregated financial summary from backend
-    try {
-      const sumData = await apiClient<PaymentSummaryData>("/module-admin/payments/summary");
-      if (sumData && sumData.totalPayments !== undefined && sumData.totalPayments > 0) {
-        setSummary(sumData);
-      }
-    } catch (err) {
-      console.warn("Summary endpoint fallback:", err);
-    }
-
-    // 2. Fetch raw ledger payments
     try {
       const rawPayments = await apiClient<PaymentRecord[]>("/module-admin/payments");
       if (Array.isArray(rawPayments) && rawPayments.length > 0) {
         rawList = rawPayments;
       }
     } catch (err) {
-      console.warn("Payments list endpoint fallback:", err);
+      console.warn("Using verified fallback payments:", err);
     }
 
-    // If backend was empty or offline, use verified seed fallback data so dashboard never goes blank
     if (rawList.length === 0) {
       rawList = SEED_PAYMENTS_FALLBACK;
     }
 
     setPayments(rawList);
-    computeFallbackSummary(rawList);
     setLastRefreshed(new Date().toLocaleTimeString());
     setLoading(false);
   };
 
-  const computeFallbackSummary = (list: PaymentRecord[]) => {
-    const successList = list.filter(p => p.status === "SUCCESS");
+  useEffect(() => {
+    loadData();
+
+    const unsub = tripSyncService.subscribe("PAYMENT_COMPLETED", () => {
+      loadData();
+    });
+
+    return () => {
+      unsub();
+    };
+  }, []);
+
+  const summary = useMemo(() => {
+    const successList = payments.filter(p => p.status === "SUCCESS");
     const gross = successList.reduce((acc, p) => acc + (Number(p.grossAmount) || 0), 0);
     const comm = successList.reduce((acc, p) => acc + (Number(p.platformCommission) || 0), 0);
     const net = successList.reduce((acc, p) => acc + (Number(p.driverNet) || 0), 0);
-    const totalCount = list.length;
+    const totalCount = payments.length;
     const succCount = successList.length;
 
     // Group by method
     const methodMap = new Map<string, { count: number; gross: number; comm: number; net: number }>();
-    list.forEach(p => {
-      const m = (p.paymentMethod || "CASH").toUpperCase();
+    payments.forEach(p => {
+      let m = (p.paymentMethod || "CASH").toUpperCase();
+      if (m.includes("CARD")) m = "CARD";
+      else if (m.includes("CASH")) m = "CASH";
+      else if (m.includes("WALLET")) m = "WALLET";
+
       const current = methodMap.get(m) || { count: 0, gross: 0, comm: 0, net: 0 };
       current.count += 1;
       if (p.status === "SUCCESS") {
@@ -122,237 +107,173 @@ export default function DahamPaymentDashboard() {
       percentage: gross > 0 ? Math.round((data.gross / gross * 100) * 10) / 10 : 0
     }));
 
-    setSummary(prev => prev && prev.totalPayments !== undefined ? prev : {
-      totalPayments: totalCount,
-      successCount: succCount,
-      pendingCount: list.filter(p => p.status === "PENDING").length,
-      failedCount: list.filter(p => p.status === "FAILED").length,
+    return {
       grossRevenue: Math.round(gross * 100) / 100,
       totalCommission: Math.round(comm * 100) / 100,
       totalDriverNet: Math.round(net * 100) / 100,
-      avgFare: succCount > 0 ? Math.round((gross / succCount) * 100) / 100 : 0,
-      successRate: totalCount > 0 ? Math.round((succCount / totalCount * 100) * 10) / 10 : 100,
+      totalPayments: totalCount,
+      successCount: succCount,
+      avgFare: succCount > 0 ? Math.round(gross / succCount) : 0,
+      successRate: totalCount > 0 ? Math.round((succCount / totalCount) * 100) : 100,
       byMethod: byMethod.length > 0 ? byMethod : [
-        { paymentMethod: "CARD", count: 2, grossRevenue: 3001, commission: 450.15, driverNet: 2550.85, percentage: 86.1 },
-        { paymentMethod: "CASH", count: 1, grossRevenue: 485, commission: 72.75, driverNet: 412.25, percentage: 13.9 }
+        { paymentMethod: "CARD", count: 3, grossRevenue: 2696, commission: 404.4, driverNet: 2291.6, percentage: 66.0 },
+        { paymentMethod: "WALLET", count: 1, grossRevenue: 1076, commission: 161.4, driverNet: 914.6, percentage: 26.3 },
+        { paymentMethod: "CASH", count: 1, grossRevenue: 313, commission: 46.95, driverNet: 266.05, percentage: 7.7 }
       ]
-    });
-  };
-
-  useEffect(() => {
-    loadData();
-
-    // Live update when a ride payment completes in any tab!
-    const unsub = tripSyncService.subscribe("PAYMENT_COMPLETED", () => {
-      loadData();
-    });
-
-    return () => {
-      unsub();
     };
-  }, []);
+  }, [payments]);
 
-  // Filtered payments for ledger display
-  const filteredPayments = useMemo(() => {
-    return payments.filter(p => {
-      const matchMethod = methodFilter === "ALL" || (p.paymentMethod || "").toUpperCase() === methodFilter;
-      const matchStatus = statusFilter === "ALL" || (p.status || "").toUpperCase() === statusFilter;
-      const q = searchQuery.toLowerCase().trim();
-      const matchQuery = !q || 
-        String(p.id).includes(q) || 
-        String(p.tripId || "").includes(q) ||
-        (p.paymentMethod || "").toLowerCase().includes(q) ||
-        (p.passengerName || "").toLowerCase().includes(q) ||
-        (p.driverName || "").toLowerCase().includes(q);
-      return matchMethod && matchStatus && matchQuery;
-    });
-  }, [payments, methodFilter, statusFilter, searchQuery]);
-
-  // Export CSV Ledger
-  const exportCsv = () => {
-    const headers = ["Payment ID", "Trip ID", "Gross Amount (LKR)", "Commission 15% (LKR)", "Driver Net 85% (LKR)", "Method", "Status", "Date"];
-    const rows = filteredPayments.map(p => [
-      p.id,
-      p.tripId || "N/A",
-      p.grossAmount,
-      p.platformCommission,
-      p.driverNet,
-      p.paymentMethod,
-      p.status,
-      p.processedAt || p.createdAt || "Recent"
-    ]);
-
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Streetify_Payment_Ledger_${new Date().toISOString().split("T")[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDeletePayment = async (id: number) => {
+    if (!window.confirm(`⚠️ Permanently DELETE payment record TXN-${id}?`)) return;
+    try {
+      await apiClient(`/module-admin/payments/${id}?hard=true`, { method: "DELETE" });
+    } catch {}
+    setPayments(prev => prev.filter(p => p.id !== id));
   };
-
-  const grossVal = summary?.grossRevenue || 0;
-  const commVal = summary?.totalCommission || 0;
-  const netVal = summary?.totalDriverNet || 0;
 
   return (
-    <div className="space-y-6">
-      {/* ── TOP EXECUTIVE BANNER ── */}
-      <div className="bg-gradient-to-r from-[#07192e] via-[#092543] to-[#041d33] border border-cyan-500/30 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
-        <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute left-1/3 -top-10 w-48 h-48 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
-                FINANCIAL LEDGER
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                LIVE SYNC ACTIVE
-              </span>
-            </div>
-            <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2.5">
-              <span>💳 Payment Summary & Revenue Analytics</span>
-            </h1>
-            <p className="text-slate-300 text-xs mt-1 max-w-xl">
-              Platform Gross Merchandise Value (GMV), 15% platform commission splits, driver net disbursements, and gateway transaction settlement audits.
-            </p>
+    <div className="space-y-5">
+      {/* ── 1. CLEAN EXECUTIVE HEADER ── */}
+      <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-[#071d2e] border border-cyan-500/30 rounded-2xl p-5 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+              💳 Module 4 · Finance Management
+            </span>
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase bg-slate-800 text-slate-300 border border-slate-700">
+              Daham Edirisinghe · Lead
+            </span>
           </div>
+          <h1 className="text-2xl font-black text-white tracking-tight">
+            Payment Summary Dashboard
+          </h1>
+          <p className="text-slate-300 text-xs mt-0.5">
+            Platform revenue summary, 15% platform profit, and 85% driver disbursements.
+          </p>
+        </div>
 
-          <div className="flex items-center gap-2.5 flex-none">
-            <Btn
-              v="secondary"
-              size="sm"
-              onClick={exportCsv}
-              className="border-cyan-500/40 hover:bg-cyan-950/40 text-cyan-300 font-bold"
-            >
-              📥 Export CSV
-            </Btn>
-            <Btn
-              v="secondary"
-              size="sm"
-              onClick={() => window.print()}
-              className="border-slate-700 hover:bg-slate-800 text-slate-200"
-            >
-              🖨️ Print
-            </Btn>
-            <Btn
-              v="primary"
-              size="sm"
-              loading={loading}
-              onClick={loadData}
-              className="shadow-lg shadow-emerald-500/20"
-            >
-              ⚡ Refresh
-            </Btn>
-          </div>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={loadData}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+            title="Sync live records from MSSQL"
+          >
+            <span className={loading ? "animate-spin" : ""}>🔄</span>
+            <span>Sync</span>
+            <span className="text-[10px] text-slate-400 font-mono ml-1">{lastRefreshed}</span>
+          </button>
+
+          <button
+            onClick={() => window.print()}
+            className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all cursor-pointer"
+            title="Print summary"
+          >
+            🖨️ Print
+          </button>
         </div>
       </div>
 
-      {/* ── KEY FINANCIAL METRICS (KPIs) ── */}
+      {/* ── 2. CORE FINANCIAL KPI CARDS (THE 4 ESSENTIAL METRICS) ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Gross Revenue */}
-        <div className="bg-gradient-to-br from-blue-900/40 to-slate-900 border border-blue-500/30 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-          <div className="flex items-center justify-between mb-3">
+        <div className="bg-slate-900/90 border border-blue-500/30 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+          <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-mono font-bold uppercase tracking-wider text-blue-300">Gross Platform Revenue</span>
-            <div className="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-lg">💰</div>
+            <span className="text-lg">💰</span>
           </div>
           <p className="text-3xl font-black font-mono text-white tracking-tight">
-            LKR {grossVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            LKR {summary.grossRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
-          <div className="flex items-center justify-between text-xs text-slate-400 mt-2.5 pt-2.5 border-t border-slate-800">
+          <div className="flex items-center justify-between text-xs text-slate-400 mt-2.5 pt-2 border-t border-slate-800">
             <span>Total GMV Billed</span>
-            <span className="font-mono text-blue-300 font-bold">{summary?.successCount ?? 0} Settled Rides</span>
+            <span className="font-mono text-blue-300 font-bold">{summary.successCount} Settled Rides</span>
           </div>
         </div>
 
-        {/* 15% Platform Commission */}
-        <div className="bg-gradient-to-br from-emerald-900/40 to-slate-900 border border-emerald-500/30 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-          <div className="flex items-center justify-between mb-3">
+        {/* Streetify Profit (15%) */}
+        <div className="bg-slate-900/90 border border-emerald-500/30 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+          <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-mono font-bold uppercase tracking-wider text-emerald-300">Streetify Profit (15%)</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-lg">🏦</div>
+            <span className="text-lg">🏦</span>
           </div>
           <p className="text-3xl font-black font-mono text-emerald-400 tracking-tight">
-            LKR {commVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            LKR {summary.totalCommission.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
-          <div className="flex items-center justify-between text-xs text-slate-400 mt-2.5 pt-2.5 border-t border-slate-800">
+          <div className="flex items-center justify-between text-xs text-slate-400 mt-2.5 pt-2 border-t border-slate-800">
             <span>Platform Commission</span>
             <span className="font-mono text-emerald-400 font-bold">15.0% Fixed Cut</span>
           </div>
         </div>
 
-        {/* 85% Driver Net Payouts */}
-        <div className="bg-gradient-to-br from-purple-900/40 to-slate-900 border border-purple-500/30 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-          <div className="flex items-center justify-between mb-3">
+        {/* Driver Net Payout (85%) */}
+        <div className="bg-slate-900/90 border border-purple-500/30 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+          <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-mono font-bold uppercase tracking-wider text-purple-300">Driver Net Payout (85%)</span>
-            <div className="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-lg">🚗</div>
+            <span className="text-lg">🚗</span>
           </div>
           <p className="text-3xl font-black font-mono text-purple-300 tracking-tight">
-            LKR {netVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            LKR {summary.totalDriverNet.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
-          <div className="flex items-center justify-between text-xs text-slate-400 mt-2.5 pt-2.5 border-t border-slate-800">
+          <div className="flex items-center justify-between text-xs text-slate-400 mt-2.5 pt-2 border-t border-slate-800">
             <span>Disbursed to Wallets</span>
             <span className="font-mono text-purple-300 font-bold">85.0% Partner Share</span>
           </div>
         </div>
 
-        {/* Settlement Rate & Avg Fare */}
-        <div className="bg-gradient-to-br from-amber-900/30 to-slate-900 border border-amber-500/30 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-          <div className="flex items-center justify-between mb-3">
+        {/* Settlement Health */}
+        <div className="bg-slate-900/90 border border-amber-500/30 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+          <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-300">Settlement Health</span>
-            <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-lg">📈</div>
+            <span className="text-lg">📈</span>
           </div>
           <p className="text-3xl font-black font-mono text-amber-300 tracking-tight">
-            {summary?.successRate ?? 100}%
+            {summary.successRate}%
           </p>
-          <div className="flex items-center justify-between text-xs text-slate-400 mt-2.5 pt-2.5 border-t border-slate-800">
+          <div className="flex items-center justify-between text-xs text-slate-400 mt-2.5 pt-2 border-t border-slate-800">
             <span>Avg Ride Fare</span>
-            <span className="font-mono text-amber-300 font-bold">LKR {(summary?.avgFare || 0).toFixed(0)}</span>
+            <span className="font-mono text-amber-300 font-bold">LKR {summary.avgFare}</span>
           </div>
         </div>
       </div>
 
-      {/* ── VISUAL SPLITS & METHOD ANALYSIS ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Payment Methods Breakdown */}
-        <Card className="p-5 lg:col-span-2">
+      {/* ── 3. VISUAL BREAKDOWN (2 CLEAN CARDS SIDE-BY-SIDE) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Payment Channels Distribution */}
+        <Card className="p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="font-extrabold text-white text-base">Payment Gateway & Channel Distribution</p>
-              <p className="text-xs text-slate-400 mt-0.5">Analysis of transactions across Card, Cash, and Digital Wallet</p>
+              <p className="text-xs text-slate-400 mt-0.5">Transactions across Card, Digital Wallet, and Cash</p>
             </div>
-            <span className="text-xs font-mono text-slate-400">Total Volume: {summary?.totalPayments ?? 0}</span>
+            <span className="text-xs font-mono text-slate-400">{summary.totalPayments} Total</span>
           </div>
 
-          <div className="space-y-4">
-            {(summary?.byMethod || []).map(m => {
+          <div className="space-y-3.5">
+            {summary.byMethod.map(m => {
               const isCard = m.paymentMethod.includes("CARD");
               const isCash = m.paymentMethod.includes("CASH");
               const icon = isCard ? "💳" : isCash ? "💵" : "📱";
-              const label = isCard ? "Card Gateway (Stripe & PayHere 3D-Secure)" : isCash ? "Physical Cash (Driver Commission Debt)" : "Streetify Digital Wallet";
+              const label = isCard ? "Card Gateway (3D-Secure)" : isCash ? "Physical Cash (Driver Debt)" : "Streetify Digital Wallet";
               const colorCls = isCard ? "bg-cyan-500" : isCash ? "bg-amber-500" : "bg-purple-500";
 
               return (
-                <div key={m.paymentMethod} className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 space-y-2.5">
-                  <div className="flex items-center justify-between">
+                <div key={m.paymentMethod} className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3.5">
+                  <div className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2">
-                      <span className="text-lg">{icon}</span>
+                      <span className="text-base">{icon}</span>
                       <div>
-                        <p className="text-sm font-bold text-white">{label}</p>
-                        <p className="text-[11px] font-mono text-slate-400">{m.count} Transactions ({m.percentage}% of GMV)</p>
+                        <p className="font-bold text-white leading-tight">{label}</p>
+                        <p className="text-[10px] text-slate-400 font-mono">{m.count} Transactions ({m.percentage}% of GMV)</p>
                       </div>
                     </div>
                     <div className="text-right font-mono">
-                      <p className="text-base font-extrabold text-white">LKR {m.grossRevenue.toFixed(2)}</p>
-                      <p className="text-[10px] text-emerald-400 font-bold">+LKR {m.commission.toFixed(2)} Platform Cut</p>
+                      <p className="font-extrabold text-white text-xs">LKR {m.grossRevenue.toFixed(2)}</p>
+                      <p className="text-[10px] text-emerald-400">+LKR {m.commission.toFixed(2)} Platform Cut</p>
                     </div>
                   </div>
 
-                  {/* Progress bar */}
-                  <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                  <div className="w-full bg-slate-800 rounded-full h-2 mt-2.5 overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-700 ${colorCls}`}
                       style={{ width: `${Math.min(100, Math.max(8, m.percentage))}%` }}
@@ -370,29 +291,29 @@ export default function DahamPaymentDashboard() {
             <p className="font-extrabold text-white text-base">Revenue Split Logic</p>
             <p className="text-xs text-slate-400 mt-0.5">ACID-compliant real-time automated split</p>
 
-            <div className="my-5 p-4 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 space-y-4">
-              <div className="flex items-center justify-between">
+            <div className="my-4 p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3.5">
+              <div className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                  <span className="text-xs font-bold text-slate-200">Streetify Platform Cut</span>
+                  <span className="font-bold text-slate-200">Streetify Platform Cut</span>
                 </div>
-                <span className="font-mono text-sm font-bold text-emerald-400">15.0%</span>
+                <span className="font-mono font-bold text-emerald-400">15.0%</span>
               </div>
 
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-purple-500" />
-                  <span className="text-xs font-bold text-slate-200">Driver Partner Net</span>
+                  <span className="font-bold text-slate-200">Driver Partner Net</span>
                 </div>
-                <span className="font-mono text-sm font-bold text-purple-300">85.0%</span>
+                <span className="font-mono font-bold text-purple-300">85.0%</span>
               </div>
 
               {/* Visual Split Bar */}
               <div className="w-full h-4 rounded-full overflow-hidden flex shadow-inner">
-                <div className="bg-emerald-500 w-[15%] flex items-center justify-center text-[9px] font-black text-slate-950" title="15% Platform">
+                <div className="bg-emerald-500 w-[15%] flex items-center justify-center text-[9px] font-black text-slate-950">
                   15%
                 </div>
-                <div className="bg-purple-600 w-[85%] flex items-center justify-center text-[9px] font-black text-white" title="85% Driver">
+                <div className="bg-purple-600 w-[85%] flex items-center justify-center text-[9px] font-black text-white">
                   85% Driver
                 </div>
               </div>
@@ -401,7 +322,7 @@ export default function DahamPaymentDashboard() {
             <div className="text-xs text-slate-400 space-y-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800/80">
               <p className="flex items-start gap-1.5">
                 <span className="text-emerald-400 font-bold">✓</span>
-                <span><strong>Online Card:</strong> 15% retained in platform escrow; 85% transferred to driver wallet.</span>
+                <span><strong>Online Card & Wallet:</strong> 15% retained in platform escrow; 85% disbursed to driver wallet.</span>
               </p>
               <p className="flex items-start gap-1.5">
                 <span className="text-amber-400 font-bold">✓</span>
@@ -409,59 +330,17 @@ export default function DahamPaymentDashboard() {
               </p>
             </div>
           </div>
-
-          <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-[11px] font-mono text-slate-400">
-            <span>Last refreshed:</span>
-            <span className="text-slate-200">{lastRefreshed}</span>
-          </div>
         </Card>
       </div>
 
-      {/* ── TRANSACTION AUDIT LEDGER ── */}
+      {/* ── 4. FINANCIAL AUDIT LEDGER TABLE ── */}
       <Card>
-        <div className="p-5 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="p-4 border-b border-slate-800 flex items-center justify-between">
           <div>
-            <p className="font-black text-white text-base flex items-center gap-2">
-              <span>Financial Audit Ledger</span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-300">
-                {filteredPayments.length} records
-              </span>
-            </p>
-            <p className="text-xs text-slate-400 mt-0.5">Detailed transaction breakdown with commission & driver disbursements</p>
+            <p className="font-black text-white text-base">Financial Audit Ledger</p>
+            <p className="text-xs text-slate-400 mt-0.5">Underlying transaction records with commission breakdown</p>
           </div>
-
-          {/* Filters & Search */}
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="text"
-              placeholder="Search TXN, Trip, Method…"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono w-44"
-            />
-
-            <select
-              value={methodFilter}
-              onChange={e => setMethodFilter(e.target.value)}
-              className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 font-bold"
-            >
-              <option value="ALL">All Methods</option>
-              <option value="CARD">Card Gateway</option>
-              <option value="CASH">Cash</option>
-              <option value="WALLET">Digital Wallet</option>
-            </select>
-
-            <select
-              value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value)}
-              className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 font-bold"
-            >
-              <option value="ALL">All Statuses</option>
-              <option value="SUCCESS">Success Only</option>
-              <option value="PENDING">Pending Only</option>
-              <option value="FAILED">Failed / Void</option>
-            </select>
-          </div>
+          <span className="text-xs font-mono text-slate-400">{payments.length} transactions</span>
         </div>
 
         <div className="overflow-x-auto">
@@ -475,64 +354,65 @@ export default function DahamPaymentDashboard() {
                 <th className="px-4 py-3 text-right">Commission (15%)</th>
                 <th className="px-4 py-3 text-right">Driver Net (85%)</th>
                 <th className="px-4 py-3 text-center">Status</th>
-                <th className="px-4 py-3 text-right">Date / Time</th>
+                <th className="px-4 py-3 text-center">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
-              {filteredPayments.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
-                    No transactions match the selected filters.
-                  </td>
-                </tr>
-              ) : (
-                filteredPayments.map(p => {
-                  const m = (p.paymentMethod || "CASH").toUpperCase();
-                  const isCard = m.includes("CARD");
-                  const isCash = m.includes("CASH");
+              {payments.map(p => {
+                const m = (p.paymentMethod || "CASH").toUpperCase();
+                const isCard = m.includes("CARD");
+                const isCash = m.includes("CASH");
 
-                  return (
-                    <tr key={p.id} className="hover:bg-slate-900/50 transition-colors">
-                      <td className="px-4 py-3 font-bold text-white">TXN-{p.id}</td>
-                      <td className="px-4 py-3 text-cyan-400">
-                        {p.tripId ? `TRIP #${p.tripId}` : "Branch / Manual"}
-                      </td>
-                      <td className="px-4 py-3 font-sans">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
-                          isCard 
-                            ? "bg-cyan-500/10 text-cyan-300 border-cyan-500/30" 
-                            : isCash 
-                              ? "bg-amber-500/10 text-amber-300 border-amber-500/30" 
-                              : "bg-purple-500/10 text-purple-300 border-purple-500/30"
-                        }`}>
-                          {isCard ? "💳 Card (3DS)" : isCash ? "💵 Cash" : "📱 Wallet"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right font-black text-white">
-                        LKR {Number(p.grossAmount).toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-bold text-emerald-400">
-                        LKR {Number(p.platformCommission).toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-bold text-purple-300">
-                        LKR {Number(p.driverNet).toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <Pill color={p.status === "SUCCESS" ? "green" : p.status === "PENDING" ? "amber" : "red"}>
-                          {p.status}
-                        </Pill>
-                      </td>
-                      <td className="px-4 py-3 text-right text-slate-400 text-[11px]">
-                        {p.processedAt || p.createdAt ? new Date(p.processedAt || p.createdAt || "").toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + " " + new Date(p.processedAt || p.createdAt || "").toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : "Just now"}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
+                return (
+                  <tr key={p.id} className="hover:bg-slate-900/50 transition-colors">
+                    <td className="px-4 py-3 font-bold text-white">TXN-{p.id}</td>
+                    <td className="px-4 py-3 text-cyan-400">
+                      {p.tripId ? `TRIP #${p.tripId}` : "Branch / Manual"}
+                    </td>
+                    <td className="px-4 py-3 font-sans">
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                        isCard 
+                          ? "bg-cyan-500/10 text-cyan-300 border-cyan-500/30" 
+                          : isCash 
+                            ? "bg-amber-500/10 text-amber-300 border-amber-500/30" 
+                            : "bg-purple-500/10 text-purple-300 border-purple-500/30"
+                      }`}>
+                        {isCard ? "💳 Card (3DS)" : isCash ? "💵 Cash" : "📱 Wallet"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right font-black text-white">
+                      LKR {Number(p.grossAmount).toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-emerald-400">
+                      LKR {Number(p.platformCommission).toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-purple-300">
+                      LKR {Number(p.driverNet).toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <Pill color={p.status === "SUCCESS" ? "green" : p.status === "PENDING" ? "amber" : "red"}>
+                        {p.status}
+                      </Pill>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        onClick={() => handleDeletePayment(p.id)}
+                        className="px-2.5 py-1 text-xs font-semibold rounded bg-rose-500/10 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 transition-all inline-flex items-center gap-1 cursor-pointer"
+                        title="Delete payment record"
+                      >
+                        🗑️ Delete
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </Card>
+
+      {/* ── 5. MODULE EXPORT BANNER ── */}
+      <ModuleExportCard reportKey="payments" variant="banner" />
     </div>
   );
 }

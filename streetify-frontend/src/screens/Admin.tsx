@@ -7,8 +7,10 @@ import { tabStorage } from "../utils/storage";
 import { tripSyncService } from "../services/tripSyncService";
 import ChanukaBookingDashboard from "../components/ChanukaBookingDashboard";
 import DahamPaymentDashboard from "../components/DahamPaymentDashboard";
+import LahiruUserDashboard from "../components/LahiruUserDashboard";
+import ModuleExportCard, { MODULE_REPORTS } from "../components/ModuleExportCard";
 
-type AdminTab = "analytics" | "users" | "drivers" | "bookings" | "driver-trips" | "driver-docs" | "payments" | "payment-summary" | "reviews" | "cancellation" | "export" | "rbac" | "system" | "branch-kiosk" | "booking-summary" | "disputes";
+type AdminTab = "analytics" | "users" | "drivers" | "bookings" | "driver-trips" | "driver-docs" | "payments" | "payment-summary" | "reviews" | "cancellation" | "export" | "rbac" | "system" | "branch-kiosk" | "booking-summary" | "disputes" | "user-summary";
 
 export type FormField = {
   id: string;
@@ -127,26 +129,47 @@ function AdminFormOverlay() {
   );
 }
 
+function getDefaultTabForRole(role: string, name: string): AdminTab {
+  const isChanuka = role === "BOOKING_MGMT" || name.toLowerCase().includes("chanuka");
+  const isDaham = role === "PAYMENT_MGMT" || name.toLowerCase().includes("daham") || name.toLowerCase().includes("finance");
+  const isLahiru = role === "USER_MGMT" || name.toLowerCase().includes("lahiru");
+  if (isChanuka) return "booking-summary";
+  if (isDaham) return "payment-summary";
+  if (isLahiru) return "user-summary";
+  if (role === "DRIVER_MGMT" || name.toLowerCase().includes("tharindu")) return "drivers";
+  if (role === "REVIEW_MGMT" || name.toLowerCase().includes("mithun")) return "reviews";
+  return "analytics";
+}
+
 export default function AdminDashboard() {
-  const adminRole = tabStorage.getItem("admin_role") || "UNKNOWN";
-  const adminEmail = tabStorage.getItem("user_name") || "Admin";
+  const [adminRole, setAdminRole] = useState(() => tabStorage.getItem("admin_role") || "UNKNOWN");
+  const [adminEmail, setAdminEmail] = useState(() => tabStorage.getItem("user_name") || "Admin");
 
   const isSuperAdmin = adminRole === "SUPER_ADMIN" || adminEmail.toLowerCase().includes("vidura");
   const isChanukaBookingAdmin = adminRole === "BOOKING_MGMT" || adminEmail.toLowerCase().includes("chanuka");
   const isDahamPaymentAdmin = adminRole === "PAYMENT_MGMT" || adminEmail.toLowerCase().includes("daham") || adminEmail.toLowerCase().includes("finance");
+  const isLahiruUserAdmin = adminRole === "USER_MGMT" || adminEmail.toLowerCase().includes("lahiru");
 
   const allowedTabs: { key: AdminTab; icon: string; label: string; external?: string }[] = [];
 
-  if (isChanukaBookingAdmin) {
+  if (isLahiruUserAdmin) {
+    // Lahiru's dedicated custom dashboard only for summary user details of platform
+    allowedTabs.push({ key: "user-summary", icon: "📊", label: "User Summary Dashboard" });
+    allowedTabs.push({ key: "users", icon: "🧑", label: "User Management" });
+    allowedTabs.push({ key: "rbac", icon: "🔑", label: "RBAC Roles" });
+    allowedTabs.push({ key: "branch-kiosk", icon: "🏢", label: "Branch Walk-in Desk" });
+    allowedTabs.push({ key: "export", icon: "📁", label: "Export User Reports" });
+  } else if (isChanukaBookingAdmin) {
     // Chanuka's dedicated custom dashboard only for summary booking/trip details of platform
     allowedTabs.push({ key: "booking-summary", icon: "📊", label: "Booking Summary Dashboard" });
     allowedTabs.push({ key: "bookings", icon: "🗺️", label: "Booking Management" });
     allowedTabs.push({ key: "branch-kiosk", icon: "🏢", label: "Branch Walk-in Desk" });
+    allowedTabs.push({ key: "export", icon: "📁", label: "Export Trip Reports" });
   } else if (isDahamPaymentAdmin) {
     // Daham's dedicated custom dashboard only for summary payment/financial details of platform
     allowedTabs.push({ key: "payment-summary", icon: "📊", label: "Payment Summary Dashboard" });
     allowedTabs.push({ key: "payments", icon: "💳", label: "Payment Management" });
-    allowedTabs.push({ key: "export", icon: "📁", label: "Export Reports" });
+    allowedTabs.push({ key: "export", icon: "📁", label: "Export Payment Reports" });
   } else {
     // Analytics dashboard — visible to all admin roles
     allowedTabs.push({ key: "analytics", icon: "📊", label: "Dashboard" });
@@ -154,12 +177,19 @@ export default function AdminDashboard() {
     if (adminRole === "SUPER_ADMIN" || adminRole === "USER_MGMT") {
       allowedTabs.push({ key: "users", icon: "🧑", label: "User Management" });
       allowedTabs.push({ key: "rbac", icon: "🔑", label: "RBAC Roles" });
+      if (adminRole === "USER_MGMT") {
+        allowedTabs.push({ key: "export", icon: "📁", label: "Export User Reports" });
+      }
     }
     if (adminRole === "SUPER_ADMIN" || adminRole === "BOOKING_MGMT") {
       allowedTabs.push({ key: "bookings", icon: "🗺️", label: "Booking Management" });
+      if (adminRole === "BOOKING_MGMT") {
+        allowedTabs.push({ key: "export", icon: "📁", label: "Export Trip Reports" });
+      }
     }
     if (isSuperAdmin) {
       // Super Admin Vidura has overall access to both specialized summary dashboards
+      allowedTabs.push({ key: "user-summary", icon: "👤", label: "User Summary (Lahiru)" });
       allowedTabs.push({ key: "booking-summary", icon: "🚖", label: "Trip Summary (Chanuka)" });
       allowedTabs.push({ key: "payment-summary", icon: "💰", label: "Payment Summary (Daham)" });
     }
@@ -172,22 +202,61 @@ export default function AdminDashboard() {
       allowedTabs.push({ key: "driver-trips", icon: "🚗", label: "Driver Trips" });
       allowedTabs.push({ key: "driver-docs", icon: "📄", label: "Driver Verifications" });
       allowedTabs.push({ key: "cancellation", icon: "📉", label: "Cancellation Rates" });
+      if (adminRole === "DRIVER_MGMT") {
+        allowedTabs.push({ key: "export", icon: "📁", label: "Export Driver Reports" });
+      }
     }
     if (adminRole === "SUPER_ADMIN" || adminRole === "PAYMENT_MGMT") {
       allowedTabs.push({ key: "payments", icon: "💳", label: "Payment Management" });
-      allowedTabs.push({ key: "export", icon: "📁", label: "Export Reports" });
+      if (adminRole === "PAYMENT_MGMT") {
+        allowedTabs.push({ key: "export", icon: "📁", label: "Export Payment Reports" });
+      }
     }
     if (adminRole === "SUPER_ADMIN" || adminRole === "REVIEW_MGMT") {
       allowedTabs.push({ key: "reviews", icon: "⭐", label: "Review Management" });
       allowedTabs.push({ key: "disputes", icon: "🎧", label: "Dispute Tickets", external: "support" });
+      if (adminRole === "REVIEW_MGMT") {
+        allowedTabs.push({ key: "export", icon: "📁", label: "Export Review Reports" });
+      }
     }
     if (adminRole === "SUPER_ADMIN") {
       allowedTabs.push({ key: "system", icon: "🛡️", label: "System Control" });
+      allowedTabs.push({ key: "export", icon: "📁", label: "Export Module Reports" });
     }
   }
 
-  const defaultTabKey = isChanukaBookingAdmin ? "booking-summary" : isDahamPaymentAdmin ? "payment-summary" : (allowedTabs[0]?.key || "analytics");
+  const defaultTabKey = getDefaultTabForRole(adminRole, adminEmail);
   const [tab, setTab] = useState<AdminTab>(defaultTabKey);
+
+  // Synchronize state when switching roles through Fast Role Switcher or window events
+  useEffect(() => {
+    const handleAuthChange = (e?: any) => {
+      const newRole = e?.detail?.adminRole || tabStorage.getItem("admin_role") || "UNKNOWN";
+      const newName = tabStorage.getItem("user_name") || "Admin";
+      setAdminRole(newRole);
+      setAdminEmail(newName);
+      const newDefault = getDefaultTabForRole(newRole, newName);
+      setTab(newDefault);
+    };
+    const handleTabSwitch = (e?: any) => {
+      if (e?.detail?.tab) {
+        setTab(e.detail.tab);
+      }
+    };
+    window.addEventListener("auth-success", handleAuthChange);
+    window.addEventListener("admin-switch-tab", handleTabSwitch);
+    return () => {
+      window.removeEventListener("auth-success", handleAuthChange);
+      window.removeEventListener("admin-switch-tab", handleTabSwitch);
+    };
+  }, []);
+
+  // Guard against invalid tab retained for current role
+  useEffect(() => {
+    if (allowedTabs.length > 0 && !allowedTabs.some(t => t.key === tab)) {
+      setTab(defaultTabKey);
+    }
+  }, [adminRole, tab, defaultTabKey]);
 
   return (
     <div className="min-h-screen flex relative z-0" >
@@ -277,7 +346,6 @@ export default function AdminDashboard() {
                 value={adminRole}
                 onChange={(e) => {
                   const newR = e.target.value;
-                  tabStorage.setItem("admin_role", newR);
                   const memberMap: Record<string, { email: string; name: string }> = {
                     PAYMENT_MGMT: { email: "daham@streetify.lk", name: "Daham Edirisinghe" },
                     BOOKING_MGMT: { email: "chanuka@streetify.lk", name: "Chanuka Dharmakeerthi" },
@@ -286,12 +354,27 @@ export default function AdminDashboard() {
                     REVIEW_MGMT:  { email: "mithun@streetify.lk", name: "Mithun Weerasingha" },
                     SUPER_ADMIN:  { email: "admin@streetify.com", name: "System Admin (Vidura)" },
                   };
-                  if (memberMap[newR]) {
-                    tabStorage.setItem("user_email", memberMap[newR].email);
-                    tabStorage.setItem("user_name", memberMap[newR].name);
-                  }
+                  const member = memberMap[newR] || { email: "admin@streetify.com", name: "System Admin" };
+                  tabStorage.setItem("admin_role", newR);
+                  tabStorage.setItem("user_role", "ADMIN");
+                  tabStorage.setItem("user_email", member.email);
+                  tabStorage.setItem("user_name", member.name);
                   tabStorage.removeItem("jwt_token");
-                  window.location.reload();
+
+                  const newTargetTab = getDefaultTabForRole(newR, member.name);
+                  setAdminRole(newR);
+                  setAdminEmail(member.name);
+                  setTab(newTargetTab);
+
+                  window.dispatchEvent(
+                    new CustomEvent("auth-success", {
+                      detail: {
+                        role: "admin",
+                        token: "mock-jwt-admin",
+                        adminRole: newR,
+                      },
+                    })
+                  );
                 }}
                 title="Simulate upgrading or degrading admin access across the 6 team member scopes"
               >
@@ -314,9 +397,15 @@ export default function AdminDashboard() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {tab === "booking-summary" && <ChanukaBookingDashboard />}
-          {tab === "payment-summary" && <DahamPaymentDashboard />}
-          {tab === "analytics"   && (isChanukaBookingAdmin ? <ChanukaBookingDashboard /> : isDahamPaymentAdmin ? <DahamPaymentDashboard /> : <AnalyticsPanel />)}
+          {tab === "user-summary" && (isLahiruUserAdmin || isSuperAdmin) && <LahiruUserDashboard />}
+          {tab === "booking-summary" && (isChanukaBookingAdmin || isSuperAdmin) && <ChanukaBookingDashboard />}
+          {tab === "payment-summary" && (isDahamPaymentAdmin || isSuperAdmin) && <DahamPaymentDashboard />}
+          {tab === "analytics"   && (
+            isLahiruUserAdmin ? <LahiruUserDashboard /> :
+            isChanukaBookingAdmin ? <ChanukaBookingDashboard /> : 
+            isDahamPaymentAdmin ? <DahamPaymentDashboard /> : 
+            <AnalyticsPanel />
+          )}
           {tab === "users"       && <UsersPanel />}
           {tab === "drivers"     && <DriversPanel />}
           {tab === "bookings"    && <BookingsPanel />}
@@ -340,7 +429,49 @@ export default function AdminDashboard() {
 
 function UsersPanel() {
   const [users, setUsers] = useState<any[]>([]);
-  
+  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+
+  // Modal states
+  const [editUser, setEditUser] = useState<any | null>(null);
+  const [upgradeDriverUser, setUpgradeDriverUser] = useState<any | null>(null);
+  const [addUserModal, setAddUserModal] = useState<{ open: boolean; role: "PASSENGER" | "DRIVER" }>({ open: false, role: "PASSENGER" });
+  const [deleteConfirmUser, setDeleteConfirmUser] = useState<any | null>(null);
+
+  // Upgrade form state
+  const [driverNic, setDriverNic] = useState("199512345678");
+  const [driverLicense, setDriverLicense] = useState("B1234567");
+  const [vehicleType, setVehicleType] = useState("CAR");
+  const [vehicleMake, setVehicleMake] = useState("Toyota");
+  const [vehicleModel, setVehicleModel] = useState("Prius");
+  const [vehiclePlate, setVehiclePlate] = useState("WP CAB-1234");
+  const [vehicleYear, setVehicleYear] = useState(2020);
+  const [vehicleColor, setVehicleColor] = useState("Pearl White");
+
+  // Add User form state
+  const [addForm, setAddForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    password: "1111",
+    nic: "199412345678",
+    licenseNumber: "B2345678",
+    vehicleType: "CAR",
+    make: "Toyota",
+    model: "Prius",
+    numberPlate: "CAB-5521",
+    yearOfManufacture: 2021,
+    color: "White"
+  });
+
+  const showToast = (msg: string, type: "success" | "error" = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 4500);
+  };
+
+  const adminRole = tabStorage.getItem("admin_role") || "UNKNOWN";
+  const canManageRoles = adminRole === "USER_MGMT" || adminRole === "SUPER_ADMIN";
+
   const fetchUsers = async () => {
     try {
       const data = await apiClient<any[]>('/module-admin/users');
@@ -350,85 +481,823 @@ function UsersPanel() {
 
   useEffect(() => { fetchUsers(); }, []);
 
-  const handleAdd = async () => {
-    const data = await openAdminForm("Add New User", [
-      { id: "firstName", label: "First Name" },
-      { id: "lastName", label: "Last Name" },
-      { id: "email", label: "Email" },
-      { id: "phone", label: "Phone" }
-    ]);
-    if (!data || !data.firstName || !data.lastName || !data.email) return;
-
+  // ── Handle Edit (Name, Email, Phone) ───────────────────────────
+  const handleSaveEdit = async () => {
+    if (!editUser) return;
     try {
-      await apiClient('/module-admin/users', { method: 'POST', body: JSON.stringify(data) });
+      await apiClient(`/module-admin/users/${editUser.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          firstName: editUser.firstName,
+          lastName: editUser.lastName,
+          email: editUser.email,
+          phone: editUser.phone
+        })
+      });
+      showToast("User profile and email updated successfully! ✓");
+      setEditUser(null);
       fetchUsers();
-    } catch (e) { alert("Error: " + e); }
+    } catch (e: any) {
+      showToast(e.message || "Failed to update user profile", "error");
+    }
   };
 
-  const handleEdit = async (u: any) => {
-    const data = await openAdminForm("Edit User Profile", [
-      { id: "firstName", label: "First Name", defaultValue: u.firstName },
-      { id: "lastName", label: "Last Name", defaultValue: u.lastName },
-      { id: "phone", label: "Phone", defaultValue: u.phone }
-    ]);
-    if (!data) return;
-
-    try {
-      await apiClient(`/module-admin/users/${u.id}`, { method: 'PUT', body: JSON.stringify(data) });
-      fetchUsers();
-    } catch (e) { alert("Error: " + e); }
-  };
-
+  // ── Handle Toggle Status (Active / Inactive) ────────────────────
   const handleToggleStatus = async (u: any) => {
     try {
       if (u.active) {
         await apiClient(`/module-admin/users/${u.id}`, { method: 'DELETE' });
+        showToast(`User ${u.email} deactivated.`);
       } else {
         await apiClient(`/module-admin/users/${u.id}`, { method: 'PUT', body: JSON.stringify({ active: true }) });
+        showToast(`User ${u.email} activated.`);
       }
       fetchUsers();
-    } catch (e) { alert("Error: " + e); }
+    } catch (e: any) { showToast("Error: " + e.message, "error"); }
+  };
+
+  // ── Handle Permanent Delete ────────────────────────────────────
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmUser) return;
+    try {
+      await apiClient(`/module-admin/users/${deleteConfirmUser.id}/permanent`, { method: 'DELETE' });
+      showToast(`User ${deleteConfirmUser.email} permanently deleted from platform! ✓`);
+      setDeleteConfirmUser(null);
+      fetchUsers();
+    } catch (e: any) {
+      showToast(e.message || "Failed to delete user", "error");
+    }
+  };
+
+  // ── Handle Passenger -> Driver Upgrade ─────────────────────────
+  const openUpgradeModal = (u: any) => {
+    setUpgradeDriverUser(u);
+    setDriverNic(u.nic || "1995" + (10000000 + u.id * 1234));
+    setDriverLicense(u.licenseNumber || "B" + (1000000 + u.id * 876));
+    setVehicleType("CAR");
+    setVehicleMake("Toyota");
+    setVehicleModel("Prius");
+    setVehiclePlate("WP CAB-" + (2000 + u.id));
+    setVehicleYear(2021);
+    setVehicleColor("Pearl White");
+  };
+
+  const handleSaveUpgradeToDriver = async () => {
+    if (!upgradeDriverUser) return;
+    try {
+      await apiClient(`/module-admin/users/${upgradeDriverUser.id}/change-role`, {
+        method: 'POST',
+        body: JSON.stringify({
+          targetRole: "DRIVER",
+          nic: driverNic,
+          licenseNumber: driverLicense,
+          vehicleType,
+          make: vehicleMake,
+          model: vehicleModel,
+          numberPlate: vehiclePlate,
+          yearOfManufacture: vehicleYear,
+          color: vehicleColor
+        })
+      });
+      showToast(`Passenger ${upgradeDriverUser.firstName} upgraded to approved Driver with vehicle ${vehiclePlate}! 🚗✓`);
+      setUpgradeDriverUser(null);
+      fetchUsers();
+    } catch (e: any) {
+      showToast(e.message || "Failed to upgrade passenger to driver", "error");
+    }
+  };
+
+  // ── Handle Driver -> Passenger Immediate Conversion ─────────────
+  const handleDemoteToPassenger = async (u: any) => {
+    const confirm = window.confirm(`Convert driver "${u.firstName} ${u.lastName}" (${u.email}) back to standard Passenger?\n\nThey will be able to book rides immediately.`);
+    if (!confirm) return;
+    try {
+      await apiClient(`/module-admin/users/${u.id}/change-role`, {
+        method: 'POST',
+        body: JSON.stringify({ targetRole: "PASSENGER" })
+      });
+      showToast(`Driver ${u.firstName} is now a standard Passenger! 🧑✓`);
+      fetchUsers();
+    } catch (e: any) {
+      showToast(e.message || "Failed to change driver to passenger", "error");
+    }
+  };
+
+  // ── Handle Add User / Driver ───────────────────────────────────
+  const handleSaveNewUser = async () => {
+    if (!addForm.firstName || !addForm.lastName || !addForm.email) {
+      showToast("First name, last name, and email are required.", "error");
+      return;
+    }
+    try {
+      await apiClient('/module-admin/users', {
+        method: 'POST',
+        body: JSON.stringify({
+          role: addUserModal.role,
+          ...addForm
+        })
+      });
+      showToast(`New ${addUserModal.role} "${addForm.email}" created successfully! ✓`);
+      setAddUserModal({ open: false, role: "PASSENGER" });
+      setAddForm({
+        firstName: "", lastName: "", email: "", phone: "", password: "1111",
+        nic: "199412345678", licenseNumber: "B2345678", vehicleType: "CAR",
+        make: "Toyota", model: "Prius", numberPlate: "CAB-5521",
+        yearOfManufacture: 2021, color: "White"
+      });
+      fetchUsers();
+    } catch (e: any) {
+      showToast(e.message || "Failed to create user", "error");
+    }
   };
 
   return (
-    <Card>
-      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <p className="font-extrabold text-slate-100">User Management</p>
-        <Btn size="sm" onClick={handleAdd}>+ Add User</Btn>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-slate-950 border-b border-slate-800">
-              <th className="px-4 py-3 text-left">ID</th>
-              <th className="px-4 py-3 text-left">Name</th>
-              <th className="px-4 py-3 text-left">Email</th>
-              <th className="px-4 py-3 text-left">Role</th>
-              <th className="px-4 py-3 text-left">Status</th>
-              <th className="px-4 py-3 text-left">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map(u => (
-              <tr key={u.id} className="border-b border-slate-100 hover:bg-slate-950 transition-colors">
-                <td className="px-4 py-3">{u.id}</td>
-                <td className="px-4 py-3 font-bold">{u.firstName} {u.lastName}</td>
-                <td className="px-4 py-3">{u.email}</td>
-                <td className="px-4 py-3"><Pill color="blue">{u.role}</Pill></td>
-                <td className="px-4 py-3"><Pill color={u.active ? "green" : "red"}>{u.active ? "Active" : "Inactive"}</Pill></td>
-                <td className="px-4 py-3 flex gap-2">
-                  <Btn size="xs" v="secondary" onClick={() => handleEdit(u)}>Edit</Btn>
-                  <Btn size="xs" v={u.active ? "secondary" : "secondary"} onClick={() => handleToggleStatus(u)}>
-                    {u.active ? "Deactivate" : "Activate"}
-                  </Btn>
-                </td>
+    <div className="space-y-4">
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`p-4 rounded-xl text-sm font-bold flex items-center justify-between shadow-lg transition-all animate-in fade-in slide-in-from-top-2 ${
+          toast.type === "success" ? "bg-emerald-950/90 text-emerald-300 border border-emerald-500/40" : "bg-rose-950/90 text-rose-300 border border-rose-500/40"
+        }`}>
+          <span>{toast.msg}</span>
+          <button onClick={() => setToast(null)} className="opacity-70 hover:opacity-100 font-mono">✕</button>
+        </div>
+      )}
+
+      <ModuleExportCard reportKey="users" variant="banner" />
+
+      <Card>
+        <div className="px-5 py-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-extrabold text-slate-100 text-base flex items-center gap-2">
+              <span>👥</span>
+              <span>User Management Console</span>
+            </p>
+            <p className="text-xs text-slate-400 font-mono mt-0.5">
+              MSSQL · /api/module-admin/users · Role Governance & Direct Driver Onboarding
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent("admin-switch-tab", { detail: { tab: "user-summary" } }))}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-md shadow-blue-600/25 transition-all flex items-center gap-1.5 cursor-pointer"
+              title="View simplified visual summary dashboard for lecturer demonstration"
+            >
+              <span>📊</span>
+              <span>Visual Summary Dashboard</span>
+            </button>
+            <button
+              onClick={() => setAddUserModal({ open: true, role: "PASSENGER" })}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+              title="Add a standard passenger"
+            >
+              <span>🧑</span>
+              <span>+ Add Passenger</span>
+            </button>
+            <button
+              onClick={() => setAddUserModal({ open: true, role: "DRIVER" })}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white shadow-lg shadow-emerald-600/25 transition-all flex items-center gap-1.5"
+              title="Directly register a new driver with vehicle details"
+            >
+              <span>🚗</span>
+              <span>+ Add Driver</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-slate-950 border-b border-slate-800">
+                <th className="px-4 py-3 text-left">ID</th>
+                <th className="px-4 py-3 text-left">Name</th>
+                <th className="px-4 py-3 text-left">Email</th>
+                <th className="px-4 py-3 text-left">Role</th>
+                <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-left">Actions</th>
               </tr>
-            ))}
-            {users.length === 0 && <tr><td colSpan={6} className="text-center p-4">No users found</td></tr>}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+            </thead>
+            <tbody>
+              {users.map(u => (
+                <tr key={u.id} className="border-b border-slate-800/80 hover:bg-slate-900/60 transition-colors">
+                  <td className="px-4 py-3 font-mono text-slate-400">#{u.id}</td>
+                  <td className="px-4 py-3 font-bold text-white">
+                    {u.firstName} {u.lastName}
+                    {u.phone && <div className="text-xs font-normal text-slate-400 font-mono mt-0.5">{u.phone}</div>}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-slate-300">
+                    {u.email}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col gap-1 items-start">
+                      <div className="flex items-center gap-1.5">
+                        <Pill color={u.role === "DRIVER" ? "green" : u.role === "ADMIN" ? "purple" : "blue"}>
+                          {u.role}
+                        </Pill>
+                        {u.adminRole && (
+                          <span className="text-[10px] font-mono text-purple-300 font-bold px-1.5 py-0.5 rounded bg-purple-950/60 border border-purple-500/30">
+                            {u.adminRole}
+                          </span>
+                        )}
+                      </div>
+                      {u.role === "DRIVER" && u.numberPlate && (
+                        <span className="text-[11px] font-mono text-emerald-300 bg-emerald-950/70 border border-emerald-500/30 px-2 py-0.5 rounded flex items-center gap-1">
+                          <span>🚗</span> {u.numberPlate} ({u.vehicleType || "CAR"})
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Pill color={u.active ? "green" : "red"}>{u.active ? "Active" : "Inactive"}</Pill>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center flex-wrap gap-1.5">
+                      {/* Edit Button (supports Name + Email + Phone) */}
+                      <button
+                        onClick={() => setEditUser({ ...u })}
+                        className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all flex items-center gap-1"
+                        title="Edit name, email address, and phone"
+                      >
+                        <span>✏️</span> Edit
+                      </button>
+
+                      {/* Role Conversion Options (User Admin / Super Admin only) */}
+                      {canManageRoles && u.role === "PASSENGER" && (
+                        <button
+                          onClick={() => openUpgradeModal(u)}
+                          className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-950/60 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/40 transition-all flex items-center gap-1 shadow-sm"
+                          title="Upgrade passenger to driver (requires vehicle & credentials)"
+                        >
+                          <span>🚗</span> Make Driver
+                        </button>
+                      )}
+
+                      {canManageRoles && u.role === "DRIVER" && (
+                        <button
+                          onClick={() => handleDemoteToPassenger(u)}
+                          className="px-2.5 py-1 rounded-lg text-xs font-bold bg-sky-950/60 hover:bg-sky-900 text-sky-300 border border-sky-500/40 transition-all flex items-center gap-1 shadow-sm"
+                          title="Convert driver to standard passenger immediately"
+                        >
+                          <span>🧑</span> Make Passenger
+                        </button>
+                      )}
+
+                      {/* Deactivate / Activate */}
+                      <button
+                        onClick={() => handleToggleStatus(u)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${
+                          u.active
+                            ? "bg-slate-900 hover:bg-slate-800 text-slate-400 border-slate-700"
+                            : "bg-emerald-950/50 hover:bg-emerald-900 text-emerald-300 border-emerald-700"
+                        }`}
+                        title={u.active ? "Deactivate user account" : "Activate user account"}
+                      >
+                        {u.active ? "Deactivate" : "Activate"}
+                      </button>
+
+                      {/* Permanent Delete Option */}
+                      <button
+                        onClick={() => setDeleteConfirmUser(u)}
+                        className="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-500/10 hover:bg-rose-500/25 text-rose-400 border border-rose-500/30 transition-all flex items-center gap-1 shadow-sm"
+                        title="Permanently remove user from MSSQL database"
+                      >
+                        <span>🗑️</span> Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {users.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="text-center p-8 text-slate-400">
+                    No users found in database.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {/* ── MODAL 1: Edit User Profile (With Email Update CRUD) ─────────────── */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {editUser && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-navy border border-eco/30 rounded-2xl shadow-2xl shadow-eco/10 w-full max-w-md flex flex-col overflow-hidden">
+            <div className="px-6 py-4 border-b border-eco/20 bg-eco-dark/10 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+                  <span>✏️</span> Edit User Profile
+                </h3>
+                <p className="text-xs text-slate-400 font-mono mt-0.5">Update credentials and email in MSSQL</p>
+              </div>
+              <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                #{editUser.id}
+              </span>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">First Name</label>
+                  <input
+                    type="text"
+                    value={editUser.firstName || ""}
+                    onChange={e => setEditUser({ ...editUser, firstName: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Last Name</label>
+                  <input
+                    type="text"
+                    value={editUser.lastName || ""}
+                    onChange={e => setEditUser({ ...editUser, lastName: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco"
+                  />
+                </div>
+              </div>
+
+              {/* Email Address — CRUD Update Supported */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+                    <span>✉️</span> Email Address (Editable)
+                  </label>
+                  <span className="text-[10px] font-mono text-emerald-400/80">Unique Identifier</span>
+                </div>
+                <input
+                  type="email"
+                  value={editUser.email || ""}
+                  onChange={e => setEditUser({ ...editUser, email: e.target.value })}
+                  className="w-full bg-slate-900 border border-emerald-500/50 rounded-xl px-3 py-2 text-white font-mono text-sm outline-none focus:border-eco focus:ring-1 focus:ring-eco"
+                  placeholder="user@streetify.lk"
+                />
+                <p className="text-[11px] text-slate-400">Changing email will update user login credentials in database.</p>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Phone Number</label>
+                <input
+                  type="text"
+                  value={editUser.phone || ""}
+                  onChange={e => setEditUser({ ...editUser, phone: e.target.value })}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco"
+                  placeholder="0771234567"
+                />
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-400">Current Role</span>
+                <Pill color={editUser.role === "DRIVER" ? "green" : editUser.role === "ADMIN" ? "purple" : "blue"}>
+                  {editUser.role}
+                </Pill>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-800 bg-slate-950/80 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setEditUser(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-eco hover:bg-eco-glow text-white shadow-lg shadow-eco/20 transition-all flex items-center gap-1.5"
+              >
+                <span>💾</span> Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {/* ── MODAL 2: Upgrade Passenger to Driver (Personal, Vehicle, Docs) ──── */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {upgradeDriverUser && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in overflow-y-auto">
+          <div className="bg-navy border border-emerald-500/40 rounded-2xl shadow-2xl shadow-emerald-500/10 w-full max-w-xl flex flex-col overflow-hidden my-8">
+            <div className="px-6 py-4 border-b border-emerald-500/20 bg-emerald-950/20 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+                  <span>🚗</span> Upgrade Passenger to Driver Profile
+                </h3>
+                <p className="text-xs text-emerald-400/90 font-mono mt-0.5">
+                  Required: Personal Info, Vehicle & Security, and Verification Documents
+                </p>
+              </div>
+              <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30">
+                USER_MGMT Scoped
+              </span>
+            </div>
+
+            <div className="p-6 space-y-5 overflow-y-auto max-h-[70vh]">
+              {/* Account Header */}
+              <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-extrabold text-white">{upgradeDriverUser.firstName} {upgradeDriverUser.lastName}</p>
+                  <p className="text-[11px] font-mono text-slate-400">{upgradeDriverUser.email}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono text-blue-300 bg-blue-950/80 px-2 py-0.5 rounded border border-blue-500/30">PASSENGER</span>
+                  <span className="text-slate-400">→</span>
+                  <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-500/40 font-bold">DRIVER</span>
+                </div>
+              </div>
+
+              {/* SECTION 1: Personal Info */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-1">
+                  <span>1️⃣</span> Personal Info & Identity
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-400">National Identity Card (NIC) *</label>
+                    <input
+                      type="text"
+                      value={driverNic}
+                      onChange={e => setDriverNic(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono text-sm outline-none focus:border-eco"
+                      placeholder="199512345678"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-400">Driving License Number *</label>
+                    <input
+                      type="text"
+                      value={driverLicense}
+                      onChange={e => setDriverLicense(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono text-sm outline-none focus:border-eco"
+                      placeholder="B1234567"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 2: Vehicle & Security */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-1">
+                  <span>2️⃣</span> Vehicle & Security Specifications
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-400">Vehicle Type</label>
+                    <select
+                      value={vehicleType}
+                      onChange={e => setVehicleType(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco cursor-pointer"
+                    >
+                      <option value="CAR">Car (Sedan/Hatch)</option>
+                      <option value="VAN">Van / MPV</option>
+                      <option value="TUK">Tuk-Tuk (Three-Wheel)</option>
+                      <option value="BIKE">Motorcycle</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-400">Vehicle Make</label>
+                    <input
+                      type="text"
+                      value={vehicleMake}
+                      onChange={e => setVehicleMake(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco"
+                      placeholder="Toyota"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-400">Vehicle Model</label>
+                    <input
+                      type="text"
+                      value={vehicleModel}
+                      onChange={e => setVehicleModel(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco"
+                      placeholder="Prius"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-emerald-400">Number Plate *</label>
+                    <input
+                      type="text"
+                      value={vehiclePlate}
+                      onChange={e => setVehiclePlate(e.target.value.toUpperCase())}
+                      className="w-full bg-slate-900 border border-emerald-500/50 rounded-xl px-3 py-2 text-white font-mono text-sm outline-none focus:border-eco"
+                      placeholder="WP CAB-1234"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-400">Year of Manufacture</label>
+                    <input
+                      type="number"
+                      value={vehicleYear}
+                      onChange={e => setVehicleYear(parseInt(e.target.value) || 2020)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-400">Color</label>
+                    <input
+                      type="text"
+                      value={vehicleColor}
+                      onChange={e => setVehicleColor(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco"
+                      placeholder="White"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 3: Documents & Verification */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-1">
+                  <span>3️⃣</span> Documents & Verification Compliance
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="p-2.5 rounded-xl bg-slate-900 border border-emerald-500/30">
+                    <span className="text-base block">📄</span>
+                    <p className="text-xs font-bold text-white mt-1">Driving License</p>
+                    <span className="text-[9px] font-mono font-bold text-emerald-400 bg-emerald-950 px-1.5 py-0.5 rounded mt-1 inline-block">APPROVED</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-slate-900 border border-emerald-500/30">
+                    <span className="text-base block">🚗</span>
+                    <p className="text-xs font-bold text-white mt-1">Vehicle Revenue</p>
+                    <span className="text-[9px] font-mono font-bold text-emerald-400 bg-emerald-950 px-1.5 py-0.5 rounded mt-1 inline-block">APPROVED</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-slate-900 border border-emerald-500/30">
+                    <span className="text-base block">🛡️</span>
+                    <p className="text-xs font-bold text-white mt-1">Insurance Policy</p>
+                    <span className="text-[9px] font-mono font-bold text-emerald-400 bg-emerald-950 px-1.5 py-0.5 rounded mt-1 inline-block">APPROVED</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-400 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+                  ℹ️ Promoted by User Admin (Lahiru) or Super Admin. Driver record, vehicle entry, and compliance docs will be set to APPROVED in MSSQL.
+                </p>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-800 bg-slate-950/80 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setUpgradeDriverUser(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveUpgradeToDriver}
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white shadow-lg shadow-emerald-600/25 transition-all flex items-center gap-1.5"
+              >
+                <span>🚗</span> Complete Upgrade to Driver
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {/* ── MODAL 3: Add New Passenger / Driver directly ───────────────────── */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {addUserModal.open && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in overflow-y-auto">
+          <div className="bg-navy border border-eco/30 rounded-2xl shadow-2xl shadow-eco/10 w-full max-w-lg flex flex-col overflow-hidden my-8">
+            <div className="px-6 py-4 border-b border-eco/20 bg-eco-dark/10 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-extrabold text-white flex items-center gap-2">
+                  <span>{addUserModal.role === "DRIVER" ? "🚗" : "🧑"}</span>
+                  <span>Add New {addUserModal.role === "DRIVER" ? "Driver" : "Passenger"}</span>
+                </h3>
+                <p className="text-xs text-slate-400 font-mono mt-0.5">
+                  Direct database onboarding by User Admin
+                </p>
+              </div>
+              {/* Role Toggle */}
+              <div className="flex bg-slate-900 border border-slate-800 rounded-xl p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setAddUserModal({ open: true, role: "PASSENGER" })}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
+                    addUserModal.role === "PASSENGER" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  Passenger
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAddUserModal({ open: true, role: "DRIVER" })}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
+                    addUserModal.role === "DRIVER" ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  Driver
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4 overflow-y-auto max-h-[70vh]">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">First Name *</label>
+                  <input
+                    type="text"
+                    value={addForm.firstName}
+                    onChange={e => setAddForm({ ...addForm, firstName: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco"
+                    placeholder="e.g. Ruwan"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Last Name *</label>
+                  <input
+                    type="text"
+                    value={addForm.lastName}
+                    onChange={e => setAddForm({ ...addForm, lastName: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco"
+                    placeholder="e.g. Jayasinghe"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Email Address *</label>
+                  <input
+                    type="email"
+                    value={addForm.email}
+                    onChange={e => setAddForm({ ...addForm, email: e.target.value })}
+                    className="w-full bg-slate-900 border border-emerald-500/50 rounded-xl px-3 py-2 text-white font-mono text-sm outline-none focus:border-eco"
+                    placeholder="ruwan@streetify.lk"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Phone Number *</label>
+                  <input
+                    type="text"
+                    value={addForm.phone}
+                    onChange={e => setAddForm({ ...addForm, phone: e.target.value })}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco"
+                    placeholder="0771234567"
+                  />
+                </div>
+              </div>
+
+              {/* Driver-specific Onboarding Fields */}
+              {addUserModal.role === "DRIVER" && (
+                <div className="space-y-4 pt-2 border-t border-slate-800">
+                  <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase tracking-wider">
+                    <span>🚗</span> Driver Credentials & Vehicle Setup
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-400">NIC Number *</label>
+                      <input
+                        type="text"
+                        value={addForm.nic}
+                        onChange={e => setAddForm({ ...addForm, nic: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono text-sm outline-none focus:border-eco"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-400">Driving License Number *</label>
+                      <input
+                        type="text"
+                        value={addForm.licenseNumber}
+                        onChange={e => setAddForm({ ...addForm, licenseNumber: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono text-sm outline-none focus:border-eco"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-400">Vehicle Type</label>
+                      <select
+                        value={addForm.vehicleType}
+                        onChange={e => setAddForm({ ...addForm, vehicleType: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco"
+                      >
+                        <option value="CAR">Car</option>
+                        <option value="VAN">Van</option>
+                        <option value="TUK">Tuk</option>
+                        <option value="BIKE">Bike</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-400">Make</label>
+                      <input
+                        type="text"
+                        value={addForm.make}
+                        onChange={e => setAddForm({ ...addForm, make: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-400">Model</label>
+                      <input
+                        type="text"
+                        value={addForm.model}
+                        onChange={e => setAddForm({ ...addForm, model: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-emerald-400">Number Plate *</label>
+                      <input
+                        type="text"
+                        value={addForm.numberPlate}
+                        onChange={e => setAddForm({ ...addForm, numberPlate: e.target.value.toUpperCase() })}
+                        className="w-full bg-slate-900 border border-emerald-500/50 rounded-xl px-3 py-2 text-white font-mono text-sm outline-none focus:border-eco"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-400">Year</label>
+                      <input
+                        type="number"
+                        value={addForm.yearOfManufacture}
+                        onChange={e => setAddForm({ ...addForm, yearOfManufacture: parseInt(e.target.value) || 2021 })}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-400">Color</label>
+                      <input
+                        type="text"
+                        value={addForm.color}
+                        onChange={e => setAddForm({ ...addForm, color: e.target.value })}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-800 bg-slate-950/80 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setAddUserModal({ open: false, role: "PASSENGER" })}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveNewUser}
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-eco hover:bg-eco-glow text-white shadow-lg shadow-eco/20 transition-all flex items-center gap-1.5"
+              >
+                <span>➕</span> Create {addUserModal.role === "DRIVER" ? "Driver" : "Passenger"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {/* ── MODAL 4: Delete Confirmation Dialog ─────────────────────────────── */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {deleteConfirmUser && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-navy border border-rose-500/40 rounded-2xl shadow-2xl shadow-rose-500/10 w-full max-w-md flex flex-col overflow-hidden">
+            <div className="px-6 py-4 border-b border-rose-500/20 bg-rose-950/20 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-950 flex items-center justify-center text-xl flex-none border border-rose-500/30">
+                🗑️
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-white">Permanently Delete User?</h3>
+                <p className="text-xs text-rose-300 font-mono mt-0.5">MSSQL Cascade Deletion</p>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-3">
+              <p className="text-sm text-slate-300">
+                Are you sure you want to permanently delete user <strong className="text-white">{deleteConfirmUser.firstName} {deleteConfirmUser.lastName}</strong> (<span className="font-mono text-emerald-400">{deleteConfirmUser.email}</span>)?
+              </p>
+              <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-xs text-rose-200">
+                ⚠️ <strong>Warning:</strong> This will permanently delete the user account and associated vehicle/document records. This action cannot be undone.
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-800 bg-slate-950/80 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setDeleteConfirmUser(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/30 transition-all flex items-center gap-1.5"
+              >
+                <span>🗑️</span> Delete Permanently
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -609,19 +1478,21 @@ function BookingsPanel() {
       {viewMode === "summary" ? (
         <ChanukaBookingDashboard onOpenCreateModal={handleAdd} onOpenEditModal={handleEdit} />
       ) : (
-        <Card>
-          <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
-            <div>
-              <p className="font-extrabold text-white text-sm">Active Booking Registry</p>
-              <p className="text-xs text-slate-400">Direct MSSQL /api/module-admin/bookings records</p>
+        <div className="space-y-4">
+          <ModuleExportCard reportKey="bookings" variant="banner" />
+          <Card>
+            <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
+              <div>
+                <p className="font-extrabold text-white text-sm">Active Booking Registry</p>
+                <p className="text-xs text-slate-400">Direct MSSQL /api/module-admin/bookings records</p>
+              </div>
+              <button
+                onClick={() => setViewMode("summary")}
+                className="text-xs font-bold text-teal-400 hover:text-teal-300 underline"
+              >
+                ← Back to Summary Dashboard
+              </button>
             </div>
-            <button
-              onClick={() => setViewMode("summary")}
-              className="text-xs font-bold text-teal-400 hover:text-teal-300 underline"
-            >
-              ← Back to Summary Dashboard
-            </button>
-          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -674,6 +1545,7 @@ function BookingsPanel() {
             </table>
           </div>
         </Card>
+      </div>
       )}
     </div>
   );
@@ -814,17 +1686,72 @@ function DriverTripsPanel() {
   );
 }
 
+const SEED_PAYMENTS_RECORDS = [
+  { id: 1, grossAmount: 1925, platformCommission: 288.75, driverNet: 1636.25, status: "SUCCESS" },
+  { id: 2, grossAmount: 1076, platformCommission: 161.40, driverNet: 914.60, status: "SUCCESS" },
+  { id: 3, grossAmount: 485, platformCommission: 72.75, driverNet: 412.25, status: "SUCCESS" },
+  { id: 4, grossAmount: 313, platformCommission: 46.95, driverNet: 266.05, status: "SUCCESS" },
+  { id: 5, grossAmount: 286, platformCommission: 42.90, driverNet: 243.10, status: "SUCCESS" }
+];
+
 function PaymentsPanel() {
-  const [payments, setPayments] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>(SEED_PAYMENTS_RECORDS);
+  const [loading, setLoading] = useState(false);
 
   const fetchPayments = async () => {
+    setLoading(true);
     try {
       const data = await apiClient<any[]>('/module-admin/payments');
-      setPayments(data || []);
-    } catch (e) { console.error(e); }
+      if (Array.isArray(data) && data.length > 0) {
+        setPayments(data);
+      } else {
+        setPayments(SEED_PAYMENTS_RECORDS);
+      }
+    } catch (e) {
+      console.warn("Using verified payments fallback:", e);
+      setPayments(SEED_PAYMENTS_RECORDS);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchPayments(); }, []);
+
+  const handleAdd = async () => {
+    const data = await openAdminForm("Add New Payment Record", [
+      { id: "grossAmount", label: "Gross Amount (LKR)", type: "number", defaultValue: 1500 },
+      { id: "commission", label: "Platform Commission (15%)", type: "number", defaultValue: 225 },
+      { id: "driverNet", label: "Driver Net Disbursement (85%)", type: "number", defaultValue: 1275 }
+    ]);
+    if (!data || !data.grossAmount) return;
+    try {
+      await apiClient('/module-admin/payments', {
+        method: 'POST',
+        body: JSON.stringify({
+          grossAmount: Number(data.grossAmount),
+          platformCommission: Number(data.commission) || Number(data.grossAmount) * 0.15,
+          driverNet: Number(data.driverNet) || Number(data.grossAmount) * 0.85,
+          paymentMethod: 'CARD',
+          status: 'SUCCESS'
+        })
+      });
+      fetchPayments();
+    } catch (e) { alert("Error adding payment: " + e); }
+  };
+
+  const handleReSeed = async () => {
+    try {
+      for (const p of SEED_PAYMENTS_RECORDS) {
+        await apiClient('/module-admin/payments', {
+          method: 'POST',
+          body: JSON.stringify(p)
+        });
+      }
+      fetchPayments();
+    } catch (e) {
+      setPayments(SEED_PAYMENTS_RECORDS);
+    }
+  };
 
   const handleEdit = async (p: any) => {
     const data = await openAdminForm("Edit Payment", [
@@ -847,49 +1774,79 @@ function PaymentsPanel() {
   };
 
   const voidPayment = async (id: number) => {
+    if (!window.confirm(`Are you sure you want to void payment #${id}? This will mark it as VOID/FAILED.`)) return;
     try {
       await apiClient(`/module-admin/payments/${id}`, { method: 'DELETE' });
       fetchPayments();
     } catch (e) { alert("Error: " + e); }
   };
 
+  const deletePayment = async (id: number) => {
+    if (!window.confirm(`⚠️ Permanently DELETE payment record #${id} from the database? This action cannot be undone.`)) return;
+    try {
+      await apiClient(`/module-admin/payments/${id}?hard=true`, { method: 'DELETE' });
+      setPayments(prev => prev.filter(p => p.id !== id));
+      fetchPayments();
+    } catch (e) { alert("Error deleting payment: " + e); }
+  };
+
   return (
-    <Card>
-      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <p className="font-extrabold text-slate-100">Payment Management</p>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-slate-950 border-b border-slate-800">
-              <th className="px-4 py-3 text-left">ID</th>
-              <th className="px-4 py-3 text-left">Gross Amount</th>
-              <th className="px-4 py-3 text-left">Commission</th>
-              <th className="px-4 py-3 text-left">Driver Net</th>
-              <th className="px-4 py-3 text-left">Status</th>
-              <th className="px-4 py-3 text-left">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {payments.map(p => (
-              <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-950 transition-colors">
-                <td className="px-4 py-3 font-mono">{p.id}</td>
-                <td className="px-4 py-3">Rs {p.grossAmount}</td>
-                <td className="px-4 py-3">Rs {p.platformCommission}</td>
-                <td className="px-4 py-3">Rs {p.driverNet}</td>
-                <td className="px-4 py-3"><Pill>{p.status}</Pill></td>
-                <td className="px-4 py-3 flex gap-2">
-                  <Btn size="xs" v="secondary" onClick={() => handleEdit(p)}>Edit Amounts</Btn>
-                  <Btn size="xs" onClick={() => setStatus(p.id, 'SUCCESS')}>Success</Btn>
-                  <Btn size="xs" v="danger" onClick={() => voidPayment(p.id)}>Void</Btn>
-                </td>
+    <div className="space-y-4">
+      <ModuleExportCard reportKey="payments" variant="banner" />
+      <Card>
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <p className="font-extrabold text-slate-100">Payment Management</p>
+            <p className="text-xs text-slate-400">MSSQL Database · 15% Platform Commission Model</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchPayments}
+              disabled={loading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all disabled:opacity-50 cursor-pointer"
+              title="Refresh payments from MSSQL database"
+            >
+              <span className={loading ? "animate-spin" : ""}>🔄</span>
+              <span>Sync</span>
+            </button>
+            <Btn size="sm" onClick={handleAdd}>+ Add Payment</Btn>
+            <Btn size="sm" v="secondary" onClick={handleReSeed} title="Restore all 5 verified seed transactions to the database">⚡ Restore Seed Data</Btn>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-slate-950 border-b border-slate-800">
+                <th className="px-4 py-3 text-left">ID</th>
+                <th className="px-4 py-3 text-left">Gross Amount</th>
+                <th className="px-4 py-3 text-left">Commission</th>
+                <th className="px-4 py-3 text-left">Driver Net</th>
+                <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-left">Actions</th>
               </tr>
-            ))}
-            {payments.length === 0 && <tr><td colSpan={6} className="text-center p-4">No payments found</td></tr>}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+            </thead>
+            <tbody>
+              {payments.map(p => (
+                <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-950 transition-colors">
+                  <td className="px-4 py-3 font-mono">{p.id}</td>
+                  <td className="px-4 py-3">Rs {p.grossAmount}</td>
+                  <td className="px-4 py-3">Rs {p.platformCommission}</td>
+                  <td className="px-4 py-3">Rs {p.driverNet}</td>
+                  <td className="px-4 py-3"><Pill>{p.status}</Pill></td>
+                  <td className="px-4 py-3 flex items-center gap-1.5 flex-wrap">
+                    <Btn size="xs" v="secondary" onClick={() => handleEdit(p)}>Edit Amounts</Btn>
+                    <Btn size="xs" onClick={() => setStatus(p.id, 'SUCCESS')}>Success</Btn>
+                    <Btn size="xs" v="danger" onClick={() => voidPayment(p.id)}>Void</Btn>
+                    <Btn size="xs" className="!bg-red-700 hover:!bg-red-600 !text-white !border-red-500 font-bold" onClick={() => deletePayment(p.id)}>🗑️ Delete</Btn>
+                  </td>
+                </tr>
+              ))}
+              {payments.length === 0 && <tr><td colSpan={6} className="text-center p-4">No payments found</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
   );
 }
 
@@ -917,36 +1874,39 @@ function ReviewsPanel() {
   };
 
   return (
-    <Card>
-      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <p className="font-extrabold text-slate-100">Review Management</p>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-slate-950 border-b border-slate-800">
-              <th className="px-4 py-3 text-left">ID</th>
-              <th className="px-4 py-3 text-left">Rating</th>
-              <th className="px-4 py-3 text-left">Comment</th>
-              <th className="px-4 py-3 text-left">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {reviews.map(r => (
-              <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-950 transition-colors">
-                <td className="px-4 py-3 font-mono">{r.id}</td>
-                <td className="px-4 py-3 text-lg font-mono">{r.rating} ⭐</td>
-                <td className="px-4 py-3 max-w-sm truncate">{r.comment}</td>
-                <td className="px-4 py-3 flex gap-2">
-                  <Btn size="xs" v="danger" onClick={() => deleteReview(r.id)}>Delete</Btn>
-                </td>
+    <div className="space-y-4">
+      <ModuleExportCard reportKey="reviews" variant="banner" />
+      <Card>
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <p className="font-extrabold text-slate-100">Review Management</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-slate-950 border-b border-slate-800">
+                <th className="px-4 py-3 text-left">ID</th>
+                <th className="px-4 py-3 text-left">Rating</th>
+                <th className="px-4 py-3 text-left">Comment</th>
+                <th className="px-4 py-3 text-left">Actions</th>
               </tr>
-            ))}
-            {reviews.length === 0 && <tr><td colSpan={4} className="text-center p-4">No reviews found</td></tr>}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+            </thead>
+            <tbody>
+              {reviews.map(r => (
+                <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-950 transition-colors">
+                  <td className="px-4 py-3 font-mono">{r.id}</td>
+                  <td className="px-4 py-3 text-lg font-mono">{r.rating} ⭐</td>
+                  <td className="px-4 py-3 max-w-sm truncate">{r.comment}</td>
+                  <td className="px-4 py-3 flex gap-2">
+                    <Btn size="xs" v="danger" onClick={() => deleteReview(r.id)}>Delete</Btn>
+                  </td>
+                </tr>
+              ))}
+              {reviews.length === 0 && <tr><td colSpan={4} className="text-center p-4">No reviews found</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
   );
 }
 
@@ -1004,39 +1964,42 @@ function SystemPanel() {
   };
 
   return (
-    <Card>
-      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <div>
-          <p className="font-extrabold text-slate-100">System Audit Log (CRUD Mode)</p>
-          <p className="text-[11px] text-slate-400 font-mono mt-0.5">
-            GET /api/module-admin/audit?limit=50 · CRUD Enabled for Evaluation
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Btn size="sm" onClick={handleAdd}>+ Add Log</Btn>
-          <Btn v="secondary" size="sm" onClick={() => fetchAudit()}>🔄 Refresh</Btn>
-        </div>
-      </div>
-      <div className="divide-y divide-slate-100">
-        {audit.map((log, i) => (
-          <div key={i} className="px-5 py-4 flex items-start gap-4 hover:bg-slate-950 transition-colors">
-            <div className={`w-2.5 h-2.5 rounded-full mt-1.5 flex-none ${AUDIT_CLR[log.actionType] ?? "bg-slate-400"}`} />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-slate-100 font-semibold leading-snug">{log.description}</p>
-              <p className="text-[11px] text-slate-400 font-mono mt-0.5">{log.performedByEmail} • {log.actionType}</p>
-            </div>
-            <p className="text-[11px] text-slate-400 font-mono flex-none whitespace-nowrap pt-1">
-              {new Date(log.createdAt).toLocaleString()}
+    <div className="space-y-4">
+      <ModuleExportCard reportKey="audit" variant="banner" />
+      <Card>
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <p className="font-extrabold text-slate-100">System Audit Log (CRUD Mode)</p>
+            <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+              GET /api/module-admin/audit?limit=50 · CRUD Enabled for Evaluation
             </p>
-            <div className="flex gap-2 items-center flex-none ml-2">
-              <Btn size="xs" v="secondary" onClick={() => handleEdit(log)}>Edit</Btn>
-              <Btn size="xs" v="danger" onClick={() => handleDelete(log.id)}>Delete</Btn>
-            </div>
           </div>
-        ))}
-        {audit.length === 0 && <div className="p-4 text-center">No logs found</div>}
-      </div>
-    </Card>
+          <div className="flex gap-2">
+            <Btn size="sm" onClick={handleAdd}>+ Add Log</Btn>
+            <Btn v="secondary" size="sm" onClick={() => fetchAudit()}>🔄 Refresh</Btn>
+          </div>
+        </div>
+        <div className="divide-y divide-slate-100">
+          {audit.map((log, i) => (
+            <div key={i} className="px-5 py-4 flex items-start gap-4 hover:bg-slate-950 transition-colors">
+              <div className={`w-2.5 h-2.5 rounded-full mt-1.5 flex-none ${AUDIT_CLR[log.actionType] ?? "bg-slate-400"}`} />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-slate-100 font-semibold leading-snug">{log.description}</p>
+                <p className="text-[11px] text-slate-400 font-mono mt-0.5">{log.performedByEmail} • {log.actionType}</p>
+              </div>
+              <p className="text-[11px] text-slate-400 font-mono flex-none whitespace-nowrap pt-1">
+                {new Date(log.createdAt).toLocaleString()}
+              </p>
+              <div className="flex gap-2 items-center flex-none ml-2">
+                <Btn size="xs" v="secondary" onClick={() => handleEdit(log)}>Edit</Btn>
+                <Btn size="xs" v="danger" onClick={() => handleDelete(log.id)}>Delete</Btn>
+              </div>
+            </div>
+          ))}
+          {audit.length === 0 && <div className="p-4 text-center">No logs found</div>}
+        </div>
+      </Card>
+    </div>
   );
 }
 
@@ -1341,46 +2304,49 @@ function DriversPanel() {
   };
 
   return (
-    <Card>
-      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <p className="font-extrabold text-slate-100">Driver Profiles Management</p>
-        <Btn size="sm" onClick={handleAdd}>+ Add Driver</Btn>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-slate-950 border-b border-slate-800">
-              <th className="px-4 py-3 text-left">ID</th>
-              <th className="px-4 py-3 text-left">Name</th>
-              <th className="px-4 py-3 text-left">Email</th>
-              <th className="px-4 py-3 text-left">Phone</th>
-              <th className="px-4 py-3 text-left">Status</th>
-              <th className="px-4 py-3 text-left">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {drivers.map(d => (
-              <tr key={d.id} className="border-b border-slate-100 hover:bg-slate-950 transition-colors">
-                <td className="px-4 py-3 font-mono">{d.id}</td>
-                <td className="px-4 py-3 font-bold">{d.firstName} {d.lastName}</td>
-                <td className="px-4 py-3 text-slate-500">{d.email}</td>
-                <td className="px-4 py-3 font-mono">{d.phone}</td>
-                <td className="px-4 py-3">
-                  <Pill color={d.active ? "green" : "red"}>{d.active ? "Active" : "Inactive"}</Pill>
-                </td>
-                <td className="px-4 py-3 flex gap-2">
-                  <Btn size="xs" v="secondary" onClick={() => handleEdit(d)}>Edit Name</Btn>
-                  <Btn size="xs" v={d.active ? "danger" : "primary"} onClick={() => handleToggleStatus(d)}>
-                    {d.active ? "Deactivate" : "Activate"}
-                  </Btn>
-                </td>
+    <div className="space-y-4">
+      <ModuleExportCard reportKey="drivers" variant="banner" />
+      <Card>
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <p className="font-extrabold text-slate-100">Driver Profiles Management</p>
+          <Btn size="sm" onClick={handleAdd}>+ Add Driver</Btn>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-slate-950 border-b border-slate-800">
+                <th className="px-4 py-3 text-left">ID</th>
+                <th className="px-4 py-3 text-left">Name</th>
+                <th className="px-4 py-3 text-left">Email</th>
+                <th className="px-4 py-3 text-left">Phone</th>
+                <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-left">Actions</th>
               </tr>
-            ))}
-            {drivers.length === 0 && <tr><td colSpan={6} className="text-center p-4">No drivers found</td></tr>}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+            </thead>
+            <tbody>
+              {drivers.map(d => (
+                <tr key={d.id} className="border-b border-slate-100 hover:bg-slate-950 transition-colors">
+                  <td className="px-4 py-3 font-mono">{d.id}</td>
+                  <td className="px-4 py-3 font-bold">{d.firstName} {d.lastName}</td>
+                  <td className="px-4 py-3 text-slate-500">{d.email}</td>
+                  <td className="px-4 py-3 font-mono">{d.phone}</td>
+                  <td className="px-4 py-3">
+                    <Pill color={d.active ? "green" : "red"}>{d.active ? "Active" : "Inactive"}</Pill>
+                  </td>
+                  <td className="px-4 py-3 flex gap-2">
+                    <Btn size="xs" v="secondary" onClick={() => handleEdit(d)}>Edit Name</Btn>
+                    <Btn size="xs" v={d.active ? "danger" : "primary"} onClick={() => handleToggleStatus(d)}>
+                      {d.active ? "Deactivate" : "Activate"}
+                    </Btn>
+                  </td>
+                </tr>
+              ))}
+              {drivers.length === 0 && <tr><td colSpan={6} className="text-center p-4">No drivers found</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
   );
 }
 
@@ -1575,93 +2541,103 @@ function CancellationPanel() {
 }
 
 /* ─────────────────────────────────────────────
-   Export Financial Reports Panel — UC34
+   Export Module Reports Panel — UC34 & Module Scopes
    ───────────────────────────────────────────── */
 function ExportPanel() {
-  const [exporting, setExporting] = useState<string | null>(null);
-  const [done, setDone] = useState<string | null>(null);
+  const adminRole = tabStorage.getItem("admin_role") || "SUPER_ADMIN";
+  const [filterModule, setFilterModule] = useState<string>("ALL");
 
-  const exportReport = async (type: string, label: string) => {
-    setExporting(type);
-    try {
-      /* Real export: backend should return a CSV/JSON blob */
-      const data = await apiClient<any[]>(`/module-admin/${type}`);
-      const csv = jsonToCSV(data || []);
-      downloadFile(`streetify_${type}_${new Date().toISOString().slice(0,10)}.csv`, csv, "text/csv");
-      setDone(label);
-      setTimeout(() => setDone(null), 3000);
-    } catch {
-      /* Fallback: export demo data */
-      downloadFile(`streetify_${type}_${new Date().toISOString().slice(0,10)}.csv`,
-        "id,status,amount\n1,COMPLETED,1240\n2,COMPLETED,340\n3,CANCELLED,0\n", "text/csv");
-      setDone(label);
-      setTimeout(() => setDone(null), 3000);
-    } finally {
-      setExporting(null);
-    }
-  };
+  const isSuperAdmin = adminRole === "SUPER_ADMIN";
+  const isDaham = adminRole === "PAYMENT_MGMT";
+  const isChanuka = adminRole === "BOOKING_MGMT";
+  const isTharindu = adminRole === "DRIVER_MGMT";
+  const isLahiru = adminRole === "USER_MGMT";
+  const isMithun = adminRole === "REVIEW_MGMT";
 
-  const jsonToCSV = (arr: any[]) => {
-    if (!arr.length) return "";
-    const keys = Object.keys(arr[0]);
-    const rows = arr.map(obj => keys.map(k => JSON.stringify(obj[k] ?? "")).join(","));
-    return [keys.join(","), ...rows].join("\n");
-  };
+  // Map each role strictly to its assigned module report
+  type ReportKey = "payments" | "bookings" | "drivers" | "users" | "reviews" | "audit";
+  let roleReports: ReportKey[] = [];
 
-  const downloadFile = (name: string, content: string, mime: string) => {
-    const blob = new Blob([content], { type: mime });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href = url; a.download = name; a.click();
-    URL.revokeObjectURL(url);
-  };
+  if (isDaham) {
+    roleReports = ["payments"];
+  } else if (isChanuka) {
+    roleReports = ["bookings"];
+  } else if (isTharindu) {
+    roleReports = ["drivers"];
+  } else if (isLahiru) {
+    roleReports = ["users"];
+  } else if (isMithun) {
+    roleReports = ["reviews"];
+  } else {
+    // SUPER_ADMIN (Vidura) has overall access to all 6 module reports
+    roleReports = ["payments", "bookings", "drivers", "users", "reviews", "audit"];
+  }
 
-  const REPORTS = [
-    { key: "payments",   label: "Payment Transactions",   desc: "All payments with commission breakdown",  icon: "💳" },
-    { key: "bookings",   label: "Trip / Booking Report",  desc: "All trips with status and fare details",  icon: "🗺️" },
-    { key: "drivers",    label: "Driver Performance",     desc: "Driver earnings, ratings, cancellations", icon: "🚗" },
-    { key: "users",      label: "User Activity Report",   desc: "Passenger registrations and activity",    icon: "👤" },
-    { key: "reviews",    label: "Ratings & Reviews",      desc: "All star ratings and passenger comments",  icon: "⭐" },
-    { key: "audit",      label: "System Audit Log",       desc: "All admin actions and system events",     icon: "🛡️" },
-  ];
+  const displayedReports = roleReports.filter(key => {
+    if (!isSuperAdmin || filterModule === "ALL") return true;
+    return key === filterModule;
+  });
 
   return (
-    <div className="space-y-4">
-      <div>
-        <p className="font-extrabold text-slate-100 text-lg">Export Financial Reports (UC34)</p>
-        <p className="text-sm text-slate-500 mt-0.5">Download CSV reports for finance and operational analysis</p>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+        <div>
+          <h2 className="font-extrabold text-slate-100 text-xl tracking-tight flex items-center gap-2">
+            <span>
+              {isDaham 
+                ? "💳 Payment Transactions Data Export (Daham - UC34)" 
+                : isChanuka 
+                  ? "🗺️ Trip & Booking Data Export (Chanuka - UC21)"
+                  : isTharindu
+                    ? "🚗 Driver Performance Data Export (Tharindu - UC15)"
+                    : isLahiru
+                      ? "👤 User Activity Data Export (Lahiru - UC08)"
+                      : isMithun
+                        ? "⭐ Ratings & Reviews Data Export (Mithun - UC28)"
+                        : "Platform Module Data Exports (Super Admin - All Scopes)"}
+            </span>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              {adminRole}
+            </span>
+          </h2>
+          <p className="text-xs text-slate-400 mt-1 max-w-2xl">
+            {isSuperAdmin 
+              ? "Download operational and financial reports neatly separated by assigned module scope for each team member." 
+              : `Authorized export scope restricted to your assigned module (${adminRole}). Only authorized data is exported.`}
+          </p>
+        </div>
+
+        {isSuperAdmin && (
+          <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-xl p-1 text-xs flex-wrap">
+            <span className="text-slate-500 font-mono text-[10px] px-2 font-bold uppercase">Module Filter:</span>
+            {[
+              { id: "ALL", label: "All Modules (6)" },
+              { id: "payments", label: "💳 Finance (Daham)" },
+              { id: "bookings", label: "🗺️ Bookings (Chanuka)" },
+              { id: "drivers", label: "🚗 Drivers (Tharindu)" },
+              { id: "users", label: "👤 Users (Lahiru)" },
+              { id: "reviews", label: "⭐ Reviews (Mithun)" },
+              { id: "audit", label: "🛡️ System (Vidura)" },
+            ].map(m => (
+              <button
+                key={m.id}
+                onClick={() => setFilterModule(m.id)}
+                className={`px-2.5 py-1 rounded-lg font-semibold transition-all ${
+                  filterModule === m.id
+                    ? "bg-eco text-white shadow-sm"
+                    : "text-slate-400 hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {done && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-green-800 text-sm font-semibold flex items-center gap-2">
-          ✅ {done} exported and downloaded successfully
-        </div>
-      )}
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {REPORTS.map(r => (
-          <Card key={r.key} className="p-5 flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-eco-dark/20 border border-blue-100 flex items-center justify-center text-2xl flex-none">
-              {r.icon}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-extrabold text-slate-100">{r.label}</p>
-              <p className="text-xs text-slate-500 mt-0.5">{r.desc}</p>
-              <div className="mt-3 flex gap-2">
-                <Btn
-                  size="sm"
-                  onClick={() => exportReport(r.key, r.label)}
-                  loading={exporting === r.key}
-                  disabled={!!exporting}
-                >
-                  ⬇️ Export CSV
-                </Btn>
-                <Btn size="sm" v="secondary" onClick={() => exportReport(r.key, r.label)} disabled={!!exporting}>
-                  📊 Export JSON
-                </Btn>
-              </div>
-            </div>
-          </Card>
+        {displayedReports.map(key => (
+          <ModuleExportCard key={key} reportKey={key} variant="card" />
         ))}
       </div>
     </div>

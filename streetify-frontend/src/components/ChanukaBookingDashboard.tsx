@@ -3,6 +3,7 @@ import { Btn, Card, Pill } from "../ui";
 import { apiClient } from "../api/apiClient";
 import { tripSyncService } from "../services/tripSyncService";
 import { tabStorage } from "../utils/storage";
+import ModuleExportCard from "./ModuleExportCard";
 
 interface BookingTrip {
   id: number;
@@ -299,6 +300,9 @@ const SEED_BOOKINGS_FALLBACK: BookingTrip[] = [
           </div>
         </div>
       </div>
+
+      {/* ── MODULE SPECIFIC EXPORT BANNER (UC21) ── */}
+      <ModuleExportCard reportKey="bookings" variant="banner" />
 
       {/* ── 6 Core Platform KPI Cards ── */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">

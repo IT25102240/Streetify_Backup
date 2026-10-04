@@ -3,10 +3,14 @@ package com.streetify.controller;
 import com.streetify.dao.*;
 import com.streetify.entity.*;
 import com.streetify.service.AdminGovernanceService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -21,6 +25,7 @@ public class ModuleAdminController {
     private final PassengerDAO passengerDAO;
     private final DriverDAO driverDAO;
     private final DriverDocumentDAO driverDocumentDAO;
+    private final VehicleDAO vehicleDAO;
     private final TripDAO tripDAO;
     private final PaymentDAO paymentDAO;
     private final ReviewDAO reviewDAO;
@@ -29,11 +34,13 @@ public class ModuleAdminController {
     private final AdminGovernanceService adminGovernanceService;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
     private final com.streetify.service.DispatchService dispatchService;
+    private final JdbcTemplate jdbcTemplate;
 
     public ModuleAdminController(UserDAO userDAO,
                                  PassengerDAO passengerDAO,
                                  DriverDAO driverDAO,
                                  DriverDocumentDAO driverDocumentDAO,
+                                 VehicleDAO vehicleDAO,
                                  TripDAO tripDAO,
                                  PaymentDAO paymentDAO,
                                  ReviewDAO reviewDAO,
@@ -41,11 +48,13 @@ public class ModuleAdminController {
                                  DisputeDAO disputeDAO,
                                  AdminGovernanceService adminGovernanceService,
                                  org.springframework.security.crypto.password.PasswordEncoder passwordEncoder,
-                                 com.streetify.service.DispatchService dispatchService) {
+                                 com.streetify.service.DispatchService dispatchService,
+                                 JdbcTemplate jdbcTemplate) {
         this.userDAO = userDAO;
         this.passengerDAO = passengerDAO;
         this.driverDAO = driverDAO;
         this.driverDocumentDAO = driverDocumentDAO;
+        this.vehicleDAO = vehicleDAO;
         this.tripDAO = tripDAO;
         this.paymentDAO = paymentDAO;
         this.reviewDAO = reviewDAO;
@@ -54,6 +63,7 @@ public class ModuleAdminController {
         this.adminGovernanceService = adminGovernanceService;
         this.passwordEncoder = passwordEncoder;
         this.dispatchService = dispatchService;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     private void logAdminAction(String action, String desc, Long targetId, String targetType) {
@@ -93,35 +103,82 @@ public class ModuleAdminController {
 
     @PostMapping("/users")
     public ResponseEntity<Map<String, Object>> createUser(@RequestBody Map<String, Object> data) {
-        User user = new User();
-        if (data.containsKey("firstName")) user.setFirstName((String) data.get("firstName"));
-        if (data.containsKey("lastName"))  user.setLastName((String) data.get("lastName"));
-        if (data.containsKey("email"))     user.setEmail((String) data.get("email"));
-        if (data.containsKey("phone"))     user.setPhone((String) data.get("phone"));
-        
+        String roleStr = data.containsKey("role") && data.get("role") != null ? data.get("role").toString().toUpperCase() : "PASSENGER";
+        UserRole role = UserRole.PASSENGER;
+        try {
+            role = UserRole.valueOf(roleStr);
+        } catch (Exception ignored) {}
+
+        String email = ((String) data.getOrDefault("email", "")).toLowerCase().trim();
+        if (email.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Email is required."));
+        }
+        if (userDAO.existsByEmail(email)) {
+            return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "User with email '" + email + "' already exists."));
+        }
+
         String rawPassword = data.containsKey("password") ? (String) data.get("password") : "1111";
-        user.setPasswordHash(passwordEncoder.encode(rawPassword));
-        user.setPlainPassword(rawPassword);
-        
-        if (data.containsKey("role") && data.get("role") != null) {
-            try {
-                user.setRole(UserRole.valueOf(((String) data.get("role")).toUpperCase()));
-            } catch (Exception e) {
-                user.setRole(UserRole.PASSENGER);
+
+        if (role == UserRole.DRIVER) {
+            Driver driver = new Driver();
+            driver.setFirstName((String) data.getOrDefault("firstName", "New"));
+            driver.setLastName((String) data.getOrDefault("lastName", "Driver"));
+            driver.setEmail(email);
+            driver.setPhone((String) data.getOrDefault("phone", "0770000000"));
+            driver.setNic((String) data.getOrDefault("nic", "1992" + (System.currentTimeMillis() % 10000000)));
+            driver.setLicenseNumber((String) data.getOrDefault("licenseNumber", driver.getNic()));
+            driver.setPasswordHash(passwordEncoder.encode(rawPassword));
+            driver.setPlainPassword(rawPassword);
+            driver.setRole(UserRole.DRIVER);
+            driver.setVerificationStatus(DriverVerificationStatus.APPROVED);
+            driver.setActive(true);
+            Driver savedDriver = driverDAO.save(driver);
+
+            String plate = ((String) data.getOrDefault("numberPlate", "CAB-" + (2000 + (savedDriver.getId() % 7000)))).toUpperCase().trim();
+            Vehicle vehicle = Vehicle.builder()
+                .driver(savedDriver)
+                .vehicleType((String) data.getOrDefault("vehicleType", "CAR"))
+                .numberPlate(plate)
+                .yearOfManufacture(data.containsKey("yearOfManufacture") ? ((Number) data.get("yearOfManufacture")).intValue() : 2021)
+                .make((String) data.getOrDefault("make", "Toyota"))
+                .model((String) data.getOrDefault("model", "Prius"))
+                .color((String) data.getOrDefault("color", "White"))
+                .build();
+            vehicleDAO.save(vehicle);
+
+            List<String> docTypes = List.of("license", "reg", "insurance");
+            for (String dt : docTypes) {
+                DriverDocument doc = new DriverDocument();
+                doc.setDriver(savedDriver);
+                doc.setDocType(dt);
+                doc.setOriginalFilename(dt + "_" + savedDriver.getLastName().toLowerCase() + ".pdf");
+                doc.setFilePath("uploads/documents/driver-" + savedDriver.getId() + "/" + dt + ".pdf");
+                doc.setFileSizeBytes(1024L * 1024L);
+                doc.setContentType("application/pdf");
+                doc.setStatus(DocumentStatus.APPROVED);
+                doc.setReviewerNote("Onboarded and approved directly by User Admin.");
+                driverDocumentDAO.save(doc);
             }
+
+            logAdminAction("CREATE_DRIVER", "Created new approved Driver: " + email + " with vehicle " + plate, savedDriver.getId(), "USER");
+            return ResponseEntity.ok(Map.of("status", "ok", "id", savedDriver.getId(), "role", "DRIVER"));
         } else {
-            user.setRole(UserRole.PASSENGER);
+            User user = new User();
+            user.setFirstName((String) data.getOrDefault("firstName", "New"));
+            user.setLastName((String) data.getOrDefault("lastName", "Passenger"));
+            user.setEmail(email);
+            user.setPhone((String) data.getOrDefault("phone", "0770000000"));
+            user.setPasswordHash(passwordEncoder.encode(rawPassword));
+            user.setPlainPassword(rawPassword);
+            user.setRole(role);
+            if (data.containsKey("adminRole")) {
+                user.setAdminRole((String) data.get("adminRole"));
+            }
+            user.setActive(true);
+            User saved = userDAO.save(user);
+            logAdminAction("CREATE_USER", "Created new " + user.getRole() + " user: " + user.getEmail(), saved.getId(), "USER");
+            return ResponseEntity.ok(Map.of("status", "ok", "id", saved.getId(), "role", role.name()));
         }
-
-        if (data.containsKey("adminRole")) {
-            user.setAdminRole((String) data.get("adminRole"));
-        }
-
-        user.setActive(true);
-        User saved = userDAO.save(user);
-        
-        logAdminAction("CREATE_USER", "Created new " + user.getRole() + " user: " + user.getEmail(), saved.getId(), "USER");
-        return ResponseEntity.ok(Map.of("status", "ok", "id", saved.getId()));
     }
 
     @GetMapping("/users")
@@ -136,47 +193,282 @@ public class ModuleAdminController {
             map.put("role", u.getRole().name());
             map.put("adminRole", u.getAdminRole());
             map.put("active", u.isActive());
+
+            if (u.getRole() == UserRole.DRIVER) {
+                if (u instanceof Driver d) {
+                    map.put("nic", d.getNic());
+                    map.put("licenseNumber", d.getLicenseNumber());
+                    map.put("verificationStatus", d.getVerificationStatus() != null ? d.getVerificationStatus().name() : "APPROVED");
+                }
+                vehicleDAO.findByDriverId(u.getId()).ifPresent(v -> {
+                    map.put("vehicleType", v.getVehicleType());
+                    map.put("numberPlate", v.getNumberPlate());
+                    map.put("vehicleModel", v.getModel());
+                    map.put("vehicleMake", v.getMake());
+                    map.put("yearOfManufacture", v.getYearOfManufacture());
+                    map.put("vehicleColor", v.getColor());
+                });
+            }
             return map;
         }).toList();
         return ResponseEntity.ok(result);
     }
 
+    @GetMapping("/users/summary")
+    public ResponseEntity<Map<String, Object>> getUsersSummary() {
+        // Purge any orphan vehicle rows from previous test downgrades
+        try {
+            jdbcTemplate.update("DELETE FROM vehicles WHERE driver_id NOT IN (SELECT id FROM users WHERE dtype = 'DRIVER')");
+        } catch (Exception ignored) {}
+
+        Long totalUsers = jdbcTemplate.queryForObject("SELECT count(*) FROM users", Long.class);
+        Long totalPassengers = jdbcTemplate.queryForObject("SELECT count(*) FROM users WHERE role = 'PASSENGER'", Long.class);
+        Long totalDrivers = jdbcTemplate.queryForObject("SELECT count(*) FROM users WHERE role = 'DRIVER'", Long.class);
+        Long totalAdmins = jdbcTemplate.queryForObject("SELECT count(*) FROM users WHERE role = 'ADMIN'", Long.class);
+        Long activeUsers = jdbcTemplate.queryForObject("SELECT count(*) FROM users WHERE active = 1", Long.class);
+        long inactiveUsers = (totalUsers != null ? totalUsers : 0L) - (activeUsers != null ? activeUsers : 0L);
+
+        Long verifiedDrivers = jdbcTemplate.queryForObject(
+            "SELECT count(*) FROM users WHERE role = 'DRIVER' AND verification_status = 'APPROVED'", 
+            Long.class
+        );
+
+        Map<String, Long> fleetCounts = new java.util.HashMap<>();
+        try {
+            jdbcTemplate.query("SELECT vehicle_type, count(*) as cnt FROM vehicles WHERE driver_id IN (SELECT id FROM users WHERE dtype='DRIVER') GROUP BY vehicle_type", (rs) -> {
+                fleetCounts.put(rs.getString("vehicle_type"), rs.getLong("cnt"));
+            });
+        } catch (Exception ignored) {}
+
+        Map<String, Object> summary = new java.util.HashMap<>();
+        summary.put("totalUsers", totalUsers != null ? totalUsers : 0L);
+        summary.put("totalPassengers", totalPassengers != null ? totalPassengers : 0L);
+        summary.put("totalDrivers", totalDrivers != null ? totalDrivers : 0L);
+        summary.put("totalAdmins", totalAdmins != null ? totalAdmins : 0L);
+        summary.put("activeUsers", activeUsers != null ? activeUsers : 0L);
+        summary.put("inactiveUsers", inactiveUsers);
+        summary.put("verifiedDrivers", verifiedDrivers != null ? verifiedDrivers : 0L);
+        summary.put("fleetCounts", fleetCounts);
+
+        return ResponseEntity.ok(summary);
+    }
+
     @GetMapping("/users/{id}")
     public ResponseEntity<Map<String, Object>> getUser(@PathVariable Long id) {
-        return userDAO.findById(id).map(u -> ResponseEntity.ok(Map.<String, Object>of(
-            "id", u.getId(),
-            "firstName", u.getFirstName(),
-            "lastName", u.getLastName(),
-            "email", u.getEmail(),
-            "phone", u.getPhone() != null ? u.getPhone() : "",
-            "role", u.getRole().name(),
-            "active", u.isActive()
-        ))).orElse(ResponseEntity.notFound().build());
+        return userDAO.findById(id).map(u -> {
+            Map<String, Object> map = new java.util.HashMap<>();
+            map.put("id", u.getId());
+            map.put("firstName", u.getFirstName());
+            map.put("lastName", u.getLastName());
+            map.put("email", u.getEmail());
+            map.put("phone", u.getPhone() != null ? u.getPhone() : "");
+            map.put("role", u.getRole().name());
+            map.put("adminRole", u.getAdminRole());
+            map.put("active", u.isActive());
+
+            if (u.getRole() == UserRole.DRIVER) {
+                if (u instanceof Driver d) {
+                    map.put("nic", d.getNic());
+                    map.put("licenseNumber", d.getLicenseNumber());
+                    map.put("verificationStatus", d.getVerificationStatus() != null ? d.getVerificationStatus().name() : "APPROVED");
+                }
+                vehicleDAO.findByDriverId(u.getId()).ifPresent(v -> {
+                    map.put("vehicleType", v.getVehicleType());
+                    map.put("numberPlate", v.getNumberPlate());
+                    map.put("vehicleModel", v.getModel());
+                    map.put("vehicleMake", v.getMake());
+                    map.put("yearOfManufacture", v.getYearOfManufacture());
+                    map.put("vehicleColor", v.getColor());
+                });
+            }
+            return ResponseEntity.ok(map);
+        }).orElse(ResponseEntity.notFound().build());
     }
 
     @PutMapping("/users/{id}")
     public ResponseEntity<Map<String, Object>> updateUser(@PathVariable Long id, @RequestBody Map<String, Object> updates) {
         User user = userDAO.findById(id).orElseThrow(() -> new IllegalArgumentException("User not found: " + id));
 
-        if (updates.containsKey("firstName"))  user.setFirstName((String) updates.get("firstName"));
-        if (updates.containsKey("lastName"))   user.setLastName((String) updates.get("lastName"));
-        if (updates.containsKey("phone"))      user.setPhone((String) updates.get("phone"));
-        if (updates.containsKey("active"))     user.setActive((Boolean) updates.get("active"));
-        if (updates.containsKey("adminRole"))  user.setAdminRole((String) updates.get("adminRole"));
+        if (updates.containsKey("firstName")) user.setFirstName((String) updates.get("firstName"));
+        if (updates.containsKey("lastName"))  user.setLastName((String) updates.get("lastName"));
+        if (updates.containsKey("email") && updates.get("email") != null) {
+            String newEmail = ((String) updates.get("email")).trim().toLowerCase();
+            if (!newEmail.isEmpty() && !newEmail.equalsIgnoreCase(user.getEmail())) {
+                if (userDAO.existsByEmail(newEmail)) {
+                    return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Email '" + newEmail + "' is already in use by another account."));
+                }
+                user.setEmail(newEmail);
+            }
+        }
+        if (updates.containsKey("phone"))     user.setPhone((String) updates.get("phone"));
+        if (updates.containsKey("active"))    user.setActive((Boolean) updates.get("active"));
+        if (updates.containsKey("adminRole")) user.setAdminRole((String) updates.get("adminRole"));
 
         User saved = userDAO.save(user);
-        logAdminAction("UPDATE_USER", "Updated user details (including roles) for ID " + id, id, "USER");
-        return ResponseEntity.ok(Map.of("status", "ok", "id", saved.getId()));
+        logAdminAction("UPDATE_USER", "Updated user profile (email/details) for ID " + id + " (" + saved.getEmail() + ")", id, "USER");
+        return ResponseEntity.ok(Map.of("status", "ok", "id", saved.getId(), "email", saved.getEmail()));
     }
 
     @DeleteMapping("/users/{id}")
-    public ResponseEntity<Map<String, String>> deactivateUser(@PathVariable Long id) {
+    public ResponseEntity<Map<String, String>> deactivateUser(
+            @PathVariable Long id,
+            @RequestParam(value = "permanent", defaultValue = "false") boolean permanent
+    ) {
+        if (permanent) {
+            deleteUserPermanently(id);
+            return ResponseEntity.ok(Map.of("status", "ok", "message", "User " + id + " permanently deleted."));
+        }
         User user = userDAO.findById(id).orElseThrow(() -> new IllegalArgumentException("User not found: " + id));
         user.setActive(false);
         userDAO.save(user);
         
         logAdminAction("DEACTIVATE_USER", "Deactivated user ID " + id, id, "USER");
         return ResponseEntity.ok(Map.of("status", "ok", "message", "User " + id + " deactivated."));
+    }
+
+    @DeleteMapping("/users/{id}/permanent")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> deleteUserPermanently(@PathVariable Long id) {
+        User user = userDAO.findById(id).orElseThrow(() -> new IllegalArgumentException("User not found: " + id));
+        if ("SUPER_ADMIN".equalsIgnoreCase(user.getAdminRole())) {
+            return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Cannot delete Master Super Admin account."));
+        }
+
+        // Clean up linked dependencies safely to prevent foreign key constraint violations
+        try { vehicleDAO.findByDriverId(id).ifPresent(vehicleDAO::delete); } catch (Exception ignored) {}
+        try { driverDocumentDAO.findByDriverId(id).forEach(driverDocumentDAO::delete); } catch (Exception ignored) {}
+        try {
+            reviewDAO.findAll().stream()
+                .filter(r -> (r.getPassenger() != null && r.getPassenger().getId().equals(id)) || (r.getDriver() != null && r.getDriver().getId().equals(id)))
+                .forEach(reviewDAO::delete);
+        } catch (Exception ignored) {}
+        try {
+            paymentDAO.findAll().stream()
+                .filter(p -> (p.getPassenger() != null && p.getPassenger().getId().equals(id)) || (p.getDriver() != null && p.getDriver().getId().equals(id)))
+                .forEach(paymentDAO::delete);
+        } catch (Exception ignored) {}
+        try {
+            tripDAO.findAll().stream()
+                .filter(t -> (t.getPassenger() != null && t.getPassenger().getId().equals(id)) || (t.getDriver() != null && t.getDriver().getId().equals(id)))
+                .forEach(tripDAO::delete);
+        } catch (Exception ignored) {}
+        try {
+            disputeDAO.findAll().stream()
+                .filter(d -> d.getPassenger() != null && d.getPassenger().getId().equals(id))
+                .forEach(disputeDAO::delete);
+        } catch (Exception ignored) {}
+        try {
+            auditLogDAO.findAll().stream()
+                .filter(a -> (a.getTargetUserId() != null && a.getTargetUserId().equals(id)) || (a.getPerformedByStaffId() != null && a.getPerformedByStaffId().equals(id)))
+                .forEach(auditLogDAO::delete);
+        } catch (Exception ignored) {}
+
+        userDAO.delete(user);
+        logAdminAction("DELETE_USER", "Permanently deleted user: " + user.getEmail() + " (ID: " + id + ")", id, "USER");
+        return ResponseEntity.ok(Map.of("status", "ok", "message", "User " + user.getEmail() + " permanently deleted."));
+    }
+
+    @PostMapping("/users/{id}/change-role")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> changeUserRole(@PathVariable Long id, @RequestBody Map<String, Object> data) {
+        // Enforce that only User Admin (USER_MGMT) or Super Admin can execute role transitions
+        String callerEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+        User caller = userDAO.findByEmail(callerEmail).orElse(null);
+        boolean isAuthorized = caller != null && (
+            "SUPER_ADMIN".equalsIgnoreCase(caller.getAdminRole()) || 
+            "USER_MGMT".equalsIgnoreCase(caller.getAdminRole()) ||
+            "admin@streetify.com".equalsIgnoreCase(caller.getEmail()) ||
+            "admin@streetify.lk".equalsIgnoreCase(caller.getEmail())
+        );
+        if (!isAuthorized) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                "status", "error", 
+                "message", "Access Denied: Only User Admin (USER_MGMT) or Super Admin can change user roles."
+            ));
+        }
+
+        User user = userDAO.findById(id).orElseThrow(() -> new IllegalArgumentException("User not found: " + id));
+        String targetRoleStr = (String) data.get("targetRole");
+        if (targetRoleStr == null) {
+            return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "targetRole ('DRIVER' or 'PASSENGER') is required."));
+        }
+        UserRole targetRole = UserRole.valueOf(targetRoleStr.toUpperCase());
+
+        if (targetRole == UserRole.DRIVER) {
+            // Passenger -> Driver: Must fulfill Personal Info, Vehicle & Security, and Documents
+            String nic = (String) data.getOrDefault("nic", "1994" + (System.currentTimeMillis() % 10000000));
+            String license = (String) data.getOrDefault("licenseNumber", "B" + (1000000 + (id % 9000000)));
+            String vType = ((String) data.getOrDefault("vehicleType", "CAR")).toUpperCase();
+            String plate = ((String) data.getOrDefault("numberPlate", "CAB-" + (3000 + id))).toUpperCase().trim();
+            String make = (String) data.getOrDefault("make", "Toyota");
+            String model = (String) data.getOrDefault("model", "Prius");
+            String color = (String) data.getOrDefault("color", "White");
+            int year = data.containsKey("yearOfManufacture") ? ((Number) data.get("yearOfManufacture")).intValue() : 2020;
+
+            // Direct SQL update to cleanly switch SINGLE_TABLE discriminator and role
+            jdbcTemplate.update(
+                "UPDATE users SET dtype = 'DRIVER', role = 'DRIVER', nic = ?, license_number = ?, verification_status = 'APPROVED', updated_at = GETDATE() WHERE id = ?",
+                nic, license, id
+            );
+
+            // Create or update associated Vehicle
+            Vehicle vehicle = vehicleDAO.findByDriverId(id).orElseGet(() -> {
+                Vehicle v = new Vehicle();
+                Driver ref = new Driver();
+                ref.setId(id);
+                v.setDriver(ref);
+                return v;
+            });
+            vehicle.setVehicleType(vType);
+            vehicle.setNumberPlate(plate);
+            vehicle.setMake(make);
+            vehicle.setModel(model);
+            vehicle.setColor(color);
+            vehicle.setYearOfManufacture(year);
+            vehicleDAO.save(vehicle);
+
+            // Create or ensure required DriverDocument records in APPROVED status
+            List<String> docTypes = List.of("license", "reg", "insurance");
+            for (String dt : docTypes) {
+                if (driverDocumentDAO.findByDriverId(id).stream().noneMatch(d -> dt.equals(d.getDocType()))) {
+                    DriverDocument doc = new DriverDocument();
+                    Driver ref = new Driver();
+                    ref.setId(id);
+                    doc.setDriver(ref);
+                    doc.setDocType(dt);
+                    doc.setOriginalFilename(dt + "_" + user.getLastName().toLowerCase() + ".pdf");
+                    doc.setFilePath("uploads/documents/driver-" + id + "/" + dt + ".pdf");
+                    doc.setFileSizeBytes(1024L * 1024L);
+                    doc.setContentType("application/pdf");
+                    doc.setStatus(DocumentStatus.APPROVED);
+                    doc.setReviewerNote("Verified and approved during role promotion by User Admin.");
+                    driverDocumentDAO.save(doc);
+                }
+            }
+
+            logAdminAction("PROMOTE_TO_DRIVER", "Upgraded passenger " + user.getEmail() + " to approved DRIVER with vehicle " + plate, id, "USER");
+            return ResponseEntity.ok(Map.of(
+                "status", "ok", 
+                "message", "User " + user.getEmail() + " successfully upgraded to Driver with vehicle " + plate
+            ));
+
+        } else if (targetRole == UserRole.PASSENGER) {
+            // Driver -> Passenger: Immediate conversion
+            jdbcTemplate.update(
+                "UPDATE users SET dtype = 'PASSENGER', role = 'PASSENGER', is_online = 0, updated_at = GETDATE() WHERE id = ?",
+                id
+            );
+            try {
+                jdbcTemplate.update("DELETE FROM vehicles WHERE driver_id = ?", id);
+            } catch (Exception ignored) {}
+            logAdminAction("DEMOTE_TO_PASSENGER", "Switched driver " + user.getEmail() + " to standard PASSENGER immediately", id, "USER");
+            return ResponseEntity.ok(Map.of(
+                "status", "ok", 
+                "message", "Driver " + user.getEmail() + " successfully changed to standard Passenger."
+            ));
+        } else {
+            return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Unsupported target role: " + targetRole));
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════════
@@ -898,14 +1190,30 @@ public class ModuleAdminController {
 
 
     @DeleteMapping("/payments/{id}")
-    public ResponseEntity<Map<String, String>> voidPayment(@PathVariable Long id) {
+    public ResponseEntity<Map<String, String>> deleteOrVoidPayment(
+            @PathVariable Long id,
+            @RequestParam(required = false, defaultValue = "false") boolean hard
+    ) {
         Payment p = paymentDAO.findById(id).orElseThrow(() -> new IllegalArgumentException("Payment not found: " + id));
-        p.setStatus(PaymentStatus.FAILED);
-        p.setFailureReason("Voided by admin");
-        paymentDAO.save(p);
-        
-        logAdminAction("VOID_PAYMENT", "Voided payment ID " + id, id, "PAYMENT");
-        return ResponseEntity.ok(Map.of("status", "ok", "message", "Payment " + id + " voided."));
+        if (hard) {
+            paymentDAO.delete(p);
+            logAdminAction("DELETE_PAYMENT", "Permanently deleted payment ID " + id, id, "PAYMENT");
+            return ResponseEntity.ok(Map.of("status", "ok", "message", "Payment " + id + " permanently deleted."));
+        } else {
+            p.setStatus(PaymentStatus.FAILED);
+            p.setFailureReason("Voided by admin");
+            paymentDAO.save(p);
+            logAdminAction("VOID_PAYMENT", "Voided payment ID " + id, id, "PAYMENT");
+            return ResponseEntity.ok(Map.of("status", "ok", "message", "Payment " + id + " voided."));
+        }
+    }
+
+    @DeleteMapping("/payments/{id}/delete")
+    public ResponseEntity<Map<String, String>> hardDeletePayment(@PathVariable Long id) {
+        Payment p = paymentDAO.findById(id).orElseThrow(() -> new IllegalArgumentException("Payment not found: " + id));
+        paymentDAO.delete(p);
+        logAdminAction("DELETE_PAYMENT", "Permanently deleted payment ID " + id, id, "PAYMENT");
+        return ResponseEntity.ok(Map.of("status", "ok", "message", "Payment " + id + " permanently deleted."));
     }
 
     // ═══════════════════════════════════════════════════════════════════════════════

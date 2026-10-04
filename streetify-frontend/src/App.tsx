@@ -168,9 +168,12 @@ export default function App() {
   useEffect(() => {
     const handleAuthSuccess = (e: any) => {
       const userRole = e.detail?.role?.toLowerCase() || "passenger";
+      const newAdminRole = e.detail?.adminRole || tabStorage.getItem("admin_role") || "";
+      const newUserName = tabStorage.getItem("user_name") || "";
       setRole(userRole);
-      setUserName(tabStorage.getItem("user_name") || "");
-      setAdminRole(tabStorage.getItem("admin_role") || "");
+      setUserName(newUserName);
+      setAdminRole(newAdminRole);
+      setHistory([]);
       setScreen(userRole === "driver" ? "driver" : userRole === "admin" ? "admin" : "booking");
     };
     const handleAuthExpired = () => { 
@@ -388,16 +391,16 @@ export default function App() {
 
       {/* ── Active Screen ── */}
       <main className="flex-1">
-        {screen === "login"   && <ScreenLogin />}
-        {screen === "booking" && <ScreenBooking />}
-        {screen === "driver"  && <ScreenDriver />}
-        {screen === "payment" && <ScreenPayment />}
-        {screen === "review"  && <ScreenReview />}
-        {screen === "history" && <ScreenHistory />}
-        {screen === "admin"   && <ScreenAdmin />}
-        {screen === "kiosk"   && <ScreenBranchKiosk />}
-        {screen === "support" && <ScreenSupport />}
-        {screen === "profile" && <ScreenProfile />}
+        {screen === "login"   && <ScreenLogin key="login" />}
+        {screen === "booking" && <ScreenBooking key={`booking-${userName}`} />}
+        {screen === "driver"  && <ScreenDriver key={`driver-${userName}`} />}
+        {screen === "payment" && <ScreenPayment key={`payment-${userName}`} />}
+        {screen === "review"  && <ScreenReview key={`review-${userName}`} />}
+        {screen === "history" && <ScreenHistory key={`history-${userName}`} />}
+        {screen === "admin"   && <ScreenAdmin key={`admin-${adminRole}-${userName}`} />}
+        {screen === "kiosk"   && <ScreenBranchKiosk key={`kiosk-${adminRole}-${userName}`} />}
+        {screen === "support" && <ScreenSupport key={`support-${userName}`} />}
+        {screen === "profile" && <ScreenProfile key={`profile-${userName}`} />}
       </main>
 
       {/* ── Footer ── */}

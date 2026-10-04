@@ -55,6 +55,7 @@ export default function ScreenProfile() {
   /* Profile form state */
   const [firstName, setFirst]   = useState("");
   const [lastName,  setLast]    = useState("");
+  const [email,     setEmail]   = useState("");
   const [phone,     setPhone]   = useState("");
   const [address,   setAddr]    = useState("");
 
@@ -95,6 +96,7 @@ export default function ScreenProfile() {
         setProfile(data);
         setFirst(data.firstName || "");
         setLast(data.lastName  || "");
+        setEmail(data.email    || "");
         setPhone(data.phone    || "");
         setAddr(data.address   || "");
       } catch {
@@ -112,6 +114,7 @@ export default function ScreenProfile() {
         setProfile(fallback);
         setFirst(fallback.firstName);
         setLast(fallback.lastName);
+        setEmail(fallback.email);
       } finally {
         setLoading(false);
       }
@@ -127,6 +130,7 @@ export default function ScreenProfile() {
         body: JSON.stringify({
           firstName,
           lastName,
+          email,
           phone,
           address,
           vehiclePlate,
@@ -135,8 +139,9 @@ export default function ScreenProfile() {
           nicNumber,
         }),
       });
-      setProfile(p => p ? { ...p, firstName, lastName, phone, address, vehiclePlate, vehicleModel, licenseNumber } : p);
+      setProfile(p => p ? { ...p, firstName, lastName, email, phone, address, vehiclePlate, vehicleModel, licenseNumber } : p);
       tabStorage.setItem("user_name", `${firstName} ${lastName}`);
+      tabStorage.setItem("user_email", email);
       if (role === "driver") {
         tabStorage.setItem("vehicle_info", `${vehiclePlate} · ${vehicleModel}`);
         tabStorage.setItem("driver_license", licenseNumber);
@@ -313,9 +318,9 @@ export default function ScreenProfile() {
                 </div>
                 <Field
                   label="Email Address"
-                  value={profile?.email || ""}
-                  disabled
-                  hint="Email cannot be changed. Contact admin to update."
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="user@streetify.lk"
                   type="email"
                 />
                 <Field

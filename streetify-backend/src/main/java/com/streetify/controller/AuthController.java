@@ -174,6 +174,21 @@ public class AuthController {
         com.streetify.entity.User user = userDAO.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
 
+        if (body.containsKey("email") && body.get("email") != null) {
+            String newEmail = ((String) body.get("email")).trim().toLowerCase();
+            if (!newEmail.isEmpty() && !newEmail.equalsIgnoreCase(user.getEmail())) {
+                if (userDAO.existsByEmail(newEmail)) {
+                    return ResponseEntity.badRequest().body(java.util.Map.of("status", "error", "message", "Email is already taken by another account."));
+                }
+                user.setEmail(newEmail);
+            }
+        }
+        if (body.containsKey("firstName")) {
+            user.setFirstName((String) body.get("firstName"));
+        }
+        if (body.containsKey("lastName")) {
+            user.setLastName((String) body.get("lastName"));
+        }
         if (body.containsKey("fullName")) {
             String full = (String) body.get("fullName");
             if (full != null && !full.trim().isEmpty()) {
@@ -186,8 +201,8 @@ public class AuthController {
             user.setPhone((String) body.get("phone"));
         }
 
-        userDAO.save(user);
-        return ResponseEntity.ok(java.util.Map.of("status", "ok", "message", "Profile updated successfully"));
+        com.streetify.entity.User saved = userDAO.save(user);
+        return ResponseEntity.ok(java.util.Map.of("status", "ok", "message", "Profile updated successfully", "email", saved.getEmail()));
     }
 
     /**

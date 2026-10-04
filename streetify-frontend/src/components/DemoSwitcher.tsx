@@ -143,6 +143,7 @@ export default function DemoSwitcher() {
         tabStorage.setTabOnly("jwt_token", res.accessToken);
         tabStorage.setTabOnly("user_role", res.role || user.role);
         tabStorage.setTabOnly("user_name", res.fullName || user.name);
+        tabStorage.setTabOnly("user_email", res.email || user.email);
         if (user.role === "DRIVER") {
           tabStorage.setTabOnly("vehicle_info", "CAB-4821 · Toyota Prius");
         }
@@ -167,10 +168,15 @@ export default function DemoSwitcher() {
       tabStorage.setTabOnly("jwt_token", "mock-jwt-" + user.role.toLowerCase());
       tabStorage.setTabOnly("user_role", user.role);
       tabStorage.setTabOnly("user_name", user.name);
+      tabStorage.setTabOnly("user_email", user.email);
       if (user.role === "DRIVER") {
         tabStorage.setTabOnly("vehicle_info", "CAB-4821 · Toyota Prius");
       }
-      if (user.adminRole) tabStorage.setTabOnly("admin_role", user.adminRole);
+      if (user.adminRole) {
+        tabStorage.setTabOnly("admin_role", user.adminRole);
+      } else {
+        tabStorage.removeItem("admin_role");
+      }
 
       window.dispatchEvent(
         new CustomEvent("auth-success", {
