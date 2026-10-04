@@ -128,4 +128,12 @@ public class SupportService {
     public List<DisputeTicket> getPassengerDisputes(Long passengerId) {
         return disputeDAO.findByPassengerIdOrderByCreatedAtDesc(passengerId);
     }
+
+    @Transactional
+    public void deleteDispute(Long disputeId) {
+        if (!disputeDAO.existsById(disputeId)) {
+            throw new IllegalArgumentException("Dispute not found: " + disputeId);
+        }
+        disputeDAO.deleteById(disputeId);
+    }
 }

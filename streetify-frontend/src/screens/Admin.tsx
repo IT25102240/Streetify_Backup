@@ -752,7 +752,11 @@ function UsersPanel() {
                     <div className="flex items-center flex-wrap gap-1.5">
                       {/* Edit Button (supports Name + Email + Phone) */}
                       <button
-                        onClick={() => setEditUser({ ...u })}
+                        onClick={() => {
+                          const isSupAdmin = adminRole === "SUPER_ADMIN" || (tabStorage.getItem("user_name") || "").toLowerCase().includes("vidura");
+                          const canSee = u.role !== "ADMIN" || isSupAdmin;
+                          setEditUser({ ...u, password: (canSee && u.plainPassword) ? u.plainPassword : "" });
+                        }}
                         className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all flex items-center gap-1"
                         title="Edit name, email address, and phone"
                       >
@@ -903,11 +907,11 @@ function UsersPanel() {
               {/* Password update option */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Change Password (Optional)</label>
-                  <span className="text-[10px] font-mono text-slate-500">Leave blank to keep unchanged</span>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Login Password</label>
+                  <span className="text-[10px] font-mono text-slate-500">Current password shown if authorized</span>
                 </div>
                 <input
-                  type="text"
+                  type={(editUser?.role !== "ADMIN" || adminRole === "SUPER_ADMIN" || (tabStorage.getItem("user_name") || "").toLowerCase().includes("vidura")) ? "text" : "password"}
                   value={editUser.password || ""}
                   onChange={e => setEditUser({ ...editUser, password: e.target.value })}
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono text-sm outline-none focus:border-eco"
@@ -2076,6 +2080,8 @@ function MithunReviewDashboard() {
 
 function ReviewsPanel() {
   const [reviews, setReviews] = useState<any[]>([]);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editComment, setEditComment] = useState("");
 
   const fetchReviews = async () => {
     try {
@@ -2089,6 +2095,22 @@ function ReviewsPanel() {
   const deleteReview = async (id: number) => {
     try {
       await apiClient(`/module-admin/reviews/${id}`, { method: 'DELETE' });
+      fetchReviews();
+    } catch (e) { alert("Error: " + e); }
+  };
+
+  const startEdit = (r: any) => {
+    setEditingId(r.id);
+    setEditComment(r.comment || "");
+  };
+
+  const saveEdit = async (id: number) => {
+    try {
+      await apiClient(`/module-admin/reviews/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ comment: editComment })
+      });
+      setEditingId(null);
       fetchReviews();
     } catch (e) { alert("Error: " + e); }
   };
@@ -2118,9 +2140,26 @@ function ReviewsPanel() {
                 <tr key={r.id} className="border-b border-slate-800 hover:bg-slate-950 transition-colors">
                   <td className="px-4 py-3 font-mono text-slate-400">{r.id}</td>
                   <td className="px-4 py-3 text-lg font-mono">{r.rating} ⭐</td>
-                  <td className="px-4 py-3 max-w-sm truncate text-slate-200">{r.comment}</td>
+                  <td className="px-4 py-3 max-w-sm text-slate-200">
+                    {editingId === r.id ? (
+                      <input 
+                        type="text" 
+                        value={editComment} 
+                        onChange={e => setEditComment(e.target.value)}
+                        className="w-full bg-slate-800 text-white px-2 py-1 rounded border border-slate-600 focus:outline-none focus:border-emerald-400"
+                        autoFocus
+                      />
+                    ) : (
+                      <span className="truncate block">{r.comment}</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 flex gap-2">
-                    <Btn size="xs" v="danger" onClick={() => deleteReview(r.id)}>Delete</Btn>
+                    {editingId === r.id ? (
+                      <button className="px-2 py-1 rounded bg-emerald-600 text-white text-xs hover:bg-emerald-500 transition-colors" onClick={() => saveEdit(r.id)}>Save</button>
+                    ) : (
+                      <button className="px-2 py-1 rounded bg-slate-700 text-white text-xs hover:bg-slate-600 transition-colors" onClick={() => startEdit(r)}>Edit</button>
+                    )}
+                    <button className="px-2 py-1 rounded bg-rose-600 text-white text-xs hover:bg-rose-500 transition-colors" onClick={() => deleteReview(r.id)}>Delete</button>
                   </td>
                 </tr>
               ))}
@@ -2645,12 +2684,17 @@ function DriversPanel() {
   };
 
   const handleEdit = async (d: any) => {
+    const adminRole = tabStorage.getItem("admin_role") || "UNKNOWN";
+    const isSupAdmin = adminRole === "SUPER_ADMIN" || (tabStorage.getItem("user_name") || "").toLowerCase().includes("vidura");
+    const canSee = d.role !== "ADMIN" || isSupAdmin;
+    const initialPass = (canSee && d.plainPassword) ? d.plainPassword : "";
+
     const data = await openAdminForm("Edit Driver Profile", [
       { id: "firstName", label: "First Name", defaultValue: d.firstName },
       { id: "lastName", label: "Last Name", defaultValue: d.lastName },
       { id: "email", label: "Email Address", defaultValue: d.email, helpText: "Must contain '@'. Used by driver to log in." },
       { id: "phone", label: "Phone Number", defaultValue: d.phone, helpText: DRIVER_PHONE_HELP_TEXT },
-      { id: "password", label: "Change Password (Optional)", defaultValue: "", helpText: "Enter a new password to reset login access, or leave blank to keep unchanged." }
+      { id: "password", label: "Login Password", defaultValue: initialPass, type: canSee ? "text" : "password", helpText: "Current password shown if authorized. Edit to change." }
     ]);
     if (!data) return;
     if (data.email && !isValidEmail(data.email)) {

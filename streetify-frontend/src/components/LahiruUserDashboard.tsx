@@ -12,6 +12,7 @@ interface UserRecord {
   role: string;
   adminRole?: string;
   active: boolean;
+  plainPassword?: string;
   nic?: string;
   licenseNumber?: string;
   verificationStatus?: string;

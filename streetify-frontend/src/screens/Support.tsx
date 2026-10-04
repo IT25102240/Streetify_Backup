@@ -185,6 +185,15 @@ export default function ScreenSupport() {
     showToast("Ticket closed", "info");
   };
 
+  const deleteTicket = async (ticket: Ticket) => {
+    try {
+      await apiClient(`/disputes/${ticket.id}`, { method: 'DELETE' });
+    } catch { /* demo */ }
+    setTickets(prev => prev.filter(t => t.id !== ticket.id));
+    if (selected?.id === ticket.id) setSelected(null);
+    showToast("Ticket permanently deleted", "error");
+  };
+
   const filtered = tickets.filter(t => {
     const matchStatus = filterStatus === "ALL" || t.status === filterStatus;
     const matchSearch = search === "" ||
@@ -355,6 +364,9 @@ export default function ScreenSupport() {
                         Close
                       </Btn>
                     )}
+                    <Btn size="sm" v="danger" onClick={() => deleteTicket(selected)}>
+                      🗑️ Delete
+                    </Btn>
                   </div>
                 </div>
 

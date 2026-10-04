@@ -1,0 +1,24 @@
+SELECT * FROM users;
+
+SELECT * FROM trips;
+
+--To view only Drivers: 
+SELECT * FROM users WHERE dtype = 'DRIVER';
+
+--To view only Passengers: 
+SELECT * FROM users WHERE dtype = 'USER';
+
+--To view only Admins:
+SELECT * FROM users WHERE role = 'ADMIN';
+
+SELECT * FROM vehicles;
+
+SELECT * FROM driver_documents;
+
+SELECT * FROM payments;
+
+SELECT * FROM reviews;
+
+SELECT * FROM dispute_tickets;
+
+SELECT * FROM audit_logs;

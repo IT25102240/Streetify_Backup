@@ -98,23 +98,7 @@ export default function DemoSwitcher() {
   const [isOpen, setIsOpen] = useState(false);
   const [switching, setSwitching] = useState<string | null>(null);
 
-  const handleLaunchTwoTabViva = () => {
-    // Current tab becomes Tab 1 (Passenger)
-    tabStorage.setTabOnly("jwt_token", "mock-jwt-passenger");
-    tabStorage.setTabOnly("user_role", "PASSENGER");
-    tabStorage.setTabOnly("user_name", "Lahiru Peris");
-    tabStorage.removeItem("admin_role");
-    
-    // Redirect current tab to passenger booking
-    window.location.href = "/?role=passenger&screen=booking&viva=1";
 
-    // Launch Tab 2 in a new window/tab for Driver
-    window.open("/?role=driver&screen=driver&viva=1", "_blank");
-  };
-
-  const handleLaunchAdminTab = () => {
-    window.open("/?role=admin&screen=admin&viva=1", "_blank");
-  };
 
   const handleQuickLogin = async (user: DemoUser) => {
     setSwitching(user.email);
@@ -262,27 +246,7 @@ export default function DemoSwitcher() {
               </button>
             </div>
 
-            {/* ── 2-Tab Fast Launcher ── */}
-            <div className="mb-4 p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950/60 to-blue-950/60 border border-emerald-500/30">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={handleLaunchTwoTabViva}
-                  className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-lg shadow-emerald-900/40 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                >
-                  <span>🚀</span>
-                  <span>Launch 2-Tab Demo (Pass + Driver)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleLaunchAdminTab}
-                  className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl font-bold text-xs text-white bg-slate-800/90 hover:bg-slate-700 border border-slate-600 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                >
-                  <span>🛡️</span>
-                  <span>Open Tab 3: Admin Monitor</span>
-                </button>
-              </div>
-            </div>
+
 
             {/* Individual Role Quick Switcher Grid */}
             <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">

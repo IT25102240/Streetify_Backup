@@ -169,4 +169,15 @@ public class DisputeController {
         Long passengerId = jwtUtil.extractUserId(authorization.substring(7));
         return ResponseEntity.ok(supportService.getPassengerDisputes(passengerId));
     }
+
+    /**
+     * DELETE /api/disputes/{id}
+     * Deletes a dispute ticket permanently.
+     */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('STAFF','ADMIN')")
+    public ResponseEntity<java.util.Map<String, String>> deleteDispute(@PathVariable Long id) {
+        supportService.deleteDispute(id);
+        return ResponseEntity.ok(java.util.Map.of("status", "ok", "message", "Ticket " + id + " deleted."));
+    }
 }
