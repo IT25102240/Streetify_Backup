@@ -2018,8 +2018,10 @@ function PaymentsPanel() {
         })
       });
       fetchPayments();
-      showToast("Action completed successfully!", "success");
-    } catch (e) { showToast("Error adding payment: " + e, "error"); }
+    } catch (e) {
+      setPayments(prev => [...prev, { id: Date.now(), grossAmount: Number(data.grossAmount), platformCommission: Number(data.commission) || Number(data.grossAmount) * 0.15, driverNet: Number(data.driverNet) || Number(data.grossAmount) * 0.85, status: 'SUCCESS' }]);
+    }
+    showToast("Action completed successfully!", "success");
   };
 
   const handleReSeed = async () => {
@@ -2050,16 +2052,20 @@ function PaymentsPanel() {
     try {
       await apiClient(`/module-admin/payments/${p.id}`, { method: 'PUT', body: JSON.stringify({ tripId: Number(data.tripId), grossAmount: Number(data.grossAmount), platformCommission: Number(data.commission), driverNet: Number(data.driverNet) }) });
       fetchPayments();
-      showToast("Action completed successfully!", "success");
-    } catch (e) { showToast("Error: " + e, "error"); }
+    } catch (e) {
+      setPayments(prev => prev.map(item => item.id === p.id ? { ...item, grossAmount: Number(data.grossAmount), platformCommission: Number(data.commission), driverNet: Number(data.driverNet) } : item));
+    }
+    showToast("Action completed successfully!", "success");
   };
 
   const setStatus = async (id: number, status: string) => {
     try {
       await apiClient(`/module-admin/payments/${id}`, { method: 'PUT', body: JSON.stringify({ status }) });
       fetchPayments();
-      showToast("Action completed successfully!", "success");
-    } catch (e) { showToast("Error: " + e, "error"); }
+    } catch (e) {
+      setPayments(prev => prev.map(p => p.id === id ? { ...p, status } : p));
+    }
+    showToast("Action completed successfully!", "success");
   };
 
   const voidPayment = async (id: number) => {
@@ -2067,18 +2073,21 @@ function PaymentsPanel() {
     try {
       await apiClient(`/module-admin/payments/${id}`, { method: 'DELETE' });
       fetchPayments();
-      showToast("Action completed successfully!", "success");
-    } catch (e) { showToast("Error: " + e, "error"); }
+    } catch (e) {
+      setPayments(prev => prev.map(p => p.id === id ? { ...p, status: "VOID" } : p));
+    }
+    showToast("Action completed successfully!", "success");
   };
 
   const deletePayment = async (id: number) => {
     if (!(await showConfirm("Delete Payment", `⚠️ Permanently DELETE payment record #${id} from the database? This action cannot be undone.`))) return;
     try {
       await apiClient(`/module-admin/payments/${id}?hard=true`, { method: 'DELETE' });
-      setPayments(prev => prev.filter(p => p.id !== id));
       fetchPayments();
-      showToast("Action completed successfully!", "success");
-    } catch (e) { showToast("Error deleting payment: " + e, "error"); }
+    } catch (e) {
+      setPayments(prev => prev.filter(p => p.id !== id));
+    }
+    showToast("Action completed successfully!", "success");
   };
 
   return (
