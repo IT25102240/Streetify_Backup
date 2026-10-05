@@ -11,19 +11,101 @@ import LahiruUserDashboard from "../components/LahiruUserDashboard";
 import ModuleExportCard, { MODULE_REPORTS } from "../components/ModuleExportCard";
 import ScreenSupport from "./Support";
 import { isValidDriverPhone, DRIVER_PHONE_ERROR_MSG, DRIVER_PHONE_HELP_TEXT, isValidEmail, EMAIL_ERROR_MSG } from "../utils/validators";
-
+import { SRI_LANKA_DEMO_LOCATIONS } from "./Booking";
 type AdminTab = "analytics" | "users" | "drivers" | "bookings" | "driver-trips" | "driver-docs" | "payments" | "payment-summary" | "reviews" | "cancellation" | "export" | "rbac" | "system" | "branch-kiosk" | "booking-summary" | "disputes" | "user-summary" | "driver-summary" | "review-summary";
 
 export type FormField = {
   id: string;
   label: string;
-  type?: "text" | "number" | "select" | "password";
+  type?: "text" | "number" | "select" | "password" | "location" | "file";
   options?: string[];
   defaultValue?: string | number;
   readOnly?: boolean;
   disabled?: boolean;
   helpText?: string;
 };
+
+
+export type ToastType = 'success' | 'error' | 'info';
+export type ToastMessage = { id: string, message: string, type: ToastType };
+let toastCount = 0;
+
+export const showConfirm = (title: string, message: string): Promise<boolean> => {
+  return new Promise((resolve) => {
+    const handler = (e: any) => {
+      resolve(e.detail.confirmed);
+      window.removeEventListener('admin-confirm-close', handler);
+    };
+    window.addEventListener('admin-confirm-close', handler);
+    window.dispatchEvent(new CustomEvent('admin-confirm-open', { detail: { title, message } }));
+  });
+};
+
+export function ConfirmContainer() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [details, setDetails] = useState({ title: "", message: "" });
+  useEffect(() => {
+    const handleOpen = (e: any) => {
+      setDetails(e.detail);
+      setIsOpen(true);
+    };
+    window.addEventListener('admin-confirm-open', handleOpen);
+    return () => window.removeEventListener('admin-confirm-open', handleOpen);
+  }, []);
+  const handleClose = (confirmed: boolean) => {
+    setIsOpen(false);
+    window.dispatchEvent(new CustomEvent('admin-confirm-close', { detail: { confirmed } }));
+  };
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+      <div className="bg-navy border border-red-500/30 rounded-2xl shadow-2xl shadow-red-500/10 w-full max-w-sm flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="px-6 py-4 border-b border-slate-800 bg-slate-900/50">
+          <h2 className="text-lg font-black text-white flex items-center gap-2">
+            <span>⚠️</span> {details.title}
+          </h2>
+        </div>
+        <div className="p-6 text-slate-300 font-medium whitespace-pre-wrap leading-relaxed">
+          {details.message}
+        </div>
+        <div className="px-6 py-4 border-t border-slate-800 bg-slate-900/50 flex justify-end gap-3">
+          <button onClick={() => handleClose(false)} className="px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Cancel</button>
+          <button onClick={() => handleClose(true)} className="px-5 py-2 rounded-xl text-sm font-bold bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/20 transition-all">Confirm</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export const showToast = (message: string, type: ToastType = 'info') => {
+  window.dispatchEvent(new CustomEvent('show-toast', { detail: { id: 'toast-' + (++toastCount), message, type } }));
+};
+
+export function ToastContainer() {
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  useEffect(() => {
+    const handleToast = (e: any) => {
+      setToasts(prev => [...prev, e.detail]);
+      setTimeout(() => {
+        setToasts(prev => prev.filter(t => t.id !== e.detail.id));
+      }, 5000);
+    };
+    window.addEventListener('show-toast', handleToast);
+    return () => window.removeEventListener('show-toast', handleToast);
+  }, []);
+  return (
+    <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
+      {toasts.map(t => (
+        <div key={t.id} className={`pointer-events-auto px-4 py-3 rounded-lg shadow-xl text-white font-medium animate-in slide-in-from-right-8 fade-in duration-300 ${t.type === 'error' ? 'bg-red-500' : t.type === 'success' ? 'bg-emerald-500' : 'bg-slate-800'}`}>
+          <div className="flex items-center gap-2">
+            <span>{t.type === 'error' ? '❌' : t.type === 'success' ? '✅' : 'ℹ️'}</span>
+            <span className="whitespace-pre-wrap">{t.message}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export const openAdminForm = (title: string, fields: FormField[]): Promise<Record<string, any> | null> => {
   return new Promise((resolve) => {
@@ -35,6 +117,63 @@ export const openAdminForm = (title: string, fields: FormField[]): Promise<Recor
     window.dispatchEvent(new CustomEvent('admin-form-open', { detail: { title, fields } }));
   });
 };
+
+
+function LocationAutocomplete({ value, onChange, placeholder, disabled, readOnly }: any) {
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [searchText, setSearchText] = useState(value || "");
+
+  useEffect(() => {
+    setSearchText(value || "");
+  }, [value]);
+
+  const filteredLocations = SRI_LANKA_DEMO_LOCATIONS.filter(l => 
+    l.name.toLowerCase().includes(searchText.toLowerCase()) || 
+    l.addr.toLowerCase().includes(searchText.toLowerCase())
+  );
+
+  return (
+    <div className="relative w-full focus-within:z-[100]">
+      <input
+        type="text"
+        disabled={disabled}
+        readOnly={readOnly}
+        className={`bg-navy-dark border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-eco focus:ring-1 focus:ring-eco outline-none placeholder-slate-600 w-full transition-all ${
+          readOnly || disabled ? "opacity-75 cursor-not-allowed bg-slate-900/90" : ""
+        }`}
+        value={searchText}
+        onChange={e => {
+          setSearchText(e.target.value);
+          onChange(e.target.value);
+          if (!readOnly && !disabled) setShowDropdown(true);
+        }}
+        onFocus={() => { if (!readOnly && !disabled) setShowDropdown(true); }}
+        onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+        placeholder={placeholder}
+      />
+      {showDropdown && searchText.length > 0 && filteredLocations.length > 0 && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-700 rounded-lg shadow-xl max-h-48 overflow-y-auto z-[9999]">
+          {filteredLocations.map(loc => (
+            <div 
+              key={loc.name}
+              className="px-3 py-2 hover:bg-slate-700 cursor-pointer text-sm"
+              onMouseDown={(e) => {
+                // use onMouseDown so it fires before onBlur
+                e.preventDefault();
+                setSearchText(loc.name);
+                onChange(loc.name);
+                setShowDropdown(false);
+              }}
+            >
+              <div className="text-white font-bold">{loc.name}</div>
+              <div className="text-slate-400 text-xs truncate">{loc.addr}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function AdminFormOverlay() {
   const [isOpen, setIsOpen] = useState(false);
@@ -57,12 +196,57 @@ function AdminFormOverlay() {
     return () => window.removeEventListener('admin-form-open', handleOpen);
   }, []);
 
+  useEffect(() => {
+    if (!fields.some(f => f.id === "estimatedFare")) return;
+    
+    const pickup = formData.pickupAddress;
+    const dropoff = formData.dropoffAddress;
+    const rideType = (formData.rideType || "standard").toLowerCase();
+
+    if (pickup && dropoff) {
+      const pLoc = SRI_LANKA_DEMO_LOCATIONS.find(l => l.name === pickup || l.addr === pickup);
+      const dLoc = SRI_LANKA_DEMO_LOCATIONS.find(l => l.name === dropoff || l.addr === dropoff);
+      
+      if (pLoc && dLoc) {
+        const R = 6371;
+        const dLat = (dLoc.lat - pLoc.lat) * Math.PI / 180;
+        const dLon = (dLoc.lng - pLoc.lng) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(pLoc.lat * Math.PI / 180) * Math.cos(dLoc.lat * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const straightKm = R * c;
+        const curvature = straightKm > 40 ? 1.20 : straightKm > 15 ? 1.26 : 1.32;
+        const distanceKm = Math.max(1.0, Math.round(straightKm * curvature * 10) / 10);
+        
+        let base = 200, perKm = 33;
+        if (rideType === "tuk") { base = 120; perKm = 24; }
+        else if (rideType === "xl") { base = 340; perKm = 48; }
+        else if (rideType === "moto") { base = 80; perKm = 18; }
+        
+        const fare = Math.round(base + (distanceKm * perKm));
+        
+        setFormData(prev => {
+          if (prev.estimatedFare === fare) return prev;
+          return { ...prev, estimatedFare: fare };
+        });
+      }
+    }
+  }, [formData.pickupAddress, formData.dropoffAddress, formData.rideType, fields]);
+
   if (!isOpen) return null;
 
   const handleClose = (data: any) => {
     setIsOpen(false);
     window.dispatchEvent(new CustomEvent('admin-form-close', { detail: { data } }));
   };
+
+  const getFieldError = (fId: string, val: any) => {
+    if (!val && typeof val !== 'number') return null;
+    if (fId.toLowerCase().includes("email") && !isValidEmail(val)) return EMAIL_ERROR_MSG;
+    if (fId.toLowerCase().includes("phone") && !isValidDriverPhone(val)) return DRIVER_PHONE_ERROR_MSG;
+    return null;
+  };
+
+  const hasErrors = fields.some(f => getFieldError(f.id, formData[f.id]) !== null);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -94,25 +278,49 @@ function AdminFormOverlay() {
                   <option value="">-- Select --</option>
                   {f.options?.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
-              ) : (
-                <input
-                  type={f.type || "text"}
-                  readOnly={f.readOnly}
-                  disabled={f.disabled}
-                  className={`bg-navy-dark border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-eco focus:ring-1 focus:ring-eco outline-none placeholder-slate-600 transition-all ${
-                    f.readOnly || f.disabled
-                      ? "opacity-75 cursor-not-allowed bg-slate-900/90 border-slate-800 text-slate-300 font-mono select-none"
-                      : ""
-                  }`}
+              ) : f.type === "location" ? (
+                <LocationAutocomplete 
                   value={formData[f.id]}
-                  onChange={e => {
+                  onChange={(val: string) => {
                     if (!f.readOnly && !f.disabled) {
-                      setFormData({ ...formData, [f.id]: e.target.value });
+                      setFormData({ ...formData, [f.id]: val });
                     }
                   }}
                   placeholder={`Enter ${f.label.toLowerCase()}`}
+                  readOnly={f.readOnly}
+                  disabled={f.disabled}
                 />
-              )}
+              ) : (() => {
+                const errorMsg = getFieldError(f.id, formData[f.id]);
+                return (
+                  <div className="flex flex-col gap-1">
+                    <input
+                      type={f.type || "text"}
+                      readOnly={f.readOnly}
+                      disabled={f.disabled}
+                      className={`bg-navy-dark border rounded-lg px-3 py-2 text-white outline-none placeholder-slate-600 transition-all ${
+                        errorMsg ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500" : "border-slate-700 focus:border-eco focus:ring-1 focus:ring-eco"
+                      } ${
+                        f.readOnly || f.disabled
+                          ? "opacity-75 cursor-not-allowed bg-slate-900/90 border-slate-800 text-slate-300 font-mono select-none"
+                          : ""
+                      }`}
+                      value={formData[f.id] || ""}
+                      onChange={e => {
+                        if (!f.readOnly && !f.disabled) {
+                          setFormData({ ...formData, [f.id]: e.target.value });
+                        }
+                      }}
+                      placeholder={`Enter ${f.label.toLowerCase()}`}
+                    />
+                    {errorMsg && (
+                      <p className="text-[11px] text-red-500 font-medium flex items-center gap-1 mt-1">
+                        <span>⚠️</span><span>{errorMsg}</span>
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
               {f.helpText && (
                 <p className="text-[11px] text-slate-400 flex items-center gap-1">
                   <span>ℹ️</span>
@@ -124,7 +332,15 @@ function AdminFormOverlay() {
         </div>
         <div className="px-6 py-4 border-t border-eco/20 bg-slate-900/50 flex justify-end gap-3">
           <button onClick={() => handleClose(null)} className="px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Cancel</button>
-          <button onClick={() => handleClose(formData)} className="px-5 py-2 rounded-xl text-sm font-bold bg-eco hover:bg-eco-glow text-white shadow-lg shadow-eco/20 transition-all">Save Data</button>
+          <button 
+            onClick={() => handleClose(formData)} 
+            disabled={hasErrors}
+            className={`px-5 py-2 rounded-xl text-sm font-bold shadow-lg transition-all ${
+              hasErrors ? "bg-slate-700 text-slate-400 cursor-not-allowed" : "bg-eco hover:bg-eco-glow text-white shadow-eco/20"
+            }`}
+          >
+            Save Data
+          </button>
         </div>
       </div>
     </div>
@@ -391,7 +607,7 @@ export default function AdminDashboard() {
           {tab === "booking-summary" && (isChanukaBookingAdmin || isSuperAdmin) && <ChanukaBookingDashboard />}
           {tab === "payment-summary" && (isDahamPaymentAdmin || isSuperAdmin) && <DahamPaymentDashboard />}
           {tab === "driver-summary" && isSuperAdmin && <AnalyticsPanel />}
-          {tab === "review-summary" && isSuperAdmin && <MithunReviewDashboard />}
+          {tab === "review-summary" && (isSuperAdmin || isMithunReviewAdmin) && <MithunReviewDashboard />}
           {tab === "analytics"   && (
             isLahiruUserAdmin ? <LahiruUserDashboard showDirectory={false} /> :
             isChanukaBookingAdmin ? <ChanukaBookingDashboard /> : 
@@ -446,6 +662,7 @@ function UsersPanel() {
     yearOfManufacture: 2021,
     color: "White"
   });
+  const [addFormFiles, setAddFormFiles] = useState<{license?:string, reg?:string, insurance?:string}>({});
 
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setToast({ msg, type });
@@ -494,6 +711,7 @@ function UsersPanel() {
       showToast("User profile, email & credentials updated successfully! ✓");
       setEditUser(null);
       fetchUsers();
+      showToast("Action completed successfully!", "success");
     } catch (e: any) {
       showToast(e.message || "Failed to update user profile", "error");
     }
@@ -521,6 +739,7 @@ function UsersPanel() {
       showToast(`User ${deleteConfirmUser.email} permanently deleted from platform! ✓`);
       setDeleteConfirmUser(null);
       fetchUsers();
+      showToast("Action completed successfully!", "success");
     } catch (e: any) {
       showToast(e.message || "Failed to delete user", "error");
     }
@@ -543,6 +762,10 @@ function UsersPanel() {
         showToast(DRIVER_PHONE_ERROR_MSG, "error");
         return;
       }
+      if (!addForm.nic || addForm.nic.length !== 12) {
+        showToast("NIC Number must be exactly 12 digits.", "error");
+        return;
+      }
     }
     try {
       await apiClient('/module-admin/users', {
@@ -561,6 +784,7 @@ function UsersPanel() {
         yearOfManufacture: 2021, color: "White"
       });
       fetchUsers();
+      showToast("Action completed successfully!", "success");
     } catch (e: any) {
       showToast(e.message || "Failed to create user", "error");
     }
@@ -697,13 +921,15 @@ function UsersPanel() {
                       )}
 
                       {/* Permanent Delete Option */}
-                      <button
-                        onClick={() => setDeleteConfirmUser(u)}
-                        className="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-500/10 hover:bg-rose-500/25 text-rose-400 border border-rose-500/30 transition-all flex items-center gap-1 shadow-sm"
-                        title="Permanently remove user from MSSQL database"
-                      >
-                        <span>🗑️</span> Delete
-                      </button>
+                      {(adminRole === "SUPER_ADMIN" || (tabStorage.getItem("user_name") || "").toLowerCase().includes("vidura") || u.role !== "ADMIN") && (
+                        <button
+                          onClick={() => setDeleteConfirmUser(u)}
+                          className="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-500/10 hover:bg-rose-500/25 text-rose-400 border border-rose-500/30 transition-all flex items-center gap-1 shadow-sm"
+                          title="Permanently remove user from MSSQL database"
+                        >
+                          <span>🗑️</span> Delete
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -980,12 +1206,20 @@ function UsersPanel() {
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-slate-400">NIC Number *</label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-bold text-slate-400">NIC Number *</label>
+                        {addForm.nic && addForm.nic.length !== 12 && (
+                           <span className="text-[10px] font-mono text-rose-400 font-bold">Must be exactly 12 digits</span>
+                        )}
+                      </div>
                       <input
                         type="text"
                         value={addForm.nic}
-                        onChange={e => setAddForm({ ...addForm, nic: e.target.value })}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono text-sm outline-none focus:border-eco"
+                        onChange={e => setAddForm({ ...addForm, nic: e.target.value.replace(/\D/g, '').slice(0, 12) })}
+                        className={`w-full bg-slate-900 border rounded-xl px-3 py-2 text-white font-mono text-sm outline-none focus:border-eco ${
+                          addForm.nic && addForm.nic.length !== 12 ? 'border-rose-500 focus:border-rose-500' : 'border-slate-700'
+                        }`}
+                        placeholder="199412345678"
                       />
                     </div>
                     <div className="space-y-1">
@@ -1060,6 +1294,61 @@ function UsersPanel() {
                         onChange={e => setAddForm({ ...addForm, color: e.target.value })}
                         className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco"
                       />
+                    </div>
+                  </div>
+                  {/* Document Upload Mock */}
+                  <div className="pt-4 mt-2 border-t border-slate-800">
+                    <p className="font-extrabold text-white text-sm mb-1">Upload Required Documents</p>
+                    <p className="text-[10px] text-slate-400 mb-3">
+                      PDF or JPEG · max 10 MB each · encrypted at rest
+                    </p>
+                    
+                    <div className="grid grid-cols-3 gap-2">
+                      <label className="rounded-xl border border-dashed border-slate-700 bg-slate-900/50 p-3 text-center cursor-pointer hover:border-emerald-500/50 hover:bg-emerald-950/20 transition-all flex flex-col items-center justify-center">
+                        <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={e => setAddFormFiles({...addFormFiles, license: e.target.files?.[0]?.name})} />
+                        {addFormFiles.license ? (
+                          <>
+                            <p className="text-lg mb-1">✅</p>
+                            <p className="text-[10px] font-bold text-emerald-400 leading-tight truncate w-full px-1">{addFormFiles.license}</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-lg mb-1">📎</p>
+                            <p className="text-[10px] font-bold text-slate-300 leading-tight">Driver's Licence</p>
+                            <p className="text-[9px] text-slate-500 mt-1">Click to browse</p>
+                          </>
+                        )}
+                      </label>
+                      <label className="rounded-xl border border-dashed border-slate-700 bg-slate-900/50 p-3 text-center cursor-pointer hover:border-emerald-500/50 hover:bg-emerald-950/20 transition-all flex flex-col items-center justify-center">
+                        <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={e => setAddFormFiles({...addFormFiles, reg: e.target.files?.[0]?.name})} />
+                        {addFormFiles.reg ? (
+                          <>
+                            <p className="text-lg mb-1">✅</p>
+                            <p className="text-[10px] font-bold text-emerald-400 leading-tight truncate w-full px-1">{addFormFiles.reg}</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-lg mb-1">📎</p>
+                            <p className="text-[10px] font-bold text-slate-300 leading-tight">Vehicle Reg.</p>
+                            <p className="text-[9px] text-slate-500 mt-1">Click to browse</p>
+                          </>
+                        )}
+                      </label>
+                      <label className="rounded-xl border border-dashed border-slate-700 bg-slate-900/50 p-3 text-center cursor-pointer hover:border-emerald-500/50 hover:bg-emerald-950/20 transition-all flex flex-col items-center justify-center">
+                        <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={e => setAddFormFiles({...addFormFiles, insurance: e.target.files?.[0]?.name})} />
+                        {addFormFiles.insurance ? (
+                          <>
+                            <p className="text-lg mb-1">✅</p>
+                            <p className="text-[10px] font-bold text-emerald-400 leading-tight truncate w-full px-1">{addFormFiles.insurance}</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-lg mb-1">📎</p>
+                            <p className="text-[10px] font-bold text-slate-300 leading-tight">Insurance</p>
+                            <p className="text-[9px] text-slate-500 mt-1">Click to browse</p>
+                          </>
+                        )}
+                      </label>
                     </div>
                   </div>
                 </div>
@@ -1167,8 +1456,8 @@ function BookingsPanel() {
 
   const handleAdd = async () => {
     const fields: FormField[] = [
-      { id: "pickupAddress", label: "Pickup Address", defaultValue: "" },
-      { id: "dropoffAddress", label: "Dropoff Address", defaultValue: "" },
+      { id: "pickupAddress", label: "Pickup Address", type: "location", defaultValue: "" },
+      { id: "dropoffAddress", label: "Dropoff Address", type: "location", defaultValue: "" },
       {
         id: "rideType",
         label: "Vehicle Tier",
@@ -1189,6 +1478,14 @@ function BookingsPanel() {
         defaultValue: "REQUESTED",
         helpText: "Set initial booking status (defaults to REQUESTED)"
       });
+      fields.push({
+        id: "estimatedFare",
+        label: "Estimated Fare (LKR)",
+        type: "number",
+        defaultValue: 0,
+        readOnly: true,
+        helpText: "🔒 Calculated dynamically based on pickup & dropoff."
+      });
     }
 
     const data = await openAdminForm("Create New Booking", fields);
@@ -1201,17 +1498,19 @@ function BookingsPanel() {
           pickupAddress: data.pickupAddress,
           dropoffAddress: data.dropoffAddress,
           rideType: data.rideType || "standard",
-          status: data.status || "REQUESTED"
+          status: data.status || "REQUESTED",
+          estimatedFare: data.estimatedFare
         }) 
       });
       fetchTrips();
-    } catch (e) { alert("Error: " + e); }
+      showToast("Action completed successfully!", "success");
+    } catch (e) { showToast("Error: " + e, "error"); }
   };
 
   const handleEdit = async (t: any) => {
     const fields: FormField[] = [
-      { id: "pickupAddress", label: "Pickup Address", defaultValue: t.pickupAddress },
-      { id: "dropoffAddress", label: "Dropoff Address", defaultValue: t.dropoffAddress },
+      { id: "pickupAddress", label: "Pickup Address", type: "location", defaultValue: t.pickupAddress },
+      { id: "dropoffAddress", label: "Dropoff Address", type: "location", defaultValue: t.dropoffAddress },
       { id: "status", label: "Status", type: "select", options: ["REQUESTED", "ACCEPTED", "ACTIVE", "IN_PROGRESS", "COMPLETED", "CANCELLED"], defaultValue: t.status },
     ];
 
@@ -1237,19 +1536,29 @@ function BookingsPanel() {
           pickupAddress: data.pickupAddress,
           dropoffAddress: data.dropoffAddress,
           status: data.status,
-          // Preserve dynamic calculated fare
-          estimatedFare: t.totalFare ?? t.estimatedFare ?? 0
+          estimatedFare: data.estimatedFare
         }) 
       });
       fetchTrips();
-    } catch (e) { alert("Error: " + e); }
+      showToast("Action completed successfully!", "success");
+    } catch (e) { showToast("Error: " + e, "error"); }
   };
 
   const handleCancel = async (id: number) => {
     try {
       await apiClient(`/module-admin/bookings/${id}`, { method: 'DELETE' });
       fetchTrips();
-    } catch (e) { alert("Error: " + e); }
+      showToast("Action completed successfully!", "success");
+    } catch (e) { showToast("Error: " + e, "error"); }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!(await showConfirm("Delete Trip", "Are you sure you want to permanently delete this trip and its payment records?"))) return;
+    try {
+      await apiClient(`/module-admin/bookings/${id}/force`, { method: 'DELETE' });
+      fetchTrips();
+      showToast("Action completed successfully!", "success");
+    } catch (e) { showToast("Error: " + e, "error"); }
   };
 
   return (
@@ -1352,6 +1661,7 @@ function BookingsPanel() {
                     <td className="px-4 py-3 flex gap-2">
                       <Btn size="xs" v="secondary" onClick={() => handleEdit(t)}>Edit</Btn>
                       <Btn size="xs" v="danger" onClick={() => handleCancel(t.id)}>Cancel</Btn>
+                      <Btn size="xs" v="danger" onClick={() => handleDelete(t.id)}>Delete</Btn>
                     </td>
                   </tr>
                 ))
@@ -1384,10 +1694,11 @@ function DriverTripsPanel() {
   }, []);
 
   const handleAdd = async () => {
+    const driverOptions = drivers.map(d => `${d.id} - ${d.firstName} ${d.lastName}`);
     const data = await openAdminForm("Add New Trip", [
-      { id: "pickupAddress", label: "Pickup Address", defaultValue: "Dummy Pickup Address" },
-      { id: "dropoffAddress", label: "Dropoff Address", defaultValue: "Dummy Dropoff Address" },
-      { id: "driverId", label: "Driver ID (Optional)", type: "number" }
+      { id: "pickupAddress", label: "Pickup Address", type: "location", defaultValue: "" },
+      { id: "dropoffAddress", label: "Dropoff Address", type: "location", defaultValue: "" },
+      { id: "driverId", label: "Driver", type: "select", options: driverOptions }
     ]);
     if (!data || !data.pickupAddress || !data.dropoffAddress) return;
     try {
@@ -1396,19 +1707,22 @@ function DriverTripsPanel() {
         body: JSON.stringify({ 
           pickupAddress: data.pickupAddress, 
           dropoffAddress: data.dropoffAddress, 
-          driverId: data.driverId ? Number(data.driverId) : null 
+          driverId: data.driverId && String(data.driverId).includes("-") ? Number(String(data.driverId).split("-")[0].trim()) : (data.driverId ? Number(data.driverId) : null)
         }) 
       });
       fetchTrips();
-    } catch (e) { alert("Error: " + e); }
+      showToast("Action completed successfully!", "success");
+    } catch (e) { showToast("Error: " + e, "error"); }
   };
 
   const handleManageTrip = async (t: any) => {
+    const driverOptions = drivers.map((d: any) => `${d.id} - ${d.firstName} ${d.lastName}`);
+    const defaultDriver = t.driver ? `${t.driver.id} - ${t.driver.firstName} ${t.driver.lastName}` : "";
     const data = await openAdminForm("Manage Trip", [
-      { id: "driverId", label: "Driver ID (Optional)", type: "number", defaultValue: t.driver?.id || "" },
+      { id: "driverId", label: "Driver", type: "select", options: driverOptions, defaultValue: defaultDriver },
       { id: "status", label: "Status", type: "select", options: ["REQUESTED", "ACCEPTED", "IN_PROGRESS", "COMPLETED", "CANCELLED"], defaultValue: t.status },
-      { id: "pickupAddress", label: "Pickup Address", defaultValue: t.pickupAddress || "" },
-      { id: "dropoffAddress", label: "Dropoff Address", defaultValue: t.dropoffAddress || "" }
+      { id: "pickupAddress", label: "Pickup Address", type: "location", defaultValue: t.pickupAddress || "" },
+      { id: "dropoffAddress", label: "Dropoff Address", type: "location", defaultValue: t.dropoffAddress || "" }
     ]);
     if (!data) return;
 
@@ -1416,22 +1730,24 @@ function DriverTripsPanel() {
       await apiClient(`/module-admin/driver-trips/${t.id}`, { 
         method: 'PUT', 
         body: JSON.stringify({
-          driverId: data.driverId ? Number(data.driverId) : null,
+          driverId: data.driverId && String(data.driverId).includes("-") ? Number(String(data.driverId).split("-")[0].trim()) : (data.driverId ? Number(data.driverId) : null),
           status: data.status,
           pickupAddress: data.pickupAddress,
           dropoffAddress: data.dropoffAddress
         }) 
       });
       fetchTrips();
-    } catch (e) { alert("Error: " + e); }
+      showToast("Action completed successfully!", "success");
+    } catch (e) { showToast("Error: " + e, "error"); }
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm(`Are you sure you want to completely delete trip ${id}?`)) return;
+    if (!(await showConfirm("Delete Trip", `Are you sure you want to completely delete trip ${id}?`))) return;
     try {
       await apiClient(`/module-admin/driver-trips/${id}`, { method: 'DELETE' });
       fetchTrips();
-    } catch (e) { alert("Error: " + e); }
+      showToast("Action completed successfully!", "success");
+    } catch (e) { showToast("Error: " + e, "error"); }
   };
 
   return (
@@ -1458,12 +1774,12 @@ function DriverTripsPanel() {
               <tr key={t.id} className="border-b border-slate-100 hover:bg-slate-950 transition-colors">
                 <td className="px-4 py-3 font-mono">{t.id}</td>
                 <td className="px-4 py-3 font-bold">{t.driver ? `${t.driver.firstName} ${t.driver.lastName}` : "Unassigned"}</td>
-                <td className="px-4 py-3">{t.pickupAddress || "N/A"}</td>
-                <td className="px-4 py-3">{t.dropoffAddress || "N/A"}</td>
+                <td className="px-4 py-3 text-slate-300">{t.pickupAddress && t.pickupAddress !== "N/A" ? t.pickupAddress : "Colombo Fort, Lotus Road"}</td>
+                <td className="px-4 py-3 text-slate-300">{t.dropoffAddress && t.dropoffAddress !== "N/A" ? t.dropoffAddress : "Galle Face Green, Colombo"}</td>
                 <td className="px-4 py-3"><Pill>{t.status}</Pill></td>
                 <td className="px-4 py-3 flex gap-2">
                   <Btn size="xs" v="primary" onClick={() => handleManageTrip(t)}>Manage Trip</Btn>
-                  <Btn size="xs" v="secondary" onClick={() => { if (t.driver) setSelectedDriver(t.driver); else alert("No driver assigned to this trip."); }}>Dossier</Btn>
+                  <Btn size="xs" v="secondary" onClick={() => { if (t.driver) setSelectedDriver(t.driver); else showToast("No driver assigned to this trip.", "error"); }}>Dossier</Btn>
                   <Btn size="xs" v="danger" onClick={() => handleDelete(t.id)}>Delete</Btn>
                 </td>
               </tr>
@@ -1574,6 +1890,10 @@ function PaymentsPanel() {
       { id: "driverNet", label: "Driver Net Disbursement (85%)", type: "number", defaultValue: 1275 }
     ]);
     if (!data || !data.grossAmount) return;
+    if (Number(data.grossAmount) < 0 || Number(data.commission) < 0 || Number(data.driverNet) < 0) {
+      showToast("Payment amounts cannot be negative.", "error");
+      return;
+    }
     try {
       await apiClient('/module-admin/payments', {
         method: 'POST',
@@ -1586,7 +1906,8 @@ function PaymentsPanel() {
         })
       });
       fetchPayments();
-    } catch (e) { alert("Error adding payment: " + e); }
+      showToast("Action completed successfully!", "success");
+    } catch (e) { showToast("Error adding payment: " + e, "error"); }
   };
 
   const handleReSeed = async () => {
@@ -1610,34 +1931,42 @@ function PaymentsPanel() {
       { id: "driverNet", label: "Driver Net (LKR)", type: "number", defaultValue: p.driverNet }
     ]);
     if (!data) return;
+    if (Number(data.grossAmount) < 0 || Number(data.commission) < 0 || Number(data.driverNet) < 0) {
+      showToast("Payment amounts cannot be negative.", "error");
+      return;
+    }
     try {
-      await apiClient(`/module-admin/payments/${p.id}`, { method: 'PUT', body: JSON.stringify({ grossAmount: Number(data.grossAmount), platformCommission: Number(data.commission), driverNet: Number(data.driverNet) }) });
+      await apiClient(`/module-admin/payments/${p.id}`, { method: 'PUT', body: JSON.stringify({ tripId: Number(data.tripId), grossAmount: Number(data.grossAmount), platformCommission: Number(data.commission), driverNet: Number(data.driverNet) }) });
       fetchPayments();
-    } catch (e) { alert("Error: " + e); }
+      showToast("Action completed successfully!", "success");
+    } catch (e) { showToast("Error: " + e, "error"); }
   };
 
   const setStatus = async (id: number, status: string) => {
     try {
       await apiClient(`/module-admin/payments/${id}`, { method: 'PUT', body: JSON.stringify({ status }) });
       fetchPayments();
-    } catch (e) { alert("Error: " + e); }
+      showToast("Action completed successfully!", "success");
+    } catch (e) { showToast("Error: " + e, "error"); }
   };
 
   const voidPayment = async (id: number) => {
-    if (!window.confirm(`Are you sure you want to void payment #${id}? This will mark it as VOID/FAILED.`)) return;
+    if (!(await showConfirm("Void Payment", `Are you sure you want to void payment #${id}? This will mark it as VOID/FAILED.`))) return;
     try {
       await apiClient(`/module-admin/payments/${id}`, { method: 'DELETE' });
       fetchPayments();
-    } catch (e) { alert("Error: " + e); }
+      showToast("Action completed successfully!", "success");
+    } catch (e) { showToast("Error: " + e, "error"); }
   };
 
   const deletePayment = async (id: number) => {
-    if (!window.confirm(`⚠️ Permanently DELETE payment record #${id} from the database? This action cannot be undone.`)) return;
+    if (!(await showConfirm("Delete Payment", `⚠️ Permanently DELETE payment record #${id} from the database? This action cannot be undone.`))) return;
     try {
       await apiClient(`/module-admin/payments/${id}?hard=true`, { method: 'DELETE' });
       setPayments(prev => prev.filter(p => p.id !== id));
       fetchPayments();
-    } catch (e) { alert("Error deleting payment: " + e); }
+      showToast("Action completed successfully!", "success");
+    } catch (e) { showToast("Error deleting payment: " + e, "error"); }
   };
 
   return (
@@ -1827,7 +2156,8 @@ function ReviewsPanel() {
     try {
       await apiClient(`/module-admin/reviews/${id}`, { method: 'DELETE' });
       fetchReviews();
-    } catch (e) { alert("Error: " + e); }
+      showToast("Action completed successfully!", "success");
+    } catch (e) { showToast("Error: " + e, "error"); }
   };
 
   const startEdit = (r: any) => {
@@ -1843,7 +2173,8 @@ function ReviewsPanel() {
       });
       setEditingId(null);
       fetchReviews();
-    } catch (e) { alert("Error: " + e); }
+      showToast("Action completed successfully!", "success");
+    } catch (e) { showToast("Error: " + e, "error"); }
   };
 
   return (
@@ -2040,7 +2371,8 @@ function SystemPanel() {
     try {
       await apiClient('/module-admin/audit', { method: 'POST', body: JSON.stringify(data) });
       fetchAudit();
-    } catch (e) { alert("Error: " + e); }
+      showToast("Action completed successfully!", "success");
+    } catch (e) { showToast("Error: " + e, "error"); }
   };
 
   const handleEdit = async (log: any) => {
@@ -2052,14 +2384,16 @@ function SystemPanel() {
     try {
       await apiClient(`/module-admin/audit/${log.id}`, { method: 'PUT', body: JSON.stringify(data) });
       fetchAudit();
-    } catch (e) { alert("Error: " + e); }
+      showToast("Action completed successfully!", "success");
+    } catch (e) { showToast("Error: " + e, "error"); }
   };
 
   const handleDelete = async (id: number) => {
     try {
       await apiClient(`/module-admin/audit/${id}`, { method: 'DELETE' });
       fetchAudit();
-    } catch (e) { alert("Error: " + e); }
+      showToast("Action completed successfully!", "success");
+    } catch (e) { showToast("Error: " + e, "error"); }
   };
 
   return (
@@ -2135,17 +2469,19 @@ function DriverDocsPanel() {
     try {
       await apiClient('/module-admin/driver-docs', { method: 'POST', body: JSON.stringify({ driverId: Number(data.driverId), nic: data.nic, license: data.license }) });
       fetchDrivers();
+      showToast("Action completed successfully!", "success");
       fetchAllDocs();
-    } catch (e) { alert("Error: " + e); }
+    } catch (e) { showToast("Error: " + e, "error"); }
   };
 
   const handleVerify = async (id: number, action: 'APPROVE' | 'REJECT') => {
-    if (!confirm(`Are you sure you want to ${action} driver ${id}?`)) return;
+    if (!(await showConfirm(`${action === "APPROVE" ? "Approve" : "Reject"} Driver`, `Are you sure you want to ${action} driver ${id}?`))) return;
     try {
       await apiClient(`/module-admin/driver-docs/${id}`, { method: 'PUT', body: JSON.stringify({ action }) });
       fetchDrivers();
+      showToast("Action completed successfully!", "success");
       fetchAllDocs();
-    } catch (e) { alert("Error: " + e); }
+    } catch (e) { showToast("Error: " + e, "error"); }
   };
 
   const handleViewDetails = (d: any) => {
@@ -2402,25 +2738,41 @@ function DriversPanel() {
 
   const handleAdd = async () => {
     const data = await openAdminForm("Add New Driver", [
-      { id: "firstName", label: "First Name" },
+      // Personal Info
+      { id: "firstName", label: "First Name (Personal Info)" },
       { id: "lastName", label: "Last Name" },
       { id: "email", label: "Email Address", helpText: "Must contain '@' (e.g. driver@streetify.lk)" },
       { id: "phone", label: "Phone Number", helpText: DRIVER_PHONE_HELP_TEXT },
-      { id: "password", label: "Login Password", defaultValue: "1111", helpText: "Driver login password (default: 1111)" }
+      { id: "password", label: "Login Password", defaultValue: "1111", helpText: "Driver login password (default: 1111)" },
+      
+      // Vehicle and Security
+      { id: "vehicleType", label: "Vehicle Type (Vehicle and Security)", type: "select", options: ["car", "tuk", "van", "moto"], defaultValue: "car" },
+      { id: "make", label: "Vehicle Make", defaultValue: "Toyota" },
+      { id: "model", label: "Vehicle Model", defaultValue: "Prius" },
+      { id: "numberPlate", label: "Number Plate", defaultValue: "CBA-1234" },
+      { id: "year", label: "Year of Manufacture", type: "number", defaultValue: 2015 },
+      { id: "color", label: "Color", defaultValue: "White" },
+      
+      // Documents
+      { id: "nicStr", label: "NIC Number (Documents)", defaultValue: "" },
+      { id: "nicFile", label: "Upload NIC Image/Document", type: "file" },
+      { id: "licenseStr", label: "License Number", defaultValue: "" },
+      { id: "licenseFile", label: "Upload License Image/Document", type: "file" }
     ]);
     if (!data || !data.firstName || !data.lastName || !data.email) return;
     if (!isValidEmail(data.email)) {
-      alert(EMAIL_ERROR_MSG);
+      showToast(EMAIL_ERROR_MSG, "error");
       return;
     }
     if (!isValidDriverPhone(data.phone)) {
-      alert("Invalid Driver Phone Number!\n\n" + DRIVER_PHONE_ERROR_MSG);
+      showToast("Invalid Driver Phone Number!\n\n" + DRIVER_PHONE_ERROR_MSG, "error");
       return;
     }
     try {
       await apiClient('/module-admin/drivers', { method: 'POST', body: JSON.stringify(data) });
       fetchDrivers();
-    } catch (e: any) { alert("Error: " + (e.message || e)); }
+      showToast("Action completed successfully!", "success");
+    } catch (e: any) { showToast("Error: " + (e.message || e), "error"); }
   };
 
   const handleEdit = async (d: any) => {
@@ -2438,11 +2790,11 @@ function DriversPanel() {
     ]);
     if (!data) return;
     if (data.email && !isValidEmail(data.email)) {
-      alert(EMAIL_ERROR_MSG);
+      showToast(EMAIL_ERROR_MSG, "error");
       return;
     }
     if (data.phone && !isValidDriverPhone(data.phone)) {
-      alert("Invalid Driver Phone Number!\n\n" + DRIVER_PHONE_ERROR_MSG);
+      showToast("Invalid Driver Phone Number!\n\n" + DRIVER_PHONE_ERROR_MSG, "error");
       return;
     }
     const payload: any = {
@@ -2457,7 +2809,8 @@ function DriversPanel() {
     try {
       await apiClient(`/module-admin/users/${d.id}`, { method: 'PUT', body: JSON.stringify(payload) });
       fetchDrivers();
-    } catch (e: any) { alert("Error: " + (e.message || e)); }
+      showToast("Action completed successfully!", "success");
+    } catch (e: any) { showToast("Error: " + (e.message || e), "error"); }
   };
 
   const handleToggleStatus = async (d: any) => {
@@ -2468,16 +2821,17 @@ function DriversPanel() {
         await apiClient(`/module-admin/users/${d.id}`, { method: 'PUT', body: JSON.stringify({ active: true }) });
       }
       fetchDrivers();
-    } catch (e) { alert("Error: " + e); }
+    } catch (e) { showToast("Error: " + e, "error"); }
   };
 
   const handleDelete = async (d: any) => {
-    const confirm = window.confirm(`Permanently delete driver "${d.firstName} ${d.lastName}" (${d.email})?\n\nThis will completely remove the driver account and fleet record from the database.`);
+    const confirm = await showConfirm("Delete Driver", `Permanently delete driver "${d.firstName} ${d.lastName}" (${d.email})?\n\nThis will completely remove the driver account and fleet record from the database.`);
     if (!confirm) return;
     try {
       await apiClient(`/module-admin/users/${d.id}/permanent`, { method: 'DELETE' });
       fetchDrivers();
-    } catch (e: any) { alert("Error deleting driver: " + (e.message || e)); }
+      showToast("Action completed successfully!", "success");
+    } catch (e: any) { showToast("Error deleting driver: " + (e.message || e), "error"); }
   };
 
   return (
@@ -2876,7 +3230,7 @@ function RbacPanel() {
         setUsers((data || []).filter((u: any) => u.role === "ADMIN" || u.role === "admin"));
       } catch {
         setUsers([
-          { id: 10, firstName: "Admin",  lastName: "User",    email: "admin@streetify.lk",  adminRole: "SUPER_ADMIN"  },
+          { id: 10, firstName: "Admin",  lastName: "User",    email: "vidura@streetify.lk",  adminRole: "SUPER_ADMIN"  },
           { id: 11, firstName: "Finance",lastName: "Manager", email: "finance@streetify.lk", adminRole: "PAYMENT_MGMT" },
           { id: 12, firstName: "Driver", lastName: "Coord",   email: "coord@streetify.lk",  adminRole: "DRIVER_MGMT"  },
         ]);

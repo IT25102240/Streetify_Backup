@@ -13,7 +13,7 @@ public class Driver extends User {
     @Column(unique = true, length = 20)
     private String nic;
 
-    @Column(name = "license_number", length = 50)
+    @Column(name = "license_number", unique = true, length = 50)
     private String licenseNumber;
 
     @Enumerated(EnumType.STRING)

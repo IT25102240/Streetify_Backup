@@ -104,8 +104,11 @@ export default function ScreenLogin() {
 
   /* Step 2 */
   const [vehicle,   setVehicle] = useState("");
+  const [make,      setMake]    = useState("");
+  const [model,     setModel]   = useState("");
   const [plate,     setPlate]   = useState("");
   const [year,      setYear]    = useState("");
+  const [color,     setColor]   = useState("");
   const [pw,        setPw]      = useState("");
   const [pwConfirm, setPwConf]  = useState("");
   const [s2Err,     setS2Err]   = useState("");
@@ -172,26 +175,36 @@ export default function ScreenLogin() {
 
   function validateStep1() {
     if (!firstName.trim()) { setS1Err("First name is required."); return false; }
+    if (!/^[A-Za-z\s]+$/.test(firstName.trim())) { setS1Err("First name can only contain letters."); return false; }
     if (!lastName.trim())  { setS1Err("Last name is required."); return false; }
+    if (!/^[A-Za-z\s]+$/.test(lastName.trim())) { setS1Err("Last name can only contain letters."); return false; }
     if (!isValidDriverPhone(phone)) { setS1Err(DRIVER_PHONE_ERROR_MSG); return false; }
     if (!email.includes("@")) { setS1Err("Enter a valid email address."); return false; }
-    if (nic.replace(/\D/,"").length < 9)  { setS1Err("Enter a valid NIC number."); return false; }
+    if (nic.replace(/\D/,"").length !== 12)  { setS1Err("NIC must be exactly 12 digits."); return false; }
     setS1Err(""); return true;
   }
 
   function validatePassenger() {
     if (!firstName.trim()) { setS1Err("First name is required."); return false; }
+    if (!/^[A-Za-z\s]+$/.test(firstName.trim())) { setS1Err("First name can only contain letters."); return false; }
     if (!lastName.trim())  { setS1Err("Last name is required."); return false; }
+    if (!/^[A-Za-z\s]+$/.test(lastName.trim())) { setS1Err("Last name can only contain letters."); return false; }
     if (phone.replace(/\D/,"").length < 9) { setS1Err("Enter a valid mobile number."); return false; }
     if (!email.includes("@")) { setS1Err("Enter a valid email address."); return false; }
     if (pw.length < 8) { setS1Err("Password must be at least 8 characters."); return false; }
+    if (pw !== pwConfirm) { setS1Err("Passwords do not match."); return false; }
     setS1Err(""); return true;
   }
 
   function validateStep2() {
     if (!vehicle)          { setS2Err("Select a vehicle type."); return false; }
+    if (!make.trim())      { setS2Err("Enter the vehicle make (e.g. Toyota)."); return false; }
+    if (!model.trim())     { setS2Err("Enter the vehicle model (e.g. Prius)."); return false; }
     if (!plate.trim())     { setS2Err("Enter the vehicle number plate."); return false; }
-    if (!year.trim() || parseInt(year) < 1800 || parseInt(year) > 2100) { setS2Err("Year must be between 1800 and 2100."); return false; }
+    if (!/^[A-Z]{2,3}-\d{4}$/i.test(plate.trim().replace("WP ", ""))) { setS2Err("Invalid number plate format (e.g., CAB-1234)."); return false; }
+    const currentYear = new Date().getFullYear();
+    if (!year.trim() || parseInt(year) < 1995 || parseInt(year) > currentYear) { setS2Err(`Vehicle year must be between 1995 and ${currentYear}.`); return false; }
+    if (!color.trim())     { setS2Err("Enter the vehicle color."); return false; }
     if (pw.length < 8)     { setS2Err("Password must be at least 8 characters."); return false; }
     if (pw !== pwConfirm)  { setS2Err("Passwords do not match."); return false; }
     setS2Err(""); return true;
@@ -521,7 +534,22 @@ export default function ScreenLogin() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-3 mt-2">
+                    <Field
+                      label="Make"
+                      placeholder="e.g. Toyota"
+                      value={make}
+                      onChange={e => setMake(e.target.value)}
+                    />
+                    <Field
+                      label="Model"
+                      placeholder="e.g. Prius"
+                      value={model}
+                      onChange={e => setModel(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
                     <Field
                       label="Number Plate"
                       placeholder="CAB-4821"
@@ -539,6 +567,12 @@ export default function ScreenLogin() {
                         setYear(val);
                       }}
                       error={year.length > 0 && (parseInt(year) < 1800 || parseInt(year) > 2100) ? "Year must be 1800-2100" : undefined}
+                    />
+                    <Field
+                      label="Color"
+                      placeholder="e.g. White"
+                      value={color}
+                      onChange={e => setColor(e.target.value)}
                     />
                   </div>
 
@@ -766,7 +800,10 @@ export default function ScreenLogin() {
                                   nic,
                                   vehicleType: vehicle,
                                   numberPlate: plate,
-                                  yearOfManufacture: parseInt(year)
+                                  yearOfManufacture: parseInt(year),
+                                  make,
+                                  model,
+                                  color
                                 })
                               });
                               setSubmitted(true);
@@ -832,6 +869,14 @@ export default function ScreenLogin() {
                 />
                 <PwStrength password={pw} />
               </div>
+              <Field
+                label="Confirm Password"
+                type="password"
+                placeholder="Repeat your password"
+                value={pwConfirm}
+                onChange={e => setPwConf(e.target.value)}
+                error={pwConfirm && pw !== pwConfirm ? "Passwords do not match" : undefined}
+              />
               {s1Err && (
                 <div
                   className="rounded-xl px-4 py-3 text-sm font-semibold"

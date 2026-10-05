@@ -149,8 +149,8 @@ public class ModuleAdminController {
             driver.setPasswordHash(passwordEncoder.encode(rawPassword));
             driver.setPlainPassword(rawPassword);
             driver.setRole(UserRole.DRIVER);
-            driver.setVerificationStatus(DriverVerificationStatus.APPROVED);
-            driver.setActive(true);
+            driver.setVerificationStatus(DriverVerificationStatus.PENDING_VERIFICATION);
+            driver.setActive(false);
             Driver savedDriver = driverDAO.save(driver);
 
             String plate = ((String) data.getOrDefault("numberPlate", "CAB-" + (2000 + (savedDriver.getId() % 7000)))).toUpperCase().trim();
@@ -174,8 +174,8 @@ public class ModuleAdminController {
                 doc.setFilePath("uploads/documents/driver-" + savedDriver.getId() + "/" + dt + ".pdf");
                 doc.setFileSizeBytes(1024L * 1024L);
                 doc.setContentType("application/pdf");
-                doc.setStatus(DocumentStatus.APPROVED);
-                doc.setReviewerNote("Onboarded and approved directly by User Admin.");
+                doc.setStatus(DocumentStatus.PENDING);
+                doc.setReviewerNote("Onboarded by User Admin. Awaiting Driver Admin review.");
                 driverDocumentDAO.save(doc);
             }
 
@@ -378,8 +378,31 @@ public class ModuleAdminController {
     @Transactional
     public ResponseEntity<Map<String, Object>> deleteUserPermanently(@PathVariable Long id) {
         User user = userDAO.findById(id).orElseThrow(() -> new IllegalArgumentException("User not found: " + id));
-        if ("SUPER_ADMIN".equalsIgnoreCase(user.getAdminRole())) {
+        if ("vidura@streetify.lk".equalsIgnoreCase(user.getEmail())) {
             return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Cannot delete Master Super Admin account."));
+        }
+
+        if (user.getAdminRole() != null && !user.getAdminRole().isEmpty()) {
+            String callerEmail = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+            User caller = userDAO.findByEmail(callerEmail).orElse(null);
+            boolean isCallerMaster = caller != null && "vidura@streetify.lk".equalsIgnoreCase(caller.getEmail());
+            boolean isCallerSuperAdmin = caller != null && "SUPER_ADMIN".equalsIgnoreCase(caller.getAdminRole());
+            
+            if ("SUPER_ADMIN".equalsIgnoreCase(user.getAdminRole())) {
+                if (!isCallerMaster) {
+                    return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).body(Map.of(
+                        "status", "error", 
+                        "message", "Access Denied: Only the Master Admin can delete Super Admin accounts."
+                    ));
+                }
+            } else {
+                if (!isCallerSuperAdmin && !isCallerMaster) {
+                    return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).body(Map.of(
+                        "status", "error", 
+                        "message", "Access Denied: Only Super Admin can delete other admin accounts."
+                    ));
+                }
+            }
         }
 
         // Clean up linked dependencies safely to prevent foreign key constraint violations
@@ -406,6 +429,14 @@ public class ModuleAdminController {
                 .forEach(disputeDAO::delete);
         } catch (Exception ignored) {}
         try {
+            disputeDAO.findAll().stream()
+                .filter(d -> id.equals(d.getResolvedByStaffId()))
+                .forEach(d -> {
+                    d.setResolvedByStaffId(null);
+                    disputeDAO.save(d);
+                });
+        } catch (Exception ignored) {}
+        try {
             auditLogDAO.findAll().stream()
                 .filter(a -> (a.getTargetUserId() != null && a.getTargetUserId().equals(id)) || (a.getPerformedByStaffId() != null && a.getPerformedByStaffId().equals(id)))
                 .forEach(auditLogDAO::delete);
@@ -425,8 +456,7 @@ public class ModuleAdminController {
         boolean isAuthorized = caller != null && (
             "SUPER_ADMIN".equalsIgnoreCase(caller.getAdminRole()) || 
             "USER_MGMT".equalsIgnoreCase(caller.getAdminRole()) ||
-            "admin@streetify.com".equalsIgnoreCase(caller.getEmail()) ||
-            "admin@streetify.lk".equalsIgnoreCase(caller.getEmail())
+            "vidura@streetify.lk".equalsIgnoreCase(caller.getEmail())
         );
         if (!isAuthorized) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
@@ -768,11 +798,22 @@ public class ModuleAdminController {
         Trip trip = tripDAO.findById(id).orElseThrow(() -> new IllegalArgumentException("Trip not found: " + id));
 
         if (updates.containsKey("status") && updates.get("status") != null) {
-            trip.setStatus(TripStatus.fromString(updates.get("status").toString()));
+            TripStatus newStatus = TripStatus.fromString(updates.get("status").toString());
+            
+            if (trip.getStatus() == TripStatus.REQUESTED && newStatus == TripStatus.COMPLETED) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Invalid state transition: A REQUESTED trip must be IN_PROGRESS before it can be COMPLETED."));
+            }
+            
+            trip.setStatus(newStatus);
         }
         if (updates.containsKey("pickupAddress"))  trip.setPickupAddress((String) updates.get("pickupAddress"));
         if (updates.containsKey("dropoffAddress")) trip.setDropoffAddress((String) updates.get("dropoffAddress"));
-        // Estimated / Total fare is calculated dynamically by the dispatch engine and is immutable here.
+        if (updates.containsKey("estimatedFare") && updates.get("estimatedFare") != null) {
+            double estFare = ((Number) updates.get("estimatedFare")).doubleValue();
+            trip.setTotalFare(estFare);
+            trip.setPlatformCommission(Math.round(estFare * 0.15 * 100.0) / 100.0);
+            trip.setDriverNet(Math.round(estFare * 0.85 * 100.0) / 100.0);
+        }
 
         Trip saved = tripDAO.save(trip);
         logAdminAction("UPDATE_BOOKING", "Updated booking ID " + id + " status to " + trip.getStatus(), id, "TRIP");
@@ -789,6 +830,19 @@ public class ModuleAdminController {
         return ResponseEntity.ok(Map.of("status", "ok", "message", "Trip " + id + " cancelled."));
     }
 
+    @DeleteMapping("/bookings/{id}/force")
+    public ResponseEntity<Map<String, String>> forceDeleteBooking(@PathVariable Long id) {
+        Trip trip = tripDAO.findById(id).orElseThrow(() -> new IllegalArgumentException("Trip not found: " + id));
+        
+        // Remove associated payments to avoid foreign key constraints
+        paymentDAO.findByTripId(id).ifPresent(paymentDAO::delete);
+        
+        tripDAO.delete(trip);
+        
+        logAdminAction("DELETE_BOOKING", "Permanently deleted booking ID " + id, id, "TRIP");
+        return ResponseEntity.ok(Map.of("status", "ok", "message", "Trip " + id + " permanently deleted."));
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     //  🚗 DRIVER TRIP MANAGEMENT & VERIFICATION
     // ═══════════════════════════════════════════════════════════════════════════
@@ -799,6 +853,8 @@ public class ModuleAdminController {
             Map<String, Object> map = new java.util.HashMap<>();
             map.put("id", t.getId());
             map.put("status", t.getStatus().name());
+            map.put("pickupAddress", t.getPickupAddress() != null ? t.getPickupAddress() : "Colombo Fort, Lotus Road");
+            map.put("dropoffAddress", t.getDropoffAddress() != null ? t.getDropoffAddress() : "Galle Face Green, Colombo");
             if (t.getDriver() != null) {
                 map.put("driver", Map.of(
                     "id", t.getDriver().getId(),
@@ -875,6 +931,12 @@ public class ModuleAdminController {
         if (data.containsKey("lastName"))  d.setLastName((String) data.get("lastName"));
         d.setEmail(email);
         d.setPhone(phone);
+        
+        String nicVal = data.containsKey("nicStr") ? (String) data.get("nicStr") : (String) data.get("nic");
+        if (nicVal != null && !nicVal.isEmpty()) d.setNic(nicVal);
+        String licVal = data.containsKey("licenseStr") ? (String) data.get("licenseStr") : (String) data.get("licenseNumber");
+        if (licVal != null && !licVal.isEmpty()) d.setLicenseNumber(licVal);
+        
         String rawPassword = data.containsKey("password") && data.get("password") != null && !((String) data.get("password")).isBlank()
             ? ((String) data.get("password")).trim()
             : "1111";
@@ -883,7 +945,109 @@ public class ModuleAdminController {
         d.setRole(UserRole.DRIVER);
         d.setActive(true);
         d.setVerificationStatus(DriverVerificationStatus.APPROVED);
+        
+        // Handle Vehicle & Security
+        Vehicle vehicle = new Vehicle();
+        vehicle.setDriver(d);
+        vehicle.setVehicleType(data.containsKey("vehicleType") ? (String) data.get("vehicleType") : "car");
+        vehicle.setMake(data.containsKey("make") ? (String) data.get("make") : "Toyota");
+        vehicle.setModel(data.containsKey("model") ? (String) data.get("model") : "Prius");
+        vehicle.setNumberPlate(data.containsKey("numberPlate") ? (String) data.get("numberPlate") : "CBA-1234");
+        
+        Object yearObj = data.get("year");
+        if (yearObj != null) {
+            if (yearObj instanceof Number) {
+                vehicle.setYearOfManufacture(((Number) yearObj).intValue());
+            } else if (yearObj instanceof String) {
+                try { vehicle.setYearOfManufacture(Integer.parseInt((String) yearObj)); } catch (Exception e) { vehicle.setYearOfManufacture(2015); }
+            }
+        } else {
+            vehicle.setYearOfManufacture(2015);
+        }
+        
+        vehicle.setColor(data.containsKey("color") ? (String) data.get("color") : "White");
+        d.setVehicle(vehicle);
+        
         Driver saved = driverDAO.save(d);
+        
+        // Handle Documents
+        if (data.containsKey("nicFile") && data.get("nicFile") instanceof Map) {
+            Map<String, Object> fileData = (Map<String, Object>) data.get("nicFile");
+            String base64 = (String) fileData.get("base64");
+            if (base64 != null && base64.contains(",")) base64 = base64.split(",")[1];
+            try {
+                byte[] decoded = java.util.Base64.getDecoder().decode(base64);
+                String originalName = (String) fileData.get("name");
+                java.io.File dir = new java.io.File("uploads/documents/" + saved.getId());
+                if (!dir.exists()) dir.mkdirs();
+                String filePath = "uploads/documents/" + saved.getId() + "/nic_" + System.currentTimeMillis() + "_" + originalName;
+                java.nio.file.Files.write(java.nio.file.Paths.get(filePath), decoded);
+                
+                com.streetify.entity.DriverDocument nicDoc = new com.streetify.entity.DriverDocument();
+                nicDoc.setDriver(saved);
+                nicDoc.setDocType("nic");
+                nicDoc.setOriginalFilename(originalName);
+                nicDoc.setFilePath(filePath);
+                nicDoc.setFileSizeBytes((long) decoded.length);
+                nicDoc.setContentType((String) fileData.get("type"));
+                nicDoc.setStatus(com.streetify.entity.DocumentStatus.APPROVED);
+                nicDoc.setReviewerNote("Uploaded by Admin. NIC: " + data.get("nicStr"));
+                nicDoc.setReviewedAt(java.time.LocalDateTime.now());
+                driverDocumentDAO.save(nicDoc);
+            } catch (Exception e) { e.printStackTrace(); }
+        } else if (data.containsKey("nicStr") || data.containsKey("nic")) {
+            String nicVal = data.containsKey("nicStr") ? (String) data.get("nicStr") : (String) data.get("nic");
+            com.streetify.entity.DriverDocument nicDoc = new com.streetify.entity.DriverDocument();
+            nicDoc.setDriver(saved);
+            nicDoc.setDocType("nic");
+            nicDoc.setOriginalFilename("admin_entry_nic.txt");
+            nicDoc.setFilePath("uploads/documents/admin-entry/" + saved.getId() + "_nic.txt");
+            nicDoc.setFileSizeBytes(1024L);
+            nicDoc.setContentType("text/plain");
+            nicDoc.setStatus(com.streetify.entity.DocumentStatus.APPROVED);
+            nicDoc.setReviewerNote("Manually entered NIC by Admin: " + nicVal);
+            nicDoc.setReviewedAt(java.time.LocalDateTime.now());
+            driverDocumentDAO.save(nicDoc);
+        }
+        
+        if (data.containsKey("licenseFile") && data.get("licenseFile") instanceof Map) {
+            Map<String, Object> fileData = (Map<String, Object>) data.get("licenseFile");
+            String base64 = (String) fileData.get("base64");
+            if (base64 != null && base64.contains(",")) base64 = base64.split(",")[1];
+            try {
+                byte[] decoded = java.util.Base64.getDecoder().decode(base64);
+                String originalName = (String) fileData.get("name");
+                java.io.File dir = new java.io.File("uploads/documents/" + saved.getId());
+                if (!dir.exists()) dir.mkdirs();
+                String filePath = "uploads/documents/" + saved.getId() + "/license_" + System.currentTimeMillis() + "_" + originalName;
+                java.nio.file.Files.write(java.nio.file.Paths.get(filePath), decoded);
+                
+                com.streetify.entity.DriverDocument licDoc = new com.streetify.entity.DriverDocument();
+                licDoc.setDriver(saved);
+                licDoc.setDocType("license");
+                licDoc.setOriginalFilename(originalName);
+                licDoc.setFilePath(filePath);
+                licDoc.setFileSizeBytes((long) decoded.length);
+                licDoc.setContentType((String) fileData.get("type"));
+                licDoc.setStatus(com.streetify.entity.DocumentStatus.APPROVED);
+                licDoc.setReviewerNote("Uploaded by Admin. License: " + data.get("licenseStr"));
+                licDoc.setReviewedAt(java.time.LocalDateTime.now());
+                driverDocumentDAO.save(licDoc);
+            } catch (Exception e) { e.printStackTrace(); }
+        } else if (data.containsKey("licenseStr") || data.containsKey("licenseNumber")) {
+            String licVal = data.containsKey("licenseStr") ? (String) data.get("licenseStr") : (String) data.get("licenseNumber");
+            com.streetify.entity.DriverDocument licDoc = new com.streetify.entity.DriverDocument();
+            licDoc.setDriver(saved);
+            licDoc.setDocType("license");
+            licDoc.setOriginalFilename("admin_entry_license.txt");
+            licDoc.setFilePath("uploads/documents/admin-entry/" + saved.getId() + "_license.txt");
+            licDoc.setFileSizeBytes(1024L);
+            licDoc.setContentType("text/plain");
+            licDoc.setStatus(com.streetify.entity.DocumentStatus.APPROVED);
+            licDoc.setReviewerNote("Manually entered License by Admin: " + licVal);
+            licDoc.setReviewedAt(java.time.LocalDateTime.now());
+            driverDocumentDAO.save(licDoc);
+        }
         
         logAdminAction("CREATE_DRIVER", "Created new driver: " + saved.getEmail(), saved.getId(), "USER");
         return ResponseEntity.ok(Map.of("status", "ok", "id", saved.getId()));
@@ -946,7 +1110,13 @@ public class ModuleAdminController {
             logAdminAction("UPDATE_TRIP", "Updated dropoff address for trip ID " + id, id, "TRIP");
         }
         if (updates.containsKey("status") && updates.get("status") != null) {
-            trip.setStatus(TripStatus.fromString(updates.get("status").toString()));
+            TripStatus newStatus = TripStatus.fromString(updates.get("status").toString());
+            
+            if (trip.getStatus() == TripStatus.REQUESTED && newStatus == TripStatus.COMPLETED) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Invalid state transition: A REQUESTED trip must be IN_PROGRESS before it can be COMPLETED."));
+            }
+            
+            trip.setStatus(newStatus);
             logAdminAction("UPDATE_TRIP_STATUS", "Updated trip ID " + id + " status to " + trip.getStatus(), id, "TRIP");
         }
 
@@ -1109,8 +1279,17 @@ public class ModuleAdminController {
         Double gross = 0.0;
         if (data.containsKey("grossAmount")) gross = ((Number) data.get("grossAmount")).doubleValue();
         p.setGrossAmount(gross);
-        p.setPlatformCommission(gross * 0.1);
-        p.setDriverNet(gross * 0.9);
+        
+        Double commission = gross * 0.1;
+        if (data.containsKey("platformCommission")) {
+            commission = ((Number) data.get("platformCommission")).doubleValue();
+        }
+        if (commission > gross) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Platform commission cannot exceed gross amount"));
+        }
+        
+        p.setPlatformCommission(commission);
+        p.setDriverNet(gross - commission);
 
         if (data.containsKey("paymentMethod")) p.setPaymentMethod((String) data.get("paymentMethod"));
         else p.setPaymentMethod("CASH");
@@ -1214,7 +1393,8 @@ public class ModuleAdminController {
             "status",            p.getStatus().name(),
             "processedAt",       p.getProcessedAt() != null ? p.getProcessedAt().toString() : "",
             "createdAt",         p.getCreatedAt() != null ? p.getCreatedAt().toString() : "",
-            "tripId",            p.getTrip() != null ? p.getTrip().getId() : null
+            "tripId",            p.getTrip() != null ? p.getTrip().getId() : null,
+            "driverName",        p.getDriver() != null ? p.getDriver().getFirstName() + " " + p.getDriver().getLastName() : "Unknown"
         )).toList();
         return ResponseEntity.ok(result);
     }
@@ -1251,8 +1431,15 @@ public class ModuleAdminController {
         if (updates.containsKey("platformCommission")) {
             p.setPlatformCommission(((Number) updates.get("platformCommission")).doubleValue());
         }
+        
+        if (p.getPlatformCommission() > p.getGrossAmount()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Platform commission cannot exceed gross amount"));
+        }
+        
         if (updates.containsKey("driverNet")) {
             p.setDriverNet(((Number) updates.get("driverNet")).doubleValue());
+        } else {
+            p.setDriverNet(p.getGrossAmount() - p.getPlatformCommission());
         }
         paymentDAO.save(p);
         

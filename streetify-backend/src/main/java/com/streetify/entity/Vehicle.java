@@ -1,6 +1,7 @@
 package com.streetify.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
@@ -21,18 +22,24 @@ public class Vehicle {
     @JoinColumn(name = "driver_id", nullable = false, unique = true)
     private Driver driver;
 
+    @NotBlank(message = "Vehicle type is required")
     @Column(name = "vehicle_type", nullable = false, length = 20)
     private String vehicleType;
 
+    @NotBlank(message = "Number plate is required")
     @Column(name = "number_plate", nullable = false, unique = true, length = 20)
     private String numberPlate;
 
+    @NotNull(message = "Year of manufacture is required")
+    @Min(value = 1995, message = "Vehicle must be manufactured in 1995 or later")
     @Column(name = "year_of_manufacture", nullable = false)
     private Integer yearOfManufacture;
 
+    @NotBlank(message = "Make is required")
     @Column(length = 100)
     private String make;
 
+    @NotBlank(message = "Model is required")
     @Column(length = 100)
     private String model;
 

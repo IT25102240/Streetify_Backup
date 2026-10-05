@@ -1,6 +1,7 @@
 package com.streetify.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -22,6 +23,7 @@ public class Trip {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotNull(message = "Passenger is required")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "passenger_id", nullable = false)
     private Passenger passenger;
@@ -30,27 +32,34 @@ public class Trip {
     @JoinColumn(name = "driver_id")
     private Driver driver;
 
+    @NotBlank(message = "Pickup address is required")
     @Column(name = "pickup_address", nullable = false, length = 500)
     private String pickupAddress;
 
+    @NotNull(message = "Pickup latitude is required")
     @Column(name = "pickup_lat", nullable = false)
     private Double pickupLat;
 
+    @NotNull(message = "Pickup longitude is required")
     @Column(name = "pickup_lng", nullable = false)
     private Double pickupLng;
 
+    @NotBlank(message = "Dropoff address is required")
     @Column(name = "dropoff_address", nullable = false, length = 500)
     private String dropoffAddress;
 
+    @NotNull(message = "Dropoff latitude is required")
     @Column(name = "dropoff_lat", nullable = false)
     private Double dropoffLat;
 
+    @NotNull(message = "Dropoff longitude is required")
     @Column(name = "dropoff_lng", nullable = false)
     private Double dropoffLng;
 
     @Column(name = "distance_km")
     private Double distanceKm;
 
+    @NotBlank(message = "Ride type is required")
     @Column(name = "ride_type", nullable = false, length = 20)
     private String rideType;
 

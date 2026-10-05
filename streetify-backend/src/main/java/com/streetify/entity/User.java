@@ -1,6 +1,7 @@
 package com.streetify.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -23,6 +24,8 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank(message = "Email cannot be empty")
+    @Email(message = "Invalid email format")
     @Column(nullable = false, unique = true, length = 255)
     private String email;
 
@@ -36,12 +39,18 @@ public class User {
     @Column(nullable = false, length = 20)
     private UserRole role;
 
+    @NotBlank(message = "First name is required")
+    @Size(min = 2, max = 50, message = "First name must be between 2 and 50 characters")
     @Column(name = "first_name", nullable = false, length = 100)
     private String firstName;
 
+    @NotBlank(message = "Last name is required")
+    @Size(min = 2, max = 50, message = "Last name must be between 2 and 50 characters")
     @Column(name = "last_name", nullable = false, length = 100)
     private String lastName;
 
+    @NotBlank(message = "Phone number is required")
+    @Size(min = 10, max = 15, message = "Phone number must be between 10 and 15 characters")
     @Column(nullable = false, length = 20)
     private String phone;
 
