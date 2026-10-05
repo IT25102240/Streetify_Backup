@@ -13,7 +13,7 @@ import { useState, useEffect } from "react";
 import { Btn, Card, Pill, Toast } from "../ui";
 import { apiClient } from "../api/apiClient";
 import { NotificationService } from "../services/notificationService";
-import SystemStatusIndicator from "../components/SystemStatusIndicator";
+
 
 type TicketStatus = "OPEN" | "IN_REVIEW" | "RESOLVED" | "CLOSED";
 type DisputeType  = "OVERCHARGE" | "NO_SHOW" | "UNSAFE" | "RUDE" | "WRONG_ROUTE" | "CANCELLATION" | "OTHER";
@@ -481,9 +481,7 @@ export default function ScreenSupport() {
             </div>
           )}
         </div>
-        <div className="max-w-6xl mx-auto px-6">
-          <SystemStatusIndicator />
-        </div>
+
       </div>
     </div>
   );

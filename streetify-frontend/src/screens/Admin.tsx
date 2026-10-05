@@ -17,7 +17,7 @@ type AdminTab = "analytics" | "users" | "drivers" | "bookings" | "driver-trips" 
 export type FormField = {
   id: string;
   label: string;
-  type?: "text" | "number" | "select";
+  type?: "text" | "number" | "select" | "password";
   options?: string[];
   defaultValue?: string | number;
   readOnly?: boolean;
@@ -295,20 +295,7 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
-        <div className="px-3 pt-3 pb-1">
-          <button
-            type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent("navigate", { detail: { screen: "booking" } }))}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-900/80 hover:bg-eco/20 border border-slate-800 hover:border-eco/40 transition-all shadow-sm group cursor-pointer"
-            title="Go to Streetify Main / Passenger Home"
-          >
-            <span className="flex items-center gap-2">
-              <span className="text-sm">🏠</span>
-              <span>Home / Booking</span>
-            </span>
-            <span className="text-slate-500 group-hover:text-eco text-xs">←</span>
-          </button>
-        </div>
+
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto custom-scrollbar">
           {(() => {
             if (!isSuperAdmin) {
@@ -400,13 +387,13 @@ export default function AdminDashboard() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {tab === "user-summary" && (isLahiruUserAdmin || isSuperAdmin) && <LahiruUserDashboard />}
+          {tab === "user-summary" && (isLahiruUserAdmin || isSuperAdmin) && <LahiruUserDashboard showDirectory={false} />}
           {tab === "booking-summary" && (isChanukaBookingAdmin || isSuperAdmin) && <ChanukaBookingDashboard />}
           {tab === "payment-summary" && (isDahamPaymentAdmin || isSuperAdmin) && <DahamPaymentDashboard />}
           {tab === "driver-summary" && isSuperAdmin && <AnalyticsPanel />}
           {tab === "review-summary" && isSuperAdmin && <MithunReviewDashboard />}
           {tab === "analytics"   && (
-            isLahiruUserAdmin ? <LahiruUserDashboard /> :
+            isLahiruUserAdmin ? <LahiruUserDashboard showDirectory={false} /> :
             isChanukaBookingAdmin ? <ChanukaBookingDashboard /> : 
             isDahamPaymentAdmin ? <DahamPaymentDashboard /> : 
             isMithunReviewAdmin ? <MithunReviewDashboard /> :
@@ -441,21 +428,8 @@ function UsersPanel() {
 
   // Modal states
   const [editUser, setEditUser] = useState<any | null>(null);
-  const [upgradeDriverUser, setUpgradeDriverUser] = useState<any | null>(null);
   const [addUserModal, setAddUserModal] = useState<{ open: boolean; role: "PASSENGER" | "DRIVER" }>({ open: false, role: "PASSENGER" });
   const [deleteConfirmUser, setDeleteConfirmUser] = useState<any | null>(null);
-
-  // Upgrade form state
-  const [driverPhone, setDriverPhone] = useState("");
-  const [driverNic, setDriverNic] = useState("199512345678");
-  const [driverLicense, setDriverLicense] = useState("B1234567");
-  const [vehicleType, setVehicleType] = useState("CAR");
-  const [vehicleMake, setVehicleMake] = useState("Toyota");
-  const [vehicleModel, setVehicleModel] = useState("Prius");
-  const [vehiclePlate, setVehiclePlate] = useState("WP CAB-1234");
-  const [vehicleYear, setVehicleYear] = useState(2020);
-  const [vehicleColor, setVehicleColor] = useState("Pearl White");
-
   // Add User form state
   const [addForm, setAddForm] = useState({
     firstName: "",
@@ -530,7 +504,7 @@ function UsersPanel() {
     try {
       if (u.active) {
         await apiClient(`/module-admin/users/${u.id}`, { method: 'DELETE' });
-        showToast(`User ${u.email} deactivated.`);
+        showToast(`User ${u.email} deactivated.`, "error");
       } else {
         await apiClient(`/module-admin/users/${u.id}`, { method: 'PUT', body: JSON.stringify({ active: true }) });
         showToast(`User ${u.email} activated.`);
@@ -552,65 +526,7 @@ function UsersPanel() {
     }
   };
 
-  // ── Handle Passenger -> Driver Upgrade ─────────────────────────
-  const openUpgradeModal = (u: any) => {
-    setUpgradeDriverUser(u);
-    setDriverPhone(u.phone || "");
-    setDriverNic(u.nic || "1995" + (10000000 + u.id * 1234));
-    setDriverLicense(u.licenseNumber || "B" + (1000000 + u.id * 876));
-    setVehicleType("CAR");
-    setVehicleMake("Toyota");
-    setVehicleModel("Prius");
-    setVehiclePlate("WP CAB-" + (2000 + u.id));
-    setVehicleYear(2021);
-    setVehicleColor("Pearl White");
-  };
 
-  const handleSaveUpgradeToDriver = async () => {
-    if (!upgradeDriverUser) return;
-    if (!isValidDriverPhone(driverPhone)) {
-      showToast(DRIVER_PHONE_ERROR_MSG, "error");
-      return;
-    }
-    try {
-      await apiClient(`/module-admin/users/${upgradeDriverUser.id}/change-role`, {
-        method: 'POST',
-        body: JSON.stringify({
-          targetRole: "DRIVER",
-          phone: driverPhone,
-          nic: driverNic,
-          licenseNumber: driverLicense,
-          vehicleType,
-          make: vehicleMake,
-          model: vehicleModel,
-          numberPlate: vehiclePlate,
-          yearOfManufacture: vehicleYear,
-          color: vehicleColor
-        })
-      });
-      showToast(`Passenger ${upgradeDriverUser.firstName} upgraded to approved Driver with vehicle ${vehiclePlate}! 🚗✓`);
-      setUpgradeDriverUser(null);
-      fetchUsers();
-    } catch (e: any) {
-      showToast(e.message || "Failed to upgrade passenger to driver", "error");
-    }
-  };
-
-  // ── Handle Driver -> Passenger Immediate Conversion ─────────────
-  const handleDemoteToPassenger = async (u: any) => {
-    const confirm = window.confirm(`Convert driver "${u.firstName} ${u.lastName}" (${u.email}) back to standard Passenger?\n\nThey will be able to book rides immediately.`);
-    if (!confirm) return;
-    try {
-      await apiClient(`/module-admin/users/${u.id}/change-role`, {
-        method: 'POST',
-        body: JSON.stringify({ targetRole: "PASSENGER" })
-      });
-      showToast(`Driver ${u.firstName} is now a standard Passenger! 🧑✓`);
-      fetchUsers();
-    } catch (e: any) {
-      showToast(e.message || "Failed to change driver to passenger", "error");
-    }
-  };
 
   // ── Handle Add User / Driver ───────────────────────────────────
   const handleSaveNewUser = async () => {
@@ -763,39 +679,22 @@ function UsersPanel() {
                         <span>✏️</span> Edit
                       </button>
 
-                      {/* Role Conversion Options (User Admin / Super Admin only) */}
-                      {canManageRoles && u.role === "PASSENGER" && (
+
+
+                      {/* Deactivate / Activate (Restricted for Drivers) */}
+                      {u.role !== "DRIVER" && (
                         <button
-                          onClick={() => openUpgradeModal(u)}
-                          className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-950/60 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/40 transition-all flex items-center gap-1 shadow-sm"
-                          title="Upgrade passenger to driver (requires vehicle & credentials)"
+                          onClick={() => handleToggleStatus(u)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${
+                            u.active
+                              ? "bg-slate-900 hover:bg-slate-800 text-slate-400 border-slate-700"
+                              : "bg-emerald-950/50 hover:bg-emerald-900 text-emerald-300 border-emerald-700"
+                          }`}
+                          title={u.active ? "Deactivate user account" : "Activate user account"}
                         >
-                          <span>🚗</span> Make Driver
+                          {u.active ? "Deactivate" : "Activate"}
                         </button>
                       )}
-
-                      {canManageRoles && u.role === "DRIVER" && (
-                        <button
-                          onClick={() => handleDemoteToPassenger(u)}
-                          className="px-2.5 py-1 rounded-lg text-xs font-bold bg-sky-950/60 hover:bg-sky-900 text-sky-300 border border-sky-500/40 transition-all flex items-center gap-1 shadow-sm"
-                          title="Convert driver to standard passenger immediately"
-                        >
-                          <span>🧑</span> Make Passenger
-                        </button>
-                      )}
-
-                      {/* Deactivate / Activate */}
-                      <button
-                        onClick={() => handleToggleStatus(u)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${
-                          u.active
-                            ? "bg-slate-900 hover:bg-slate-800 text-slate-400 border-slate-700"
-                            : "bg-emerald-950/50 hover:bg-emerald-900 text-emerald-300 border-emerald-700"
-                        }`}
-                        title={u.active ? "Deactivate user account" : "Activate user account"}
-                      >
-                        {u.active ? "Deactivate" : "Activate"}
-                      </button>
 
                       {/* Permanent Delete Option */}
                       <button
@@ -867,13 +766,21 @@ function UsersPanel() {
                   <label className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1">
                     <span>✉️</span> Email Address (Editable)
                   </label>
-                  <span className="text-[10px] font-mono text-emerald-400/80">Unique Identifier</span>
+                  {editUser.email && !isValidEmail(editUser.email) ? (
+                    <span className="text-[10px] font-mono text-rose-400 font-bold">Must contain '@'</span>
+                  ) : (
+                    <span className="text-[10px] font-mono text-emerald-400/80">Unique Identifier</span>
+                  )}
                 </div>
                 <input
                   type="email"
                   value={editUser.email || ""}
                   onChange={e => setEditUser({ ...editUser, email: e.target.value })}
-                  className="w-full bg-slate-900 border border-emerald-500/50 rounded-xl px-3 py-2 text-white font-mono text-sm outline-none focus:border-eco focus:ring-1 focus:ring-eco"
+                  className={`w-full bg-slate-900 border rounded-xl px-3 py-2 text-white font-mono text-sm outline-none ${
+                    editUser.email && !isValidEmail(editUser.email)
+                      ? "border-rose-500/80 focus:ring-1 focus:ring-rose-500"
+                      : "border-emerald-500/50 focus:border-eco focus:ring-1 focus:ring-eco"
+                  }`}
                   placeholder="user@streetify.lk"
                 />
                 <p className="text-[11px] text-slate-400">Changing email will update user login credentials in database.</p>
@@ -882,26 +789,34 @@ function UsersPanel() {
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Phone Number</label>
-                  {editUser.role === "DRIVER" && (
-                    <span className="text-[10px] font-mono text-emerald-400 font-bold">Strict Driver Format</span>
+                  {editUser.phone && !isValidDriverPhone(editUser.phone) ? (
+                    <span className="text-[10px] font-mono text-rose-400 font-bold">Format: +94XXXXXXXXX</span>
+                  ) : (
+                    <span className="text-[10px] font-mono text-emerald-400 font-bold">Strict Format Required</span>
                   )}
                 </div>
-                <input
-                  type="text"
-                  value={editUser.phone || ""}
-                  onChange={e => setEditUser({ ...editUser, phone: e.target.value })}
-                  className={`w-full bg-slate-900 border rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco ${
-                    editUser.role === "DRIVER" && editUser.phone && !isValidDriverPhone(editUser.phone)
-                      ? "border-rose-500/80 focus:ring-1 focus:ring-rose-500"
+                <div className={`flex items-center w-full bg-slate-900 border rounded-xl overflow-hidden focus-within:border-eco focus-within:ring-1 focus-within:ring-eco ${
+                    editUser.phone && !isValidDriverPhone(editUser.phone)
+                      ? "border-rose-500/80 focus-within:border-rose-500 focus-within:ring-rose-500"
                       : "border-slate-700"
-                  }`}
-                  placeholder={editUser.role === "DRIVER" ? "+94771234567 or 0771234567" : "0771234567"}
-                />
-                {editUser.role === "DRIVER" && (
-                  <p className="text-[11px] text-emerald-400/90 font-mono">
-                    ℹ️ {DRIVER_PHONE_HELP_TEXT}
-                  </p>
-                )}
+                }`}>
+                  <span className="px-3 py-2 bg-slate-800 text-slate-400 font-mono text-sm border-r border-slate-700">
+                    +94
+                  </span>
+                  <input
+                    type="text"
+                    value={editUser.phone ? editUser.phone.replace('+94', '') : ""}
+                    onChange={e => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 9);
+                      setEditUser({ ...editUser, phone: val ? '+94' + val : '' });
+                    }}
+                    className="w-full bg-transparent px-3 py-2 text-white text-sm outline-none"
+                    placeholder="771234567"
+                  />
+                </div>
+                <p className="text-[11px] text-emerald-400/90 font-mono">
+                  ℹ️ {DRIVER_PHONE_HELP_TEXT}
+                </p>
               </div>
 
               {/* Password update option */}
@@ -946,208 +861,7 @@ function UsersPanel() {
         </div>
       )}
 
-      {/* ══════════════════════════════════════════════════════════════════════ */}
-      {/* ── MODAL 2: Upgrade Passenger to Driver (Personal, Vehicle, Docs) ──── */}
-      {/* ══════════════════════════════════════════════════════════════════════ */}
-      {upgradeDriverUser && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in overflow-y-auto">
-          <div className="bg-navy border border-emerald-500/40 rounded-2xl shadow-2xl shadow-emerald-500/10 w-full max-w-xl flex flex-col overflow-hidden my-8">
-            <div className="px-6 py-4 border-b border-emerald-500/20 bg-emerald-950/20 flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-extrabold text-white flex items-center gap-2">
-                  <span>🚗</span> Upgrade Passenger to Driver Profile
-                </h3>
-                <p className="text-xs text-emerald-400/90 font-mono mt-0.5">
-                  Required: Personal Info, Vehicle & Security, and Verification Documents
-                </p>
-              </div>
-              <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30">
-                USER_MGMT Scoped
-              </span>
-            </div>
 
-            <div className="p-6 space-y-5 overflow-y-auto max-h-[70vh]">
-              {/* Account Header */}
-              <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-extrabold text-white">{upgradeDriverUser.firstName} {upgradeDriverUser.lastName}</p>
-                  <p className="text-[11px] font-mono text-slate-400">{upgradeDriverUser.email}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono text-blue-300 bg-blue-950/80 px-2 py-0.5 rounded border border-blue-500/30">PASSENGER</span>
-                  <span className="text-slate-400">→</span>
-                  <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-500/40 font-bold">DRIVER</span>
-                </div>
-              </div>
-
-              {/* SECTION 1: Personal Info */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-1">
-                  <span>1️⃣</span> Personal Info & Identity
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-400">National Identity Card (NIC) *</label>
-                    <input
-                      type="text"
-                      value={driverNic}
-                      onChange={e => setDriverNic(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono text-sm outline-none focus:border-eco"
-                      placeholder="199512345678"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-400">Driving License Number *</label>
-                    <input
-                      type="text"
-                      value={driverLicense}
-                      onChange={e => setDriverLicense(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono text-sm outline-none focus:border-eco"
-                      placeholder="B1234567"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[11px] font-bold text-emerald-400">Driver Phone Number *</label>
-                    <span className="text-[10px] font-mono text-emerald-400 font-bold">Required for Driver</span>
-                  </div>
-                  <input
-                    type="text"
-                    value={driverPhone}
-                    onChange={e => setDriverPhone(e.target.value)}
-                    className={`w-full bg-slate-900 border rounded-xl px-3 py-2 text-white font-mono text-sm outline-none focus:border-eco ${
-                      driverPhone && !isValidDriverPhone(driverPhone)
-                        ? "border-rose-500/80 focus:ring-1 focus:ring-rose-500"
-                        : "border-emerald-500/50"
-                    }`}
-                    placeholder="+94771234567 or 0771234567"
-                  />
-                  <p className="text-[11px] text-slate-400 font-mono">
-                    ℹ️ {DRIVER_PHONE_HELP_TEXT}
-                  </p>
-                </div>
-              </div>
-
-              {/* SECTION 2: Vehicle & Security */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-1">
-                  <span>2️⃣</span> Vehicle & Security Specifications
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-400">Vehicle Type</label>
-                    <select
-                      value={vehicleType}
-                      onChange={e => setVehicleType(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco cursor-pointer"
-                    >
-                      <option value="CAR">Car (Sedan/Hatch)</option>
-                      <option value="VAN">Van / MPV</option>
-                      <option value="TUK">Tuk-Tuk (Three-Wheel)</option>
-                      <option value="BIKE">Motorcycle</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-400">Vehicle Make</label>
-                    <input
-                      type="text"
-                      value={vehicleMake}
-                      onChange={e => setVehicleMake(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco"
-                      placeholder="Toyota"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-400">Vehicle Model</label>
-                    <input
-                      type="text"
-                      value={vehicleModel}
-                      onChange={e => setVehicleModel(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco"
-                      placeholder="Prius"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-emerald-400">Number Plate *</label>
-                    <input
-                      type="text"
-                      value={vehiclePlate}
-                      onChange={e => setVehiclePlate(e.target.value.toUpperCase())}
-                      className="w-full bg-slate-900 border border-emerald-500/50 rounded-xl px-3 py-2 text-white font-mono text-sm outline-none focus:border-eco"
-                      placeholder="WP CAB-1234"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-400">Year of Manufacture</label>
-                    <input
-                      type="number"
-                      value={vehicleYear}
-                      onChange={e => setVehicleYear(parseInt(e.target.value) || 2020)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-400">Color</label>
-                    <input
-                      type="text"
-                      value={vehicleColor}
-                      onChange={e => setVehicleColor(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco"
-                      placeholder="White"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* SECTION 3: Documents & Verification */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-1">
-                  <span>3️⃣</span> Documents & Verification Compliance
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="p-2.5 rounded-xl bg-slate-900 border border-emerald-500/30">
-                    <span className="text-base block">📄</span>
-                    <p className="text-xs font-bold text-white mt-1">Driving License</p>
-                    <span className="text-[9px] font-mono font-bold text-emerald-400 bg-emerald-950 px-1.5 py-0.5 rounded mt-1 inline-block">APPROVED</span>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-slate-900 border border-emerald-500/30">
-                    <span className="text-base block">🚗</span>
-                    <p className="text-xs font-bold text-white mt-1">Vehicle Revenue</p>
-                    <span className="text-[9px] font-mono font-bold text-emerald-400 bg-emerald-950 px-1.5 py-0.5 rounded mt-1 inline-block">APPROVED</span>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-slate-900 border border-emerald-500/30">
-                    <span className="text-base block">🛡️</span>
-                    <p className="text-xs font-bold text-white mt-1">Insurance Policy</p>
-                    <span className="text-[9px] font-mono font-bold text-emerald-400 bg-emerald-950 px-1.5 py-0.5 rounded mt-1 inline-block">APPROVED</span>
-                  </div>
-                </div>
-                <p className="text-[11px] text-slate-400 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
-                  ℹ️ Promoted by User Admin (Lahiru) or Super Admin. Driver record, vehicle entry, and compliance docs will be set to APPROVED in MSSQL.
-                </p>
-              </div>
-            </div>
-
-            <div className="px-6 py-4 border-t border-slate-800 bg-slate-950/80 flex items-center justify-end gap-3">
-              <button
-                onClick={() => setUpgradeDriverUser(null)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveUpgradeToDriver}
-                className="px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white shadow-lg shadow-emerald-600/25 transition-all flex items-center gap-1.5"
-              >
-                <span>🚗</span> Complete Upgrade to Driver
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* ── MODAL 3: Add New Passenger / Driver directly ───────────────────── */}
@@ -1230,17 +944,25 @@ function UsersPanel() {
                       <span className="text-[10px] font-mono text-emerald-400 font-bold">Strict Driver Format</span>
                     )}
                   </div>
-                  <input
-                    type="text"
-                    value={addForm.phone}
-                    onChange={e => setAddForm({ ...addForm, phone: e.target.value })}
-                    className={`w-full bg-slate-900 border rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-eco ${
-                      addUserModal.role === "DRIVER" && addForm.phone && !isValidDriverPhone(addForm.phone)
-                        ? "border-rose-500/80 focus:ring-1 focus:ring-rose-500"
+                  <div className={`flex items-center w-full bg-slate-900 border rounded-xl overflow-hidden focus-within:border-eco focus-within:ring-1 focus-within:ring-eco ${
+                      addForm.phone && !isValidDriverPhone(addForm.phone)
+                        ? "border-rose-500/80 focus-within:border-rose-500 focus-within:ring-rose-500"
                         : "border-slate-700"
-                    }`}
-                    placeholder={addUserModal.role === "DRIVER" ? "+94771234567 or 0771234567" : "0771234567"}
-                  />
+                  }`}>
+                    <span className="px-3 py-2 bg-slate-800 text-slate-400 font-mono text-sm border-r border-slate-700">
+                      +94
+                    </span>
+                    <input
+                      type="text"
+                      value={addForm.phone ? addForm.phone.replace('+94', '') : ""}
+                      onChange={e => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 9);
+                        setAddForm({ ...addForm, phone: val ? '+94' + val : '' });
+                      }}
+                      className="w-full bg-transparent px-3 py-2 text-white text-sm outline-none"
+                      placeholder="771234567"
+                    />
+                  </div>
                   {addUserModal.role === "DRIVER" && (
                     <p className="text-[11px] text-emerald-400/90 font-mono">
                       ℹ️ {DRIVER_PHONE_HELP_TEXT}
@@ -1361,6 +1083,8 @@ function UsersPanel() {
           </div>
         </div>
       )}
+
+
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* ── MODAL 4: Delete Confirmation Dialog ─────────────────────────────── */}
@@ -1785,11 +1509,18 @@ function DriverTripsPanel() {
                   <ul className="space-y-2">
                     {selectedDriver.documents.map((doc: any, i: number) => (
                       <li key={i} className="text-xs text-white">
-                        <span className="font-mono text-eco">[{doc.docType.toUpperCase()}]</span> {doc.originalFilename} 
-                        <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] ${doc.status === 'APPROVED' ? 'bg-green-500/20 text-green-400' : doc.status === 'REJECTED' ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                          {doc.status}
-                        </span>
-                        <div className="text-slate-500 font-mono text-[10px] mt-0.5 break-all">Path: {doc.filePath}</div>
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <span className="font-mono text-eco">[{doc.docType.toUpperCase()}]</span> {doc.originalFilename} 
+                            <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] ${doc.status === 'APPROVED' ? 'bg-green-500/20 text-green-400' : doc.status === 'REJECTED' ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                              {doc.status}
+                            </span>
+                            <div className="text-slate-500 font-mono text-[10px] mt-0.5 break-all">Path: {doc.filePath}</div>
+                          </div>
+                          <a href={`http://localhost:8080/api/driver/documents/${doc.id}/file`} target="_blank" rel="noreferrer" className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-blue-900/40 hover:bg-blue-800 text-blue-300 border border-blue-700/50 transition-all flex-shrink-0">
+                            View ↗
+                          </a>
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -2565,7 +2296,9 @@ function DriverDocsPanel() {
                     <td className="px-3 py-2 font-semibold text-white">{doc.driverName}</td>
                     <td className="px-3 py-2 font-mono uppercase text-eco">{doc.docType}</td>
                     <td className="px-3 py-2 font-mono text-slate-300 truncate max-w-[150px]" title={doc.originalFilename}>
-                      {doc.originalFilename}
+                      <a href={`http://localhost:8080/api/driver/documents/${doc.id}/file`} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300 hover:underline transition-colors">
+                        {doc.originalFilename}
+                      </a>
                     </td>
                     <td className="px-3 py-2">
                       <Pill color={doc.status === 'APPROVED' ? 'green' : doc.status === 'REJECTED' ? 'red' : 'yellow' as any}>
@@ -2628,11 +2361,18 @@ function DriverDocsPanel() {
                   <ul className="space-y-2">
                     {selectedDriver.documents.map((doc: any, i: number) => (
                       <li key={i} className="text-xs text-white">
-                        <span className="font-mono text-eco">[{doc.docType.toUpperCase()}]</span> {doc.originalFilename} 
-                        <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] ${doc.status === 'APPROVED' ? 'bg-green-500/20 text-green-400' : doc.status === 'REJECTED' ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                          {doc.status}
-                        </span>
-                        <div className="text-slate-500 font-mono text-[10px] mt-0.5 break-all">Path: {doc.filePath}</div>
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <span className="font-mono text-eco">[{doc.docType.toUpperCase()}]</span> {doc.originalFilename} 
+                            <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] ${doc.status === 'APPROVED' ? 'bg-green-500/20 text-green-400' : doc.status === 'REJECTED' ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                              {doc.status}
+                            </span>
+                            <div className="text-slate-500 font-mono text-[10px] mt-0.5 break-all">Path: {doc.filePath}</div>
+                          </div>
+                          <a href={`http://localhost:8080/api/driver/documents/${doc.id}/file`} target="_blank" rel="noreferrer" className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-blue-900/40 hover:bg-blue-800 text-blue-300 border border-blue-700/50 transition-all flex-shrink-0">
+                            View ↗
+                          </a>
+                        </div>
                       </li>
                     ))}
                   </ul>

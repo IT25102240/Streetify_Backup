@@ -18,6 +18,10 @@ export interface AppNotification {
 
 export const NotificationService = {
   getStorageKey(): string {
+    const email = tabStorage.getItem("user_email");
+    if (email) {
+      return `streetify_notifications_${email.toLowerCase().replace(/[^a-z0-9]/g, "_")}`;
+    }
     const role = tabStorage.getItem("user_role") || "passenger";
     return `streetify_notifications_${role.toUpperCase()}`;
   },

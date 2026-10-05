@@ -37,7 +37,7 @@ const GROUP_LABEL: Record<string, string> = {
   passenger: "Passenger",
   driver:    "Driver",
   admin:     "Admin",
-  support:   "Support",
+  support:   "",
 };
 
 export default function App() {
@@ -299,12 +299,14 @@ export default function App() {
               className={`flex items-center gap-0.5 ${gi > 0 ? "pl-2 ml-1" : ""}`}
               style={gi > 0 ? { borderLeft: "1px solid rgba(34,197,94,0.1)" } : {}}
             >
-              <span
-                className="text-[9px] font-mono mr-1 hidden lg:block uppercase tracking-widest"
-                style={{ color: "rgba(100,116,139,0.6)" }}
-              >
-                {GROUP_LABEL[group]}
-              </span>
+              {GROUP_LABEL[group] && (
+                <span
+                  className="text-[9px] font-mono mr-1 hidden lg:block uppercase tracking-widest"
+                  style={{ color: "rgba(100,116,139,0.6)" }}
+                >
+                  {GROUP_LABEL[group]}
+                </span>
+              )}
               {items.map(({ key, label, icon }) => {
                 const isActive = screen === key;
                 return (

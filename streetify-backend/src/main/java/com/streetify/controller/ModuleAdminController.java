@@ -466,38 +466,29 @@ public class ModuleAdminController {
                 nic, license, phone, id
             );
 
-            // Create or update associated Vehicle
-            Vehicle vehicle = vehicleDAO.findByDriverId(id).orElseGet(() -> {
-                Vehicle v = new Vehicle();
-                Driver ref = new Driver();
-                ref.setId(id);
-                v.setDriver(ref);
-                return v;
-            });
-            vehicle.setVehicleType(vType);
-            vehicle.setNumberPlate(plate);
-            vehicle.setMake(make);
-            vehicle.setModel(model);
-            vehicle.setColor(color);
-            vehicle.setYearOfManufacture(year);
-            vehicleDAO.save(vehicle);
+            // Create or update associated Vehicle via JDBC to avoid JPA ClassCastException due to L1 cache holding a Passenger entity
+            int vehicleCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM vehicles WHERE driver_id = ?", Integer.class, id);
+            if (vehicleCount > 0) {
+                jdbcTemplate.update(
+                    "UPDATE vehicles SET vehicle_type = ?, number_plate = ?, make = ?, model = ?, color = ?, year_of_manufacture = ? WHERE driver_id = ?",
+                    vType, plate, make, model, color, year, id
+                );
+            } else {
+                jdbcTemplate.update(
+                    "INSERT INTO vehicles (driver_id, vehicle_type, number_plate, make, model, color, year_of_manufacture, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, GETDATE())",
+                    id, vType, plate, make, model, color, year
+                );
+            }
 
             // Create or ensure required DriverDocument records in APPROVED status
             List<String> docTypes = List.of("license", "reg", "insurance");
             for (String dt : docTypes) {
-                if (driverDocumentDAO.findByDriverId(id).stream().noneMatch(d -> dt.equals(d.getDocType()))) {
-                    DriverDocument doc = new DriverDocument();
-                    Driver ref = new Driver();
-                    ref.setId(id);
-                    doc.setDriver(ref);
-                    doc.setDocType(dt);
-                    doc.setOriginalFilename(dt + "_" + user.getLastName().toLowerCase() + ".pdf");
-                    doc.setFilePath("uploads/documents/driver-" + id + "/" + dt + ".pdf");
-                    doc.setFileSizeBytes(1024L * 1024L);
-                    doc.setContentType("application/pdf");
-                    doc.setStatus(DocumentStatus.APPROVED);
-                    doc.setReviewerNote("Verified and approved during role promotion by User Admin.");
-                    driverDocumentDAO.save(doc);
+                int docCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM driver_documents WHERE driver_id = ? AND doc_type = ?", Integer.class, id, dt);
+                if (docCount == 0) {
+                    jdbcTemplate.update(
+                        "INSERT INTO driver_documents (driver_id, doc_type, original_filename, file_path, file_size_bytes, content_type, status, reviewer_note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'APPROVED', 'Verified and approved during role promotion by User Admin.', GETDATE(), GETDATE())",
+                        id, dt, dt + "_" + user.getLastName().toLowerCase() + ".pdf", "uploads/documents/driver-" + id + "/" + dt + ".pdf", 1048576L, "application/pdf"
+                    );
                 }
             }
 

@@ -208,17 +208,25 @@ public class AuthService {
      * @return AuthResponseDTO with JWT
      */
     public AuthResponseDTO login(LoginDTO dto) {
-        // Step 1: Authenticate via Spring Security (throws if credentials invalid)
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        dto.getEmail().toLowerCase().trim(),
-                        dto.getPassword()
-                )
-        );
+        String email = dto.getEmail().toLowerCase().trim();
+        java.util.Optional<User> userOpt = userDAO.findByEmail(email);
+        if (userOpt.isEmpty()) {
+            throw new IllegalArgumentException("Invalid email");
+        }
 
-        // Step 2: Load User entity from DB
-        User user = userDAO.findByEmail(dto.getEmail().toLowerCase().trim())
-                .orElseThrow(() -> new IllegalArgumentException("User not found."));
+        try {
+            // Step 1: Authenticate via Spring Security
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(email, dto.getPassword())
+            );
+        } catch (org.springframework.security.authentication.BadCredentialsException ex) {
+            throw new IllegalArgumentException("Invalid password");
+        }
+
+        // Step 2: Load User entity from DB (we already fetched it, but we can just use userOpt.get())
+        User user = userOpt.get();
+
+
 
         // Step 3: Check account status
         if (user.isSuspended()) {

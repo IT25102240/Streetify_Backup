@@ -58,7 +58,7 @@ const SEED_USERS_FALLBACK: UserRecord[] = [
   { id: 19, firstName: "Harini", lastName: "Amarasuriya", email: "passenger7@streetify.com", role: "PASSENGER", active: true, phone: "0776677889" },
 ];
 
-export default function LahiruUserDashboard() {
+export default function LahiruUserDashboard({ showDirectory = true }: { showDirectory?: boolean }) {
   const [users, setUsers] = useState<UserRecord[]>(SEED_USERS_FALLBACK);
   const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -231,7 +231,7 @@ export default function LahiruUserDashboard() {
     try {
       if (u.active) {
         await apiClient(`/module-admin/users/${u.id}`, { method: "DELETE" });
-        showToast(`User ${u.email} deactivated.`);
+        showToast(`User ${u.email} deactivated.`, "error");
       } else {
         await apiClient(`/module-admin/users/${u.id}`, { method: "PUT", body: JSON.stringify({ active: true }) });
         showToast(`User ${u.email} reactivated.`);
@@ -571,6 +571,7 @@ export default function LahiruUserDashboard() {
       </div>
 
       {/* ── 4. INTERACTIVE DIRECTORY & SEARCH TABLE (Short & Simplified) ── */}
+      {showDirectory && (
       <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
@@ -764,6 +765,7 @@ export default function LahiruUserDashboard() {
           </table>
         </div>
       </div>
+      )}
 
       {/* ── MODAL 1: EDIT USER PROFILE & EMAIL ── */}
       {editUser && (

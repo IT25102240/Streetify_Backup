@@ -116,6 +116,7 @@ export default function ScreenLogin() {
   });
   const [dragOver, setDragOver] = useState<DocKey | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [s3Err, setS3Err] = useState("");
 
   const fileRefs = {
     license:   useRef<HTMLInputElement>(null),
@@ -190,7 +191,7 @@ export default function ScreenLogin() {
   function validateStep2() {
     if (!vehicle)          { setS2Err("Select a vehicle type."); return false; }
     if (!plate.trim())     { setS2Err("Enter the vehicle number plate."); return false; }
-    if (!year.trim())      { setS2Err("Enter the year of manufacture."); return false; }
+    if (!year.trim() || parseInt(year) < 1800 || parseInt(year) > 2100) { setS2Err("Year must be between 1800 and 2100."); return false; }
     if (pw.length < 8)     { setS2Err("Password must be at least 8 characters."); return false; }
     if (pw !== pwConfirm)  { setS2Err("Passwords do not match."); return false; }
     setS2Err(""); return true;
@@ -448,19 +449,37 @@ export default function ScreenLogin() {
                   </div>
                   <Field
                     label="Mobile Number (Driver Format)" type="tel"
-                    placeholder="+94771234567 or 0771234567"
-                    value={phone} onChange={e => setPhone(e.target.value)}
-                    hint={DRIVER_PHONE_HELP_TEXT}
+                    placeholder="+94 77 123 4567"
+                    value={phone}
+                    onChange={e => {
+                      let val = e.target.value;
+                      if (!val.startsWith("+94")) {
+                        val = "+94" + val.replace(/^\+?9?4?/, "");
+                      }
+                      const digits = val.substring(3).replace(/\D/g, "").substring(0, 9);
+                      setPhone("+94" + digits);
+                    }}
+                    onFocus={() => {
+                      if (!phone) setPhone("+94");
+                    }}
+                    hint="Must be +94 followed by exactly 9 digits"
                   />
                   <Field
                     label="Email Address" type="email"
                     placeholder="driver@example.com"
-                    value={email} onChange={e => setRegEmail(e.target.value)}
+                    value={email}
+                    onChange={e => setRegEmail(e.target.value)}
+                    error={email && !email.includes("@") ? "Not a valid email" : undefined}
                   />
                   <Field
                     label="National ID / NIC"
                     placeholder="199012345678"
-                    value={nic} onChange={e => setNic(e.target.value)}
+                    value={nic}
+                    onChange={e => {
+                      const val = e.target.value.replace(/\D/g, "").substring(0, 12);
+                      setNic(val);
+                    }}
+                    error={nic && nic.length > 0 && nic.length < 12 ? "NIC must be 12 digits" : undefined}
                     hint="12-digit NIC · used for identity verification"
                   />
                   {s1Err && (
@@ -514,7 +533,12 @@ export default function ScreenLogin() {
                       label="Year of Manufacture"
                       type="number" placeholder="2019"
                       value={year}
-                      onChange={e => setYear(e.target.value)}
+                      min="1800" max="2100"
+                      onChange={e => {
+                        const val = e.target.value.replace(/\D/g, "").substring(0, 4);
+                        setYear(val);
+                      }}
+                      error={year.length > 0 && (parseInt(year) < 1800 || parseInt(year) > 2100) ? "Year must be 1800-2100" : undefined}
                     />
                   </div>
 
@@ -713,37 +737,48 @@ export default function ScreenLogin() {
                   )}
 
                   {!submitted && (
-                    <div className="flex gap-3">
-                      <Btn v="ghost" size="lg" onClick={() => setStep(2)}>← Back</Btn>
-                      <Btn
-                        v="eco" size="lg" full
-                        disabled={!allDocsUploaded || anyUploading}
-                        loading={anyUploading}
-                        onClick={async () => {
-                          try {
-                            await apiClient('/auth/register/driver', {
-                              method: 'POST',
-                              body: JSON.stringify({
-                                firstName,
-                                lastName,
-                                email,
-                                password: pw,
-                                phone,
-                                nic,
-                                vehicleType: vehicle,
-                                numberPlate: plate,
-                                yearOfManufacture: parseInt(year)
-                              })
-                            });
-                            setSubmitted(true);
-                          } catch (e: any) {
-                            alert("Registration failed: " + e.message);
-                            setSubmitted(false);
-                          }
-                        }}
-                      >
-                        {allDocsUploaded ? "Submit Application →" : `Upload ${DOC_KEYS.filter(k => !docs[k]?.done).length} more document(s)`}
-                      </Btn>
+                    <div className="space-y-3">
+                      {s3Err && (
+                        <div
+                          className="rounded-xl px-4 py-3 text-sm font-semibold"
+                          style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171" }}
+                        >
+                          ⚠ {s3Err}
+                        </div>
+                      )}
+                      <div className="flex gap-3">
+                        <Btn v="ghost" size="lg" onClick={() => { setStep(2); setS3Err(""); }}>← Back</Btn>
+                        <Btn
+                          v="eco" size="lg" full
+                          disabled={!allDocsUploaded || anyUploading}
+                          loading={anyUploading}
+                          onClick={async () => {
+                            setS3Err("");
+                            try {
+                              await apiClient('/auth/register/driver', {
+                                method: 'POST',
+                                body: JSON.stringify({
+                                  firstName,
+                                  lastName,
+                                  email,
+                                  password: pw,
+                                  phone,
+                                  nic,
+                                  vehicleType: vehicle,
+                                  numberPlate: plate,
+                                  yearOfManufacture: parseInt(year)
+                                })
+                              });
+                              setSubmitted(true);
+                            } catch (e: any) {
+                              setS3Err("Registration failed: " + e.message);
+                              setSubmitted(false);
+                            }
+                          }}
+                        >
+                          {allDocsUploaded ? "Submit Application →" : `Upload ${DOC_KEYS.filter(k => !docs[k]?.done).length} more document(s)`}
+                        </Btn>
+                      </div>
                     </div>
                   )}
 
@@ -766,12 +801,25 @@ export default function ScreenLogin() {
               <Field
                 label="Mobile Number" type="tel"
                 placeholder="+94 77 123 4567"
-                value={phone} onChange={e => setPhone(e.target.value)}
+                value={phone}
+                onChange={e => {
+                  let val = e.target.value;
+                  if (!val.startsWith("+94")) {
+                    val = "+94" + val.replace(/^\+?9?4?/, "");
+                  }
+                  const digits = val.substring(3).replace(/\D/g, "").substring(0, 9);
+                  setPhone("+94" + digits);
+                }}
+                onFocus={() => {
+                  if (!phone) setPhone("+94");
+                }}
               />
               <Field
                 label="Email Address" type="email"
                 placeholder="passenger@example.com"
-                value={email} onChange={e => setRegEmail(e.target.value)}
+                value={email}
+                onChange={e => setRegEmail(e.target.value)}
+                error={email && !email.includes("@") ? "Not a valid email" : undefined}
               />
               <div>
                 <label className="block text-sm font-semibold text-ash-light mb-1.5">Create Password</label>

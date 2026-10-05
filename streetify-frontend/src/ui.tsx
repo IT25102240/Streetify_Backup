@@ -119,16 +119,32 @@ type FieldProps = {
 } & InputHTMLAttributes<HTMLInputElement>;
 
 export function Field({ label, error, hint, wrapClass = "", className, ...props }: FieldProps) {
+  const [show, setShow] = React.useState(false);
+  const isPassword = props.type === "password";
   return (
     <label className={`block ${wrapClass}`}>
       <span className="block text-sm font-semibold text-ash-light mb-1.5">{label}</span>
-      <input
-        {...props}
-        className={`w-full px-4 py-2.5 eco-input text-sm placeholder-slate-500 transition-all
-          ${error ? "border-red-500/60 focus:ring-red-500/30" : ""}
-          ${className ?? ""}
-        `}
-      />
+      <div className="relative">
+        <input
+          {...props}
+          type={isPassword ? (show ? "text" : "password") : props.type}
+          className={`w-full px-4 py-2.5 eco-input text-sm placeholder-slate-500 transition-all
+            ${error ? "border-red-500/60 focus:ring-red-500/30" : ""}
+            ${className ?? ""}
+            ${isPassword ? "pr-10" : ""}
+          `}
+        />
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setShow(!show)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
+            title={show ? "Hide password" : "Show password"}
+          >
+            {show ? "🙈" : "👁️"}
+          </button>
+        )}
+      </div>
       {error && <p className="mt-1.5 text-xs text-red-400 font-semibold flex items-center gap-1"><span>⚠</span>{error}</p>}
       {hint && !error && <p className="mt-1.5 text-xs text-ash-dark">{hint}</p>}
     </label>
@@ -231,7 +247,7 @@ export function Toast({
   const icon = { success: "✅", error: "❌", info: "ℹ️" }[type];
   return (
     <div
-      className={`fixed bottom-6 right-6 z-[9999] ${styles} text-white px-5 py-4 rounded-2xl shadow-2xl max-w-sm toast-enter flex items-start gap-3 border backdrop-blur-md`}
+      className={`fixed bottom-[72px] right-6 z-[9999] ${styles} text-white px-5 py-4 rounded-2xl shadow-2xl max-w-sm toast-enter flex items-start gap-3 border backdrop-blur-md`}
     >
       <span className="text-xl flex-none mt-0.5">{icon}</span>
       <div>

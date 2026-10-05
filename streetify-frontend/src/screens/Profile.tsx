@@ -80,6 +80,7 @@ export default function ScreenProfile() {
   const [otpCode,     setOtpCode]     = useState("");
   const [otpNewPw,    setOtpNewPw]    = useState("");
   const [otpSent,     setOtpSent]     = useState(false);
+  const [otpSuccess,  setOtpSuccess]  = useState(false);
   const [otpLoading,  setOtpLoading]  = useState(false);
 
   const role = tabStorage.getItem("user_role")?.toLowerCase() || "passenger";
@@ -124,11 +125,14 @@ export default function ScreenProfile() {
   }, []);
 
   const saveProfile = async () => {
-    if (role === "driver" || profile?.role?.toLowerCase() === "driver") {
-      if (!isValidDriverPhone(phone)) {
-        showToast(DRIVER_PHONE_ERROR_MSG, "error");
-        return;
-      }
+    if (!email.includes("@")) {
+      showToast("Email must contain @ symbol.", "error");
+      return;
+    }
+    const phoneClean = phone.replace(/\s/g, "");
+    if (!phoneClean.startsWith("+94") || phoneClean.length !== 12 || !/^\+94\d{9}$/.test(phoneClean)) {
+      showToast("Phone number must start with +94 followed by exactly 9 digits.", "error");
+      return;
     }
     setSaving(true);
     try {
@@ -210,14 +214,18 @@ export default function ScreenProfile() {
     if (!otpEmail.trim()) { showToast("Enter your email address", "error"); return; }
     setOtpLoading(true);
     try {
-      try {
-        await apiClient("/auth/reset-password", {
-          method: "POST",
-          body: JSON.stringify({ email: otpEmail.trim() }),
-        });
-      } catch {}
-      const code = NotificationService.sendOtp(otpEmail.trim(), "Password Reset");
-      setOtpCode(code);
+      const res = await apiClient<{ otp: string }>("/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({ email: otpEmail.trim() }),
+      });
+      NotificationService.send({
+        type: "OTP",
+        title: `SMS from Streetify (Password Reset)`,
+        message: `Your verification code is ${res.otp}. Valid for 5 minutes. Do not share this PIN with anyone.`,
+        code: res.otp,
+        data: { target: otpEmail.trim(), purpose: "Password Reset" }
+      });
+      setOtpCode(res.otp);
       setOtpSent(true);
       showToast("OTP sent via Notification Service (Check SMS/Bell) ✓", "info");
     } catch (err: any) {
@@ -232,12 +240,20 @@ export default function ScreenProfile() {
     if (otpNewPw.length < 8) { showToast("Password must be at least 8 characters", "error"); return; }
     setOtpLoading(true);
     try {
-      await apiClient("/auth/verify-otp", {
+      const res = await apiClient<{ message?: string }>("/auth/verify-otp", {
         method: "POST",
         body: JSON.stringify({ email: otpEmail, otp: otpCode, newPassword: otpNewPw }),
       });
-      showToast("Password reset successfully! Please log in again.", "success");
-      setOtpSent(false); setOtpCode(""); setOtpNewPw(""); setOtpEmail("");
+      setOtpSuccess(true);
+      showToast(res.message || "Password reset successfully! Please log in again.", "success");
+      NotificationService.send({
+        type: "SYSTEM",
+        title: "Password Reset Successful",
+        message: "Your password was successfully updated via OTP."
+      });
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("auth-logout"));
+      }, 3000);
     } catch (err: any) {
       showToast(err.message || "Invalid OTP or OTP expired", "error");
     } finally {
@@ -329,13 +345,21 @@ export default function ScreenProfile() {
                   onChange={e => setEmail(e.target.value)}
                   placeholder="user@streetify.lk"
                   type="email"
+                  error={email.length > 0 && !email.includes("@") ? "Not a valid email." : undefined}
                 />
                 <Field
-                  label={role === "driver" || profile?.role?.toLowerCase() === "driver" ? "Phone Number (Driver Format)" : "Phone Number"}
+                  label="Phone Number"
                   value={phone}
-                  onChange={e => setPhone(e.target.value)}
-                  placeholder={role === "driver" || profile?.role?.toLowerCase() === "driver" ? "+94771234567 or 0771234567" : "+94 71 234 5678"}
-                  hint={role === "driver" || profile?.role?.toLowerCase() === "driver" ? DRIVER_PHONE_HELP_TEXT : undefined}
+                  onChange={e => {
+                    let cleaned = e.target.value.replace(/[^\d+]/g, '');
+                    if (!cleaned.startsWith('+94')) {
+                      cleaned = '+94' + cleaned.replace(/^\+94/, '');
+                    }
+                    const prefix = '+94';
+                    const digits = cleaned.slice(prefix.length).replace(/\D/g, '').slice(0, 9);
+                    setPhone(prefix + digits);
+                  }}
+                  placeholder="+94771234567"
                   type="tel"
                 />
                 <Field
@@ -526,10 +550,16 @@ export default function ScreenProfile() {
               value={otpEmail}
               onChange={e => setOtpEmail(e.target.value)}
               placeholder="your@email.com"
-              disabled={otpSent}
+              disabled={otpSent || otpSuccess}
             />
 
-            {!otpSent ? (
+            {otpSuccess ? (
+              <div className="bg-emerald-900/40 border border-emerald-500/50 rounded-2xl p-6 text-center space-y-3 shadow-lg shadow-emerald-900/20">
+                <div className="text-4xl animate-bounce">✅</div>
+                <h3 className="text-emerald-400 font-extrabold text-lg">Password Reset Successfully</h3>
+                <p className="text-emerald-200/70 text-sm">You will be securely signed out in a few seconds to log in with your new password.</p>
+              </div>
+            ) : !otpSent ? (
               <Btn v="primary" full onClick={sendOtp} loading={otpLoading} disabled={!otpEmail.trim()}>
                 📤 Send OTP to Email
               </Btn>

@@ -113,8 +113,8 @@ export default function Footer({ onNavigate }: FooterProps) {
         />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* ── Main 4-column grid ── */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
+          {/* ── Main 2-column grid ── */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-12">
 
             {/* ── Column 1: Brand & System ── */}
             <div className="space-y-5">
@@ -149,26 +149,10 @@ export default function Footer({ onNavigate }: FooterProps) {
               </div>
 
               <p className="text-xs leading-relaxed" style={{ color: "#64748b" }}>
-                Sri Lanka's eco-conscious urban transportation platform. Full-stack powered by Spring Boot, Microsoft SQL Server, React & WebSocket real-time dispatch engine.
+                Streetify is a comprehensive, eco-conscious web-based transportation platform designed to revolutionize urban mobility in Sri Lanka. It seamlessly connects passengers with drivers through a sophisticated real-time dispatch engine, offering an intuitive ride-booking experience, live tracking, and secure payment integrations. Built with a focus on sustainability, Streetify promotes green travel initiatives while providing robust management tools for fleet operations, dispute resolution, and system governance.
               </p>
 
-              {/* Status badges */}
-              <div className="space-y-2">
-                <div
-                  className="flex items-center gap-2 text-xs font-mono px-3 py-1.5 rounded-lg"
-                  style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", color: "#4ade80" }}
-                >
-                  <span className="w-2 h-2 rounded-full bg-eco animate-pulse inline-block" style={{ background: "#22c55e" }} />
-                  MSSQL Database · Port 1433
-                </div>
-                <div
-                  className="flex items-center gap-2 text-xs font-mono px-3 py-1.5 rounded-lg"
-                  style={{ background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.2)", color: "#7dd3fc" }}
-                >
-                  <span className="w-2 h-2 rounded-full inline-block" style={{ background: "#38bdf8" }} />
-                  REST API & WebSocket · Port 8080
-                </div>
-              </div>
+
 
               {/* Payment badges */}
               <div className="flex flex-wrap gap-1.5">
@@ -184,67 +168,6 @@ export default function Footer({ onNavigate }: FooterProps) {
               </div>
             </div>
 
-            {/* ── Column 2: Team ── */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-mono font-black uppercase tracking-widest flex items-center gap-2" style={{ color: "#4ade80" }}>
-                <span>👥</span> Developers & Project Owners
-              </h4>
-              <p className="text-xs" style={{ color: "rgba(100,116,139,0.7)" }}>Software Engineering Capstone · Group 24</p>
-
-              <ul className="space-y-1.5">
-                {TEAM.map(m => (
-                  <li
-                    key={m.no}
-                    className="flex items-center gap-2.5 p-2 rounded-xl transition-all hover:scale-[1.01]"
-                    style={{ background: "rgba(15,36,64,0.4)", border: `1px solid rgba(30,58,95,0.5)` }}
-                  >
-                    <div
-                      className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black flex-none"
-                      style={{ background: m.color + "20", color: m.color, border: `1px solid ${m.color}40` }}
-                    >
-                      {m.no}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-white truncate">{m.name}</p>
-                      <p className="text-[10px] truncate" style={{ color: "rgba(100,116,139,0.7)" }}>{m.role}</p>
-                    </div>
-                    <span
-                      className="text-[9px] font-mono font-black px-1.5 py-0.5 rounded-md flex-none"
-                      style={{ background: m.color + "15", color: m.color, border: `1px solid ${m.color}30` }}
-                    >
-                      {m.badge}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* ── Column 3: Portals ── */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-mono font-black uppercase tracking-widest flex items-center gap-2" style={{ color: "#4ade80" }}>
-                <span>⚡</span> Actor Portals & Modules
-              </h4>
-              <div className="space-y-1.5">
-                {PORTALS.map(p => (
-                  <button
-                    key={p.screen}
-                    onClick={() => handleQuickNav(p.screen)}
-                    className="w-full flex items-center justify-between text-left px-3 py-2 rounded-xl transition-all text-xs hover:scale-[1.01]"
-                    style={{
-                      background: p.color,
-                      border: `1px solid ${p.border}`,
-                      color: "#cbd5e1",
-                    }}
-                  >
-                    <span className="flex items-center gap-2">
-                      <span>{p.icon}</span>
-                      <span className="font-semibold">{p.label}</span>
-                    </span>
-                    <span style={{ color: p.border.replace("0.3", "0.8") }}>→</span>
-                  </button>
-                ))}
-              </div>
-            </div>
 
             {/* ── Column 4: Contact & Info ── */}
             <div className="space-y-4">
@@ -282,26 +205,7 @@ export default function Footer({ onNavigate }: FooterProps) {
                 </div>
               </div>
 
-              {/* Tech stack */}
-              <div
-                className="p-3 rounded-xl"
-                style={{ background: "rgba(6,14,30,0.6)", border: "1px solid rgba(30,58,95,0.4)" }}
-              >
-                <p className="text-[10px] font-mono font-bold uppercase tracking-wider mb-2" style={{ color: "#4a6580" }}>
-                  Tech Stack
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {["Spring Boot 3", "MSSQL", "React 18", "Tailwind", "WebSocket", "JWT RS256", "OpenStreetMap"].map(t => (
-                    <span
-                      key={t}
-                      className="text-[10px] font-mono px-1.5 py-0.5 rounded"
-                      style={{ background: "rgba(30,58,95,0.6)", color: "#64748b", border: "1px solid rgba(30,58,95,0.5)" }}
-                    >
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              </div>
+
 
               {/* Eco badge */}
               <div
