@@ -10,7 +10,7 @@
  * Generates detailed receipts for both driver and passenger
  */
 
-export type VehicleType = "STANDARD" | "XL" | "MOTO";
+export type VehicleType = "STANDARD" | "XL" | "MOTO" | "TUK";
 export type PaymentMethod = "CASH" | "CARD" | "WALLET";
 
 export interface FareBreakdown {
@@ -81,6 +81,14 @@ const VEHICLE_CONFIGS: Record<VehicleType, {
     perKmRate: 18,
     perMinuteRate: 3,
     fuelConsumptionLtrPerKm: 0.03, // ~33 km/L
+    fuelPricePerLtr: 350,
+    demandMultiplier: { min: 1.0, max: 2.0 },
+  },
+  TUK: {
+    baseFare: 120,
+    perKmRate: 22,
+    perMinuteRate: 4,
+    fuelConsumptionLtrPerKm: 0.04, // ~25 km/L (3-wheeler)
     fuelPricePerLtr: 350,
     demandMultiplier: { min: 1.0, max: 2.0 },
   },

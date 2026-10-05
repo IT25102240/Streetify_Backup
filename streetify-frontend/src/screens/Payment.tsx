@@ -47,6 +47,7 @@ export default function ScreenPayment() {
   const [bankOtp, setBankOtp] = useState("582104");
   const [verifying3DS, setVerifying3DS] = useState(false);
   const [gatewayRef, setGatewayRef] = useState("");
+  const [emailSent, setEmailSent] = useState(false);
 
   useEffect(() => {
     const active = tabStorage.getItem("active_trip") || tabStorage.getItem("last_completed_trip");
@@ -258,8 +259,9 @@ export default function ScreenPayment() {
               <Btn v="secondary" size="md" className="flex-1" onClick={() => window.print()}>🖨️ Print Receipt</Btn>
               <Btn v="secondary" size="md" className="flex-1" onClick={() => {
                 NotificationService.sendReceipt(trip?.tripId, receipt?.grossAmount || totalAmount, method);
-                alert("Receipt PDF dispatched to your registered email!");
-              }}>📧 Email PDF</Btn>
+                setEmailSent(true);
+                setTimeout(() => setEmailSent(false), 3500);
+              }}>{emailSent ? "✅ Receipt Sent!" : "📧 Email PDF"}</Btn>
             </div>
             <Btn v="primary" size="lg" full onClick={() => { 
               setPs("idle"); 

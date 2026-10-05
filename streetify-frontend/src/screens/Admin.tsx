@@ -17,11 +17,12 @@ type AdminTab = "analytics" | "users" | "drivers" | "bookings" | "driver-trips" 
 export type FormField = {
   id: string;
   label: string;
-  type?: "text" | "number" | "select" | "password" | "location" | "file";
+  type?: "text" | "number" | "select" | "password" | "location" | "file" | "textarea";
   options?: string[];
   defaultValue?: string | number;
   readOnly?: boolean;
   disabled?: boolean;
+  required?: boolean;
   helpText?: string;
 };
 
@@ -40,6 +41,106 @@ export const showConfirm = (title: string, message: string): Promise<boolean> =>
     window.dispatchEvent(new CustomEvent('admin-confirm-open', { detail: { title, message } }));
   });
 };
+
+
+
+
+export function AdminFormModal() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [details, setDetails] = useState<{ title: string, fields: FormField[] }>({ title: "", fields: [] });
+  const [formData, setFormData] = useState<Record<string, any>>({});
+  
+  useEffect(() => {
+    const handleOpen = (e: any) => {
+      setDetails(e.detail);
+      const initData: Record<string, any> = {};
+      e.detail.fields.forEach((f: any) => { initData[f.id] = f.defaultValue || ""; });
+      setFormData(initData);
+      setIsOpen(true);
+    };
+    window.addEventListener('admin-form-open', handleOpen);
+    return () => window.removeEventListener('admin-form-open', handleOpen);
+  }, []);
+
+  const handleClose = (submit: boolean) => {
+    setIsOpen(false);
+    window.dispatchEvent(new CustomEvent('admin-form-close', { detail: { data: submit ? formData : null } }));
+  };
+
+  const handleChange = async (id: string, value: any, type?: string) => {
+    if (type === 'file') {
+      const file = (document.getElementById(id) as HTMLInputElement)?.files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          setFormData(prev => ({ ...prev, [id]: { name: file.name, type: file.type, size: file.size, base64: reader.result } }));
+        };
+        reader.readAsDataURL(file);
+      }
+    } else {
+      setFormData(prev => ({ ...prev, [id]: value }));
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+      <div className="bg-slate-900 border border-slate-700/50 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col overflow-hidden max-h-[90vh] animate-in zoom-in-95 duration-200">
+        <div className="px-6 py-4 border-b border-slate-800 bg-slate-800/50 flex justify-between items-center">
+          <h2 className="text-lg font-black text-white">{details.title}</h2>
+          <button onClick={() => handleClose(false)} className="text-slate-400 hover:text-white transition-colors">Close</button>
+        </div>
+        <div className="p-6 overflow-y-auto flex-1 space-y-4">
+          {details.fields.map(f => (
+            <div key={f.id} className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">{f.label} {f.required && <span className="text-red-500">*</span>}</label>
+              {f.type === "select" ? (
+                <select 
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-eco focus:border-transparent transition-all"
+                  value={formData[f.id] || ""}
+                  onChange={e => handleChange(f.id, e.target.value)}
+                  required={f.required}
+                >
+                  <option value="">-- Select --</option>
+                  {f.options?.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              ) : f.type === "textarea" ? (
+                <textarea 
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-eco focus:border-transparent transition-all min-h-[100px]"
+                  value={formData[f.id] || ""}
+                  onChange={e => handleChange(f.id, e.target.value)}
+                  required={f.required}
+                />
+              ) : f.type === "file" ? (
+                <input 
+                  id={f.id}
+                  type="file" 
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-eco/10 file:text-eco hover:file:bg-eco/20 transition-all cursor-pointer"
+                  onChange={e => handleChange(f.id, e, 'file')}
+                  required={f.required}
+                />
+              ) : (
+                <input 
+                  type={f.type || "text"}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-eco focus:border-transparent transition-all"
+                  value={formData[f.id] || ""}
+                  onChange={e => handleChange(f.id, e.target.value)}
+                  required={f.required}
+                />
+              )}
+              {f.helpText && <p className="text-[10px] text-slate-500 mt-1">{f.helpText}</p>}
+            </div>
+          ))}
+        </div>
+        <div className="px-6 py-4 border-t border-slate-800 bg-slate-800/30 flex justify-end gap-3">
+          <button onClick={() => handleClose(false)} className="px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:text-white hover:bg-slate-700/50 transition-colors">Cancel</button>
+          <button onClick={() => handleClose(true)} className="px-6 py-2 rounded-xl text-sm font-bold bg-eco hover:bg-eco-dark text-navy shadow-lg shadow-eco/20 transition-all">Submit</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function ConfirmContainer() {
   const [isOpen, setIsOpen] = useState(false);
@@ -369,6 +470,7 @@ export default function AdminDashboard() {
   const isDahamPaymentAdmin = adminRole === "PAYMENT_MGMT" || adminEmail.toLowerCase().includes("daham") || adminEmail.toLowerCase().includes("finance");
   const isLahiruUserAdmin = adminRole === "USER_MGMT" || adminEmail.toLowerCase().includes("lahiru");
   const isMithunReviewAdmin = adminRole === "REVIEW_MGMT" || adminEmail.toLowerCase().includes("mithun");
+  const isTharinduDriverAdmin = adminRole === "DRIVER_MGMT" || adminEmail.toLowerCase().includes("tharindu");
 
   const allowedTabs: { key: AdminTab; icon: string; label: string; external?: string }[] = [];
 
@@ -392,7 +494,15 @@ export default function AdminDashboard() {
     allowedTabs.push({ key: "export", icon: "📁", label: "Export Payment Reports" });
   } else {
     // Analytics dashboard — visible to all admin roles
-    allowedTabs.push({ key: "analytics", icon: "📊", label: "System Summary Dashboard" });
+    
+    if (adminRole === "DRIVER_MGMT") {
+      allowedTabs.push({ key: "analytics", icon: "🚕", label: "Driver Summary (Tharindu / Super Admin)" });
+    } else if (adminRole === "REVIEW_MGMT") {
+      allowedTabs.push({ key: "analytics", icon: "⭐", label: "Review Summary (Mithun / Super Admin)" });
+    } else {
+      allowedTabs.push({ key: "analytics", icon: "📊", label: "System Summary Dashboard" });
+    }
+
 
     if (adminRole === "SUPER_ADMIN" || adminRole === "USER_MGMT") {
       allowedTabs.push({ key: "users", icon: "🧑", label: "User Management" });
@@ -584,7 +694,7 @@ export default function AdminDashboard() {
         <header className="bg-navy border-eco/10 border-b border-slate-800 px-6 py-3.5 flex items-center justify-between flex-none shadow-sm">
           <div>
             <h1 className="font-extrabold text-white text-lg leading-tight">
-              {allowedTabs.find(t => t.key === tab)?.label || (tab === "booking-summary" ? "Booking Summary Dashboard" : tab === "payment-summary" ? "Payment Summary Dashboard" : "System Summary Dashboard")}
+              {allowedTabs.find(t => t.key === tab)?.label || (tab === "booking-summary" ? "Booking Summary Dashboard" : tab === "payment-summary" ? "Payment Summary Dashboard" : (isTharinduDriverAdmin || isSuperAdmin) ? "Driver Summary (Tharindu / Super Admin)" : (isMithunReviewAdmin || isSuperAdmin) ? "Review Summary (Mithun / Super Admin)" : "System Summary Dashboard")}
             </h1>
             <p className="text-[11px] text-slate-400 font-mono mt-0.5">
               MSSQL · /api/module-admin/{tab === "booking-summary" ? "bookings/summary" : tab === "payment-summary" ? "payments/summary" : tab}
@@ -1446,7 +1556,7 @@ function BookingsPanel() {
     }
   };
 
-  useEffect(() => { 
+  useEffect(() => {
     fetchTrips(); 
     const unsub = tripSyncService.subscribeAll(() => {
       fetchTrips();
@@ -1676,6 +1786,7 @@ function BookingsPanel() {
 
 function DriverTripsPanel() {
   const [trips, setTrips] = useState<any[]>([]);
+  const [drivers, setDrivers] = useState<any[]>([]);
   const [selectedDriver, setSelectedDriver] = useState<any>(null);
 
   const fetchTrips = async () => {
@@ -1686,6 +1797,7 @@ function DriverTripsPanel() {
   };
 
   useEffect(() => { 
+    apiClient<any[]>('/module-admin/drivers').then(data => setDrivers(data || [])).catch(console.error);
     fetchTrips(); 
     const unsub = tripSyncService.subscribeAll(() => {
       fetchTrips();
@@ -1694,7 +1806,7 @@ function DriverTripsPanel() {
   }, []);
 
   const handleAdd = async () => {
-    const driverOptions = drivers.map(d => `${d.id} - ${d.firstName} ${d.lastName}`);
+    const driverOptions = drivers.map((d: any) => `${d.id} - ${d.firstName} ${d.lastName}`);
     const data = await openAdminForm("Add New Trip", [
       { id: "pickupAddress", label: "Pickup Address", type: "location", defaultValue: "" },
       { id: "dropoffAddress", label: "Dropoff Address", type: "location", defaultValue: "" },

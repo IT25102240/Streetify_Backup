@@ -94,13 +94,20 @@ export default function ScreenProfile() {
     const loadProfile = async () => {
       setLoading(true);
       try {
-        const data = await apiClient<UserProfile>("/auth/me");
+        const data = await apiClient<UserProfile & { fullName?: string }>("/auth/me");
         setProfile(data);
-        setFirst(data.firstName || "");
-        setLast(data.lastName  || "");
-        setEmail(data.email    || "");
-        setPhone(data.phone    || "");
-        setAddr(data.address   || "");
+        // Backend returns 'fullName' as combined field OR firstName/lastName separately
+        if (data.fullName && !data.firstName) {
+          const parts = data.fullName.trim().split(' ');
+          setFirst(parts[0] || '');
+          setLast(parts.slice(1).join(' ') || '');
+        } else {
+          setFirst(data.firstName || '');
+          setLast(data.lastName  || '');
+        }
+        setEmail(data.email    || '');
+        setPhone(data.phone    || '');
+        setAddr(data.address   || '');
       } catch {
         /* Use tabStorage fallback */
         const name = (tabStorage.getItem("user_name") || "").split(" ");
@@ -129,9 +136,11 @@ export default function ScreenProfile() {
       showToast("Email must contain @ symbol.", "error");
       return;
     }
-    const phoneClean = phone.replace(/\s/g, "");
-    if (!phoneClean.startsWith("+94") || phoneClean.length !== 12 || !/^\+94\d{9}$/.test(phoneClean)) {
-      showToast("Phone number must start with +94 followed by exactly 9 digits.", "error");
+    const phoneClean = phone.replace(/\s/g, '');
+    // Accept both +94XXXXXXXXX (12 chars) and 0XXXXXXXXX (10 chars)
+    const isValidPhone = /^\+94\d{9}$/.test(phoneClean) || /^0\d{9}$/.test(phoneClean);
+    if (!isValidPhone) {
+      showToast('Phone must be +94 followed by 9 digits (e.g. +94771234567).', 'error');
       return;
     }
     setSaving(true);

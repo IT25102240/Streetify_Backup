@@ -23,33 +23,57 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadowUrl,
 });
 
-/* ── Default fallback (Kandy - Deiyannewela Lane) + known Sri Lankan locations ── */
+/* ── Default fallback (Kandy - Deiyannewela Lane) + comprehensive Sri Lankan locations ── */
 const DEFAULT_MAP_CENTER = { lat: 7.2847, lng: 80.6275 };
 
-const LOCATION_COORDS: Record<string, [number, number]> = {
-  "home":                         [7.2847, 80.6275],
-  "deiyannewela":                 [7.2847, 80.6275],
-  "deiyannewela lane":            [7.2847, 80.6275],
-  "deiyannewela lane, william gopallawa mawatha, kandy": [7.2847, 80.6275],
-  "sliit kandy uni":              [7.2804, 80.7050],
-  "sliit kandy uni, pallekele":   [7.2804, 80.7050],
-  "kcc":                          [7.2936, 80.6350],
-  "kandy city centre":            [7.2936, 80.6350],
-  "kandy":                        [7.2906, 80.6337],
-  "colombo fort railway station": [6.9337, 79.8452],
-  "42/b kotte road, nugegoda":    [6.8649, 79.8997],
-  "world trade centre, col 01":   [6.9329, 79.8438],
-  "bandaranaike int. airport":    [7.1805, 79.8837],
-  "nawaloka hospital, col 02":    [6.9208, 79.8519],
-  "office":                       [6.9329, 79.8438],
-  "bia terminal 1":               [7.1805, 79.8837],
-  "nawaloka":                     [6.9208, 79.8519],
-};
+const LOCATION_COORDS: Array<{ keys: string[]; coords: [number, number] }> = [
+  { keys: ["home", "deiyannewela", "deiyannewela lane", "william gopallawa", "deiyannewela lane, william gopallawa mawatha, kandy"], coords: [7.2847, 80.6275] },
+  { keys: ["sliit", "pallekele", "sliit kandy", "sliit kandy uni"], coords: [7.2804, 80.7050] },
+  { keys: ["kcc", "kandy city centre", "dalada veediya", "kandy city"], coords: [7.2936, 80.6350] },
+  { keys: ["kandy lake", "kandy lake round"], coords: [7.2917, 80.6410] },
+  { keys: ["dalada maligawa", "temple of the sacred tooth", "tooth relic"], coords: [7.2936, 80.6413] },
+  { keys: ["peradeniya", "royal botanical gardens", "botanical garden"], coords: [7.2687, 80.5968] },
+  { keys: ["kandy"], coords: [7.2906, 80.6337] },
+  { keys: ["colombo fort", "fort railway", "colombo fort railway", "railway station, colombo"], coords: [6.9337, 79.8452] },
+  { keys: ["world trade", "wtc", "echelon square", "world trade centre, col 01", "world trade center"], coords: [6.9329, 79.8438] },
+  { keys: ["bandaranaike", "bia", "airport", "katunayake", "international airport"], coords: [7.1805, 79.8837] },
+  { keys: ["nawaloka", "nawaloka hospital"], coords: [6.9208, 79.8519] },
+  { keys: ["galle face", "galle face green"], coords: [6.9270, 79.8450] },
+  { keys: ["lotus tower", "colombo lotus"], coords: [6.9273, 79.8584] },
+  { keys: ["one galle face", "1a centre road"], coords: [6.9277, 79.8436] },
+  { keys: ["majestic city", "10 station rd"], coords: [6.8937, 79.8549] },
+  { keys: ["mount lavinia", "mount lavinia hotel"], coords: [6.8333, 79.8656] },
+  { keys: ["independence", "independence memorial", "independence ave"], coords: [6.9048, 79.8677] },
+  { keys: ["national museum", "marcus fernando", "colombo museum"], coords: [6.9099, 79.8608] },
+  { keys: ["gangaramaya", "sri jinarathana"], coords: [6.9168, 79.8564] },
+  { keys: ["nugegoda", "kotte", "42/b kotte"], coords: [6.8649, 79.8997] },
+  { keys: ["sigiriya", "sigiriya rock"], coords: [7.9570, 80.7603] },
+  { keys: ["dambulla", "dambulla cave"], coords: [7.8567, 80.6486] },
+  { keys: ["nine arches", "demodara", "ella bridge"], coords: [6.8767, 81.0607] },
+  { keys: ["little adam", "adams peak", "ella passara"], coords: [6.8622, 81.0543] },
+  { keys: ["galle dutch", "galle fort", "church st, galle"], coords: [6.0270, 80.2170] },
+  { keys: ["mirissa", "mirissa beach"], coords: [5.9483, 80.4571] },
+  { keys: ["unawatuna", "unawatuna beach"], coords: [6.0104, 80.2492] },
+  { keys: ["gregory lake", "nuwara eliya"], coords: [6.9530, 80.7819] },
+  { keys: ["jaffna fort", "jaffna city"], coords: [9.6615, 80.0090] },
+  { keys: ["nallur", "kandaswamy", "nallur kovil"], coords: [9.6745, 80.0294] },
+  { keys: ["negombo", "negombo beach", "porutota"], coords: [7.2275, 79.8407] },
+  { keys: ["pinnawala", "elephant orphanage", "rambukkana"], coords: [7.3015, 80.3871] },
+  { keys: ["office"], coords: [6.9329, 79.8438] },
+];
 
 function resolveLatLng(addr?: string): [number, number] | null {
   if (!addr) return null;
   const key = addr.toLowerCase().trim();
-  return LOCATION_COORDS[key] ?? null;
+  // Try exact match first (fastest)
+  for (const entry of LOCATION_COORDS) {
+    if (entry.keys.includes(key)) return entry.coords;
+  }
+  // Fuzzy partial match — handles partial strings like just "kandy" or "airport"
+  for (const entry of LOCATION_COORDS) {
+    if (entry.keys.some(k => key.includes(k) || k.includes(key))) return entry.coords;
+  }
+  return null;
 }
 
 /* ── Custom Leaflet div icons ── */

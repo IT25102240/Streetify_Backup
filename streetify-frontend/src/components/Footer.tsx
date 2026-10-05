@@ -13,6 +13,7 @@ export default function Footer({ onNavigate }: FooterProps) {
   const [showDataRetention, setShowDataRetention] = useState(false);
   const [showMobileApp,     setShowMobileApp]     = useState(false);
   const [tourStep,          setTourStep]          = useState(0);
+  const [appDownloadMsg,    setAppDownloadMsg]    = useState("");
 
   const TOUR_STEPS = [
     {
@@ -442,15 +443,20 @@ export default function Footer({ onNavigate }: FooterProps) {
             </div>
           </div>
           <div className="space-y-2">
+            {appDownloadMsg && (
+              <div className="p-2.5 rounded-xl text-xs font-bold text-emerald-300 bg-emerald-950/60 border border-emerald-500/40 text-center mb-2">
+                ✅ {appDownloadMsg}
+              </div>
+            )}
             <button
-              onClick={() => { alert("Streetify APK v2.0 — download initiated."); setShowMobileApp(false); }}
+              onClick={() => { setAppDownloadMsg("Streetify APK v2.0 — download initiated."); setTimeout(() => { setAppDownloadMsg(""); setShowMobileApp(false); }, 2500); }}
               className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-2"
               style={{ background: "linear-gradient(135deg, #16a34a, #22c55e)", boxShadow: "0 0 16px rgba(34,197,94,0.25)" }}
             >
               <span>⬇️</span> Download Android APK
             </button>
             <button
-              onClick={() => { alert("iOS TestFlight invitation sent to registered email."); setShowMobileApp(false); }}
+              onClick={() => { setAppDownloadMsg("iOS TestFlight invitation sent to registered email."); setTimeout(() => { setAppDownloadMsg(""); setShowMobileApp(false); }, 2500); }}
               className="w-full py-2 px-4 rounded-xl text-xs font-semibold transition-all"
               style={{ background: "rgba(15,36,64,0.6)", border: "1px solid rgba(30,58,95,0.5)", color: "#94a3b8" }}
             >

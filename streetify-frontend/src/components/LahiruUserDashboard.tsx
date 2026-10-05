@@ -76,6 +76,7 @@ export default function LahiruUserDashboard({ showDirectory = true }: { showDire
   const [deleteConfirmUser, setDeleteConfirmUser] = useState<UserRecord | null>(null);
   const [upgradeDriverUser, setUpgradeDriverUser] = useState<UserRecord | null>(null);
   const [addModalType, setAddModalType] = useState<"PASSENGER" | "DRIVER" | null>(null);
+  const [downgradeConfirmUser, setDowngradeConfirmUser] = useState<UserRecord | null>(null);
 
   // Form states for driver upgrade
   const [driverPhone, setDriverPhone] = useState("");
@@ -304,13 +305,18 @@ export default function LahiruUserDashboard({ showDirectory = true }: { showDire
 
   // Immediate Downgrade: Driver -> Passenger
   const handleDowngradeToPassenger = async (u: UserRecord) => {
-    if (!window.confirm(`⚠️ Demote driver ${u.email} to standard PASSENGER immediately?`)) return;
+    setDowngradeConfirmUser(u);
+  };
+
+  const handleConfirmDowngrade = async () => {
+    if (!downgradeConfirmUser) return;
     try {
-      await apiClient(`/module-admin/users/${u.id}/change-role`, {
+      await apiClient(`/module-admin/users/${downgradeConfirmUser.id}/change-role`, {
         method: "POST",
         body: JSON.stringify({ targetRole: "PASSENGER" })
       });
-      showToast(`Driver ${u.email} converted back to PASSENGER immediately! ✓`);
+      showToast(`Driver ${downgradeConfirmUser.email} converted back to PASSENGER immediately! ✓`);
+      setDowngradeConfirmUser(null);
       loadData();
     } catch (e: any) {
       showToast(e.message || "Role downgrade failed", "error");
@@ -1232,6 +1238,39 @@ export default function LahiruUserDashboard({ showDirectory = true }: { showDire
                 className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-md shadow-red-600/30 transition-all cursor-pointer"
               >
                 Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL 5: DOWNGRADE CONFIRMATION ── */}
+      {downgradeConfirmUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-amber-500/40 rounded-2xl w-full max-w-sm p-6 shadow-2xl space-y-4">
+            <div className="text-center space-y-2">
+              <span className="w-12 h-12 rounded-full bg-amber-950/60 border border-amber-500/40 text-amber-400 flex items-center justify-center text-xl mx-auto">
+                ⚠️
+              </span>
+              <h3 className="text-base font-extrabold text-white">Demote Driver to Passenger?</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Are you sure you want to demote <strong className="text-white font-mono">{downgradeConfirmUser.email}</strong> from DRIVER to PASSENGER immediately?
+                Their vehicle record will be removed.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                onClick={() => setDowngradeConfirmUser(null)}
+                className="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDowngrade}
+                className="flex-1 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-md shadow-amber-600/30 transition-all cursor-pointer"
+              >
+                Yes, Demote
               </button>
             </div>
           </div>

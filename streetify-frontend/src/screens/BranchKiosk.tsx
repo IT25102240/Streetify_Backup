@@ -135,6 +135,7 @@ export default function BranchKiosk() {
   const [standbyDriver, setStandbyDriver] = useState<string>("auto");
   const [isDispatching, setIsDispatching] = useState(false);
   const [dispatchError, setDispatchError] = useState<string | null>(null);
+  const [kioskError, setKioskError] = useState<string>("");
 
   // Step 4: Confirmed Trip & Printable Pass
   const [confirmedTrip, setConfirmedTrip] = useState<BranchBookingResponse | null>(null);
@@ -256,9 +257,10 @@ export default function BranchKiosk() {
   const handleQuickRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!regFirstName.trim() || !regPhone.trim()) {
-      alert("Please provide at least a First Name and Contact Phone Number.");
+      setKioskError("Please provide at least a First Name and Contact Phone Number.");
       return;
     }
+    setKioskError("");
     setIsRegistering(true);
     try {
       const res: any = await apiClient("/module-admin/branch/passengers/quick-register", {
@@ -291,7 +293,7 @@ export default function BranchKiosk() {
         setStep(2); // Auto-advance to Step 2
       }
     } catch (err: any) {
-      alert(err.message || "Failed to register walk-in passenger.");
+      setKioskError(err.message || "Failed to register walk-in passenger.");
     } finally {
       setIsRegistering(false);
     }
@@ -300,10 +302,11 @@ export default function BranchKiosk() {
   // Dispatch Walk-In Ride
   const handleDispatchTrip = async () => {
     if (!selectedPassenger) {
-      alert("Please select or register a passenger first.");
+      setKioskError("Please select or register a passenger first.");
       setStep(1);
       return;
     }
+    setKioskError("");
 
     setIsDispatching(true);
     setDispatchError(null);
@@ -735,6 +738,15 @@ export default function BranchKiosk() {
                     </button>
                   </div>
                 </form>
+              )}
+
+              {/* Inline Kiosk Error Banner */}
+              {kioskError && (
+                <div className="mt-3 p-3 bg-red-950/60 border border-red-500/40 rounded-xl flex items-start gap-2 text-xs text-red-300">
+                  <span className="text-base flex-none">⚠️</span>
+                  <span className="flex-1">{kioskError}</span>
+                  <button onClick={() => setKioskError("")} className="text-red-400 hover:text-white flex-none font-bold">✕</button>
+                </div>
               )}
             </div>
 

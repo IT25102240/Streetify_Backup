@@ -31,6 +31,7 @@ export default function ReceiptDisplay({
   onViewHistory,
 }: ReceiptDisplayProps) {
   const [showPrintDialog, setShowPrintDialog] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
 
   if (!receipt) return null;
 
@@ -216,10 +217,11 @@ export default function ReceiptDisplay({
                 {onEmail && (
                   <Btn v="secondary" size="md" className="flex-1" onClick={() => {
                     NotificationService.sendReceipt(trip.tripId, fareBreakdown.totalFare, trip.paymentMethod);
-                    alert("Receipt PDF dispatched to your registered email!");
+                    setEmailSent(true);
+                    setTimeout(() => setEmailSent(false), 3000);
                     onEmail?.();
                   }}>
-                    📧 Email PDF
+                    {emailSent ? "✅ Receipt Sent!" : "📧 Email PDF"}
                   </Btn>
                 )}
               </div>

@@ -11,7 +11,7 @@
 
 import { tabStorage } from "../utils/storage";
 
-export type VehicleType = "STANDARD" | "XL" | "MOTO";
+export type VehicleType = "STANDARD" | "XL" | "MOTO" | "TUK";
 export type DemoDriverStatus = "available" | "on_trip" | "offline";
 
 export interface DemoDriver {
@@ -47,6 +47,10 @@ const DEMO_DRIVER_TEMPLATES: Omit<DemoDriver, "id" | "lat" | "lng" | "heading" |
   { name: "Demo Kasun", plate: "DEMO-007", vehicleType: "MOTO", vehicleModel: "Honda PCX 150", rating: 4.96, isDemo: true },
   { name: "Demo Malith", plate: "DEMO-008", vehicleType: "MOTO", vehicleModel: "Yamaha NMAX", rating: 4.89, isDemo: true },
   { name: "Demo Tharindu", plate: "DEMO-009", vehicleType: "MOTO", vehicleModel: "Suzuki Burgman", rating: 4.93, isDemo: true },
+  // TUK (Three-wheeler) - 3 drivers
+  { name: "Demo Chamara", plate: "DEMO-010", vehicleType: "TUK", vehicleModel: "Bajaj Three-Wheeler", rating: 4.82, isDemo: true },
+  { name: "Demo Roshan", plate: "DEMO-011", vehicleType: "TUK", vehicleModel: "TVS King", rating: 4.77, isDemo: true },
+  { name: "Demo Sampath", plate: "DEMO-012", vehicleType: "TUK", vehicleModel: "Bajaj RE", rating: 4.86, isDemo: true },
 ];
 
 // Offsets around center for initial positioning
@@ -99,8 +103,9 @@ class DemoDriverServiceImpl {
         // Small random movement
         const latDelta = (Math.random() - 0.5) * 0.001;
         const lngDelta = (Math.random() - 0.5) * 0.001;
-        const newLat = Math.max(6.8, Math.min(7.2, driver.lat + latDelta));
-        const newLng = Math.max(79.7, Math.min(80.1, driver.lng + lngDelta));
+        // Clamp to Central Sri Lanka (Kandy region as default center)
+        const newLat = Math.max(7.1, Math.min(7.5, driver.lat + latDelta));
+        const newLng = Math.max(80.4, Math.min(80.9, driver.lng + lngDelta));
         
         // Update heading based on movement
         const heading = Math.atan2(lngDelta, latDelta) * (180 / Math.PI) + 180;
@@ -147,7 +152,7 @@ class DemoDriverServiceImpl {
 
   // Get count of available drivers per vehicle type
   getAvailableCounts(): Record<VehicleType, number> {
-    const counts: Record<VehicleType, number> = { STANDARD: 0, XL: 0, MOTO: 0 };
+    const counts: Record<VehicleType, number> = { STANDARD: 0, XL: 0, MOTO: 0, TUK: 0 };
     this.demoDrivers.forEach(d => {
       if (d.status === "available") counts[d.vehicleType]++;
     });

@@ -972,6 +972,7 @@ public class ModuleAdminController {
         
         // Handle Documents
         if (data.containsKey("nicFile") && data.get("nicFile") instanceof Map) {
+            @SuppressWarnings("unchecked")
             Map<String, Object> fileData = (Map<String, Object>) data.get("nicFile");
             String base64 = (String) fileData.get("base64");
             if (base64 != null && base64.contains(",")) base64 = base64.split(",")[1];
@@ -996,7 +997,7 @@ public class ModuleAdminController {
                 driverDocumentDAO.save(nicDoc);
             } catch (Exception e) { e.printStackTrace(); }
         } else if (data.containsKey("nicStr") || data.containsKey("nic")) {
-            String nicVal = data.containsKey("nicStr") ? (String) data.get("nicStr") : (String) data.get("nic");
+            nicVal = data.containsKey("nicStr") ? (String) data.get("nicStr") : (String) data.get("nic");
             com.streetify.entity.DriverDocument nicDoc = new com.streetify.entity.DriverDocument();
             nicDoc.setDriver(saved);
             nicDoc.setDocType("nic");
@@ -1011,6 +1012,7 @@ public class ModuleAdminController {
         }
         
         if (data.containsKey("licenseFile") && data.get("licenseFile") instanceof Map) {
+            @SuppressWarnings("unchecked")
             Map<String, Object> fileData = (Map<String, Object>) data.get("licenseFile");
             String base64 = (String) fileData.get("base64");
             if (base64 != null && base64.contains(",")) base64 = base64.split(",")[1];
@@ -1035,7 +1037,7 @@ public class ModuleAdminController {
                 driverDocumentDAO.save(licDoc);
             } catch (Exception e) { e.printStackTrace(); }
         } else if (data.containsKey("licenseStr") || data.containsKey("licenseNumber")) {
-            String licVal = data.containsKey("licenseStr") ? (String) data.get("licenseStr") : (String) data.get("licenseNumber");
+            licVal = data.containsKey("licenseStr") ? (String) data.get("licenseStr") : (String) data.get("licenseNumber");
             com.streetify.entity.DriverDocument licDoc = new com.streetify.entity.DriverDocument();
             licDoc.setDriver(saved);
             licDoc.setDocType("license");

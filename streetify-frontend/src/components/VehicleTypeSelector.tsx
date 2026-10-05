@@ -30,6 +30,7 @@ const VEHICLE_TYPE_CONFIG: Record<VehicleType, {
   STANDARD: { label: "Standard", icon: "🚗", desc: "Sedan · up to 4 passengers", capacity: "4 seats" },
   XL: { label: "Streetify XL", icon: "🚐", desc: "SUV/Van · up to 7 passengers", capacity: "7 seats" },
   MOTO: { label: "Moto", icon: "🏍️", desc: "Motorcycle · fastest & cheapest", capacity: "1-2 seats" },
+  TUK: { label: "Tuk-Tuk", icon: "🛺", desc: "3-Wheeler · city rides", capacity: "1-3 seats" },
 };
 
 export default function VehicleTypeSelector({
@@ -40,7 +41,7 @@ export default function VehicleTypeSelector({
   dropoffAddress,
   estimatedDistanceKm,
   estimatedDurationMinutes,
-  realDriverCounts = { STANDARD: 0, XL: 0, MOTO: 0 },
+  realDriverCounts = { STANDARD: 0, XL: 0, MOTO: 0, TUK: 0 },
 }: VehicleTypeSelectorProps) {
   const [selectedType, setSelectedType] = useState<VehicleType>("STANDARD");
   const [demoDrivers, setDemoDrivers] = useState<DemoDriver[]>([]);
@@ -115,7 +116,7 @@ export default function VehicleTypeSelector({
         <div className="p-4 space-y-3">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider font-mono">Available Vehicle Types</p>
           
-          {(["STANDARD", "XL", "MOTO"] as VehicleType[]).map(type => {
+          {(["STANDARD", "XL", "MOTO", "TUK"] as VehicleType[]).map(type => {
             const vc = VEHICLE_TYPE_CONFIG[type];
             const rc = realDriverCounts[type] || 0;
             const dc = demoDrivers.filter(d => d.vehicleType === type && d.status === "available").length;

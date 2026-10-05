@@ -14,6 +14,7 @@ interface PaymentRecord {
   processedAt?: string;
   createdAt?: string;
   tripId?: number;
+  driverName?: string;
 }
 
 interface MethodBreakdown {
@@ -26,17 +27,18 @@ interface MethodBreakdown {
 }
 
 const SEED_PAYMENTS_FALLBACK: PaymentRecord[] = [
-  { id: 1, tripId: 1, grossAmount: 1925.00, platformCommission: 288.75, driverNet: 1636.25, paymentMethod: "CARD", status: "SUCCESS", createdAt: "2026-10-04T08:00:00" },
-  { id: 2, tripId: 2, grossAmount: 1076.00, platformCommission: 161.40, driverNet: 914.60, paymentMethod: "WALLET", status: "SUCCESS", createdAt: "2026-10-04T08:15:00" },
-  { id: 3, tripId: 3, grossAmount: 485.00, platformCommission: 72.75, driverNet: 412.25, paymentMethod: "CARD", status: "SUCCESS", createdAt: "2026-10-04T08:20:00" },
-  { id: 4, tripId: 4, grossAmount: 313.00, platformCommission: 46.95, driverNet: 266.05, paymentMethod: "CASH", status: "SUCCESS", createdAt: "2026-10-04T08:30:00" },
-  { id: 5, tripId: 5, grossAmount: 286.00, platformCommission: 42.90, driverNet: 243.10, paymentMethod: "CARD", status: "SUCCESS", createdAt: "2026-10-04T08:45:00" },
+  { id: 1, tripId: 1, grossAmount: 1925.00, platformCommission: 288.75, driverNet: 1636.25, paymentMethod: "CARD",   status: "SUCCESS", createdAt: "2026-10-04T08:00:00", driverName: "Kamal Perera"  },
+  { id: 2, tripId: 2, grossAmount: 1076.00, platformCommission: 161.40, driverNet:  914.60, paymentMethod: "WALLET", status: "SUCCESS", createdAt: "2026-10-04T08:15:00", driverName: "Sunil Bandara" },
+  { id: 3, tripId: 3, grossAmount:  485.00, platformCommission:  72.75, driverNet:  412.25, paymentMethod: "CARD",   status: "SUCCESS", createdAt: "2026-10-04T08:20:00", driverName: "Nuwan Pradeep" },
+  { id: 4, tripId: 4, grossAmount:  313.00, platformCommission:  46.95, driverNet:  266.05, paymentMethod: "CASH",   status: "SUCCESS", createdAt: "2026-10-04T08:30:00", driverName: "Kasun Kalhara" },
+  { id: 5, tripId: 5, grossAmount:  286.00, platformCommission:  42.90, driverNet:  243.10, paymentMethod: "CARD",   status: "SUCCESS", createdAt: "2026-10-04T08:45:00", driverName: "Dilani Wickramasinghe" },
 ];
 
 export default function DahamPaymentDashboard() {
   const [payments, setPayments] = useState<PaymentRecord[]>(SEED_PAYMENTS_FALLBACK);
   const [loading, setLoading] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<string>(new Date().toLocaleTimeString());
+  const [deletePaymentId, setDeletePaymentId] = useState<number | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -123,12 +125,17 @@ export default function DahamPaymentDashboard() {
     };
   }, [payments]);
 
-  const handleDeletePayment = async (id: number) => {
-    if (!window.confirm(`⚠️ Permanently DELETE payment record TXN-${id}?`)) return;
+  const handleDeletePayment = (id: number) => {
+    setDeletePaymentId(id);
+  };
+
+  const handleConfirmDeletePayment = async () => {
+    if (deletePaymentId === null) return;
     try {
-      await apiClient(`/module-admin/payments/${id}?hard=true`, { method: "DELETE" });
+      await apiClient(`/module-admin/payments/${deletePaymentId}?hard=true`, { method: "DELETE" });
     } catch {}
-    setPayments(prev => prev.filter(p => p.id !== id));
+    setPayments(prev => prev.filter(p => p.id !== deletePaymentId));
+    setDeletePaymentId(null);
   };
 
   return (
@@ -282,7 +289,7 @@ export default function DahamPaymentDashboard() {
             <thead>
               <tr className="bg-slate-950 border-b border-slate-800 text-[11px] font-mono text-slate-400 uppercase tracking-wider">
                 <th className="px-4 py-3 text-left">Payment ID</th>
-                <th className="px-4 py-3 text-left">Trip Ref</th>
+                <th className="px-4 py-3 text-left">Trip ID · Driver</th>
                 <th className="px-4 py-3 text-left">Method</th>
                 <th className="px-4 py-3 text-right">Gross Amount</th>
                 <th className="px-4 py-3 text-right">Commission (15%)</th>
@@ -300,8 +307,17 @@ export default function DahamPaymentDashboard() {
                 return (
                   <tr key={p.id} className="hover:bg-slate-900/50 transition-colors">
                     <td className="px-4 py-3 font-bold text-white">TXN-{p.id}</td>
-                    <td className="px-4 py-3 text-cyan-400">
-                      {p.tripId ? `TRIP #${p.tripId}` : "Branch / Manual"}
+                    <td className="px-4 py-3">
+                      {p.tripId ? (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-cyan-400 font-bold">TRIP-{String(p.tripId).padStart(4, '0')}</span>
+                          {p.driverName && p.driverName !== 'Unknown' && (
+                            <span className="text-slate-400 text-[10px]">🚗 {p.driverName}</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-slate-500 italic">Branch / Manual</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 font-sans">
                       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
@@ -347,6 +363,38 @@ export default function DahamPaymentDashboard() {
 
       {/* ── 5. MODULE EXPORT BANNER ── */}
       <ModuleExportCard reportKey="payments" variant="banner" />
+
+      {/* ── DELETE PAYMENT CONFIRMATION MODAL ── */}
+      {deletePaymentId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-red-500/40 rounded-2xl w-full max-w-sm p-6 shadow-2xl space-y-4">
+            <div className="text-center space-y-2">
+              <span className="w-12 h-12 rounded-full bg-red-950/60 border border-red-500/40 text-red-400 flex items-center justify-center text-xl mx-auto">
+                ⚠️
+              </span>
+              <h3 className="text-base font-extrabold text-white">Delete Payment Record?</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Permanently delete payment <strong className="text-white font-mono">TXN-{deletePaymentId}</strong>?
+                This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                onClick={() => setDeletePaymentId(null)}
+                className="flex-1 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDeletePayment}
+                className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-md shadow-red-600/30 transition-all cursor-pointer"
+              >
+                Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

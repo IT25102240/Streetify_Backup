@@ -297,7 +297,6 @@ export default function DemoSwitcher() {
                 <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "#22c55e" }}></span>
                 Connected to MSSQL Database (<code style={{ color: "#94a3b8" }}>streetify_db</code>)
               </span>
-              <span className="font-mono">Localhost :8080</span>
             </div>
           </div>
         </div>
