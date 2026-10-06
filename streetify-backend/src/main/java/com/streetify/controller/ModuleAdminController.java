@@ -1084,22 +1084,30 @@ public class ModuleAdminController {
         return ResponseEntity.ok(Map.of("status", "ok", "id", saved.getId()));
     }
 
+    @Transactional
     @PutMapping("/driver-trips/{id}")
     public ResponseEntity<Map<String, Object>> updateDriverTrip(@PathVariable Long id, @RequestBody Map<String, Object> updates) {
         Trip trip = tripDAO.findById(id).orElseThrow(() -> new IllegalArgumentException("Trip not found: " + id));
+        TripStatus originalStatus = trip.getStatus();
 
         if (updates.containsKey("driverId")) {
             Object driverIdObj = updates.get("driverId");
             if (driverIdObj == null) {
                 trip.setDriver(null);
-                trip.setStatus(TripStatus.REQUESTED);
+                // Only auto-set status if no explicit status provided
+                if (!updates.containsKey("status") || updates.get("status") == null) {
+                    trip.setStatus(TripStatus.REQUESTED);
+                }
                 logAdminAction("UNASSIGN_DRIVER", "Unassigned driver from trip ID " + id, id, "TRIP");
             } else {
                 Long driverId = ((Number) driverIdObj).longValue();
                 Driver driver = driverDAO.findById(driverId)
                         .orElseThrow(() -> new IllegalArgumentException("Driver not found: " + driverId));
                 trip.setDriver(driver);
-                trip.setStatus(TripStatus.ACCEPTED);
+                // Only auto-set status if no explicit status provided
+                if (!updates.containsKey("status") || updates.get("status") == null) {
+                    trip.setStatus(TripStatus.ACCEPTED);
+                }
                 logAdminAction("ASSIGN_DRIVER", "Assigned driver ID " + driverId + " to trip ID " + id, id, "TRIP");
             }
         }
@@ -1113,13 +1121,13 @@ public class ModuleAdminController {
         }
         if (updates.containsKey("status") && updates.get("status") != null) {
             TripStatus newStatus = TripStatus.fromString(updates.get("status").toString());
-            
-            if (trip.getStatus() == TripStatus.REQUESTED && newStatus == TripStatus.COMPLETED) {
+
+            if (originalStatus == TripStatus.REQUESTED && newStatus == TripStatus.COMPLETED) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Invalid state transition: A REQUESTED trip must be IN_PROGRESS before it can be COMPLETED."));
             }
-            
+
             trip.setStatus(newStatus);
-            logAdminAction("UPDATE_TRIP_STATUS", "Updated trip ID " + id + " status to " + trip.getStatus(), id, "TRIP");
+            logAdminAction("UPDATE_TRIP_STATUS", "Updated trip ID " + id + " status to " + newStatus, id, "TRIP");
         }
 
         tripDAO.save(trip);
