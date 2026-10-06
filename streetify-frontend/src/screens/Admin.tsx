@@ -593,6 +593,7 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen flex relative z-0" >
       <AdminFormOverlay />
+      <ConfirmContainer />
       <div className="absolute inset-0 -z-10 bg-[url('/hero-bg.jpg')] bg-cover bg-center opacity-30" />
       <div className="absolute inset-0 -z-10 bg-slate-950/70 backdrop-blur-[40px]" />
       <aside className="w-56 flex flex-col flex-none min-h-screen shadow-xl" style={{ background: "#041208", borderRight: "1px solid rgba(34,197,94,0.15)" }}>
