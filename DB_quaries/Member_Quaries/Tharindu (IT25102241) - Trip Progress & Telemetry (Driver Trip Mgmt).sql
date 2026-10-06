@@ -7,7 +7,9 @@ SELECT * FROM vehicles;
 
 SELECT * FROM driver_documents;
 
+SELECT * FROM users;
 
+SELECT * FROM trips;
 
 -- 1. View all trips currently 'IN_PROGRESS' (Passengers currently inside the vehicle)
 SELECT id, driver_id, passenger_id, pickup_address FROM trips WHERE status = 'IN_PROGRESS';
