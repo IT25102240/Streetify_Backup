@@ -1,3 +1,13 @@
+/*
+ * ============================================================================
+ * GLOBAL COMPONENT FILE (SHARED BY ALL MEMBERS)
+ * Module: UI Primitives & Button Styling
+ * 
+ * This file contains the `<Btn>` component and other shared elements. 
+ * Changing the styles (like gradients or hover effects) in `BTN_V` here 
+ * will automatically update the buttons for EVERY team member's module.
+ * ============================================================================
+ */
 /**
  * Streetify shared UI primitives — Eco Drive Dark Theme v2.0
  * Pill · Card · Btn · Field · HR · WsLive · StatCard · Toast · PwStrength

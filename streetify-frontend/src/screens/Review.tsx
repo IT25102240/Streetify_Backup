@@ -1,3 +1,14 @@
+/* 
+ * ============================================================================
+ * Member Name: mithun (IT25102193 Weerasingha W.A.M.B.)
+ * Module: Review, Rating, and Feedback Management (Review & Dispute Form)
+ * 
+ * COLOR MANAGEMENT (Buttons & Page):
+ * - Page Background: Inherited globally from src/index.css (body selector)
+ * - Buttons: Rating stars and interactive tags (Clean vehicle, etc.) utilize 
+ *   global Tailwind theme variables defined in src/index.css to match the UI.
+ * ============================================================================
+ */
 /**
  * Screen E — Post-Ride Feedback & Dispute Form
  *

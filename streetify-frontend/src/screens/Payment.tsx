@@ -1,3 +1,14 @@
+/* 
+ * ============================================================================
+ * Member Name: Daham (IT25102225 Edirisinghe E.A.R.N.D.)
+ * Module: Payment and Receipt Management (Payment & Ledger Management)
+ * 
+ * COLOR MANAGEMENT (Buttons & Page):
+ * - Page Background: Inherited globally from src/index.css (body selector)
+ * - Buttons: Payment method selectors use the global <Btn> component and 
+ *   reference the centralized theme variables for active states (e.g. border-eco).
+ * ============================================================================
+ */
 /**
  * Screen D — Passenger Payment & Receipt
  * Retry loop for declined cards · PDF-style receipt · CRUD payment processing

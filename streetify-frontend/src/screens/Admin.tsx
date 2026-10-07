@@ -1,3 +1,14 @@
+/* 
+ * ============================================================================
+ * Member Name: Vidura (IT25102240 Rammandalagedara R.V.S.)
+ * Module: Administration and System Control (Admin Governance & System Control)
+ * 
+ * COLOR MANAGEMENT (Buttons & Page):
+ * - Page Background: Inherited globally from src/index.css (body selector)
+ * - Buttons: Data table actions and control panel buttons utilize the <Btn> 
+ *   and <StatCard> components located in src/ui.tsx for universal styling.
+ * ============================================================================
+ */
 import { useState, useEffect } from "react";
 import { Btn, Card, Pill } from "../ui";
 import { apiClient } from "../api/apiClient";
@@ -2401,7 +2412,7 @@ function ViduraSystemDashboard() {
           <p className="text-xs text-blue-200 mt-2 font-medium">Recorded system actions</p>
         </div>
 
-        <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-3xl p-6 text-white shadow-xl shadow-emerald-900/20 hover:-translate-y-1 transition-transform cursor-pointer border border-emerald-400/30">
+        <div className="p-2 bg-white/10 rounded-xlto-emerald-700 rounded-3xl p-6 text-white shadow-xl shadow-emerald-900/20 hover:-translate-y-1 transition-transform cursor-pointer border border-emerald-400/30">
           <div className="flex justify-between items-start mb-4">
             <p className="text-sm font-bold text-emerald-100 uppercase tracking-wider">System Uptime</p>
             <div className="p-2 bg-white/10 rounded-xl">⚡</div>
@@ -2433,12 +2444,12 @@ function ViduraSystemDashboard() {
       <Card className="p-6 mt-6 border border-slate-700/50 bg-slate-900/50">
         <p className="font-bold text-slate-200 mb-4 text-sm uppercase tracking-wider">Audit Action Type Distribution</p>
         <div className="w-full h-8 flex rounded-xl overflow-hidden shadow-inner bg-slate-800">
-          <div style={{width: `45%`}} className="bg-emerald-500 h-full transition-all duration-1000 ease-out" title="Creation/Approval (45%)"></div>
+          <div style={{width: `45%`}} className="p-2 bg-white/10 rounded-xl" title="Creation/Approval (45%)"></div>
           <div style={{width: `40%`}} className="bg-blue-500 h-full transition-all duration-1000 ease-out" title="Updates (40%)"></div>
           <div style={{width: `15%`}} className="bg-rose-500 h-full transition-all duration-1000 ease-out" title="Security/Deletions (15%)"></div>
         </div>
         <div className="flex gap-6 mt-4 text-xs font-semibold">
-          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500"></div><span className="text-slate-300">Creations & Approvals (45%)</span></div>
+          <div className="flex items-center gap-2"><div className="bg-rose-500 h-full transition-all duration-1000 ease-out"></div><span className="text-slate-300">Creations & Approvals (45%)</span></div>
           <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-500"></div><span className="text-slate-300">System Updates (40%)</span></div>
           <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-rose-500"></div><span className="text-slate-300">Security & Deletions (15%)</span></div>
         </div>

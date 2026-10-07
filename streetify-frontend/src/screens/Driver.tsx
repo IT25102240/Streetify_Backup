@@ -1,3 +1,14 @@
+/* 
+ * ============================================================================
+ * Member Name: tharindu (IT25102241 Senaka K.A.T.)
+ * Module: Driver Trip Request Management (Trip Progress & Telemetry)
+ * 
+ * COLOR MANAGEMENT (Buttons & Page):
+ * - Page Background: Inherited globally from src/index.css (body selector)
+ * - Buttons: Status toggles (Accept/Decline) and modals use the global <Btn> 
+ *   component. Custom status buttons reference global theme variables in index.css.
+ * ============================================================================
+ */
 /**
  * Screen C — Driver Trip Dashboard & Live GPS Navigation
  * Responsive Wide-Screen & Mobile View:

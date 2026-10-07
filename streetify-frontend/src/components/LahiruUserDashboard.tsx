@@ -1,3 +1,13 @@
+/* 
+ * ============================================================================
+ * Member Name: Lahiru (IT25102208 Nayanamina A.R.L.P.)
+ * Module: User Account Management (User Account & Verification Module)
+ * 
+ * COLOR MANAGEMENT (Buttons & Page):
+ * - Page Background: Inherited globally from src/index.css (body selector)
+ * - Buttons: Uses the shared <Btn> component from src/ui.tsx.
+ * ============================================================================
+ */
 import { useState, useEffect, useMemo } from "react";
 import { apiClient } from "../api/apiClient";
 import { tabStorage } from "../utils/storage";

@@ -1,3 +1,14 @@
+/* 
+ * ============================================================================
+ * Member Name: chanuka (IT25102207 Dharmakeerthi W.A.C.B.)
+ * Module: Ride Booking and Management (Ride Booking & Dispatch Engine)
+ * 
+ * COLOR MANAGEMENT (Buttons & Page):
+ * - Page Background: Inherited globally from src/index.css (body selector)
+ * - Buttons: Booking CTAs and Map controls use the shared <Btn> component 
+ *   (from src/ui.tsx) or reference global variables like bg-eco/bg-navy-light.
+ * ============================================================================
+ */
 /**
  * Screen B — Passenger Booking
  * Responsive Wide-Screen & Mobile View:

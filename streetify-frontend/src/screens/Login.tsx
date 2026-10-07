@@ -1,3 +1,15 @@
+/* 
+ * ============================================================================
+ * Member Name: Lahiru (IT25102208 Nayanamina A.R.L.P.)
+ * Module: User Account Management (User Account & Verification Module)
+ * 
+ * COLOR MANAGEMENT (Buttons & Page):
+ * - Page Background: Inherited globally from src/index.css (body selector)
+ * - Buttons: Uses the shared <Btn> component from src/ui.tsx for global styling.
+ *   Raw HTML buttons (e.g., 'Forgot password?') rely on global tailwind classes
+ *   like text-eco-glow to maintain consistency.
+ * ============================================================================
+ */
 /**
  * Screen A — Driver Onboarding & Login (Eco Drive Dark Theme v2.0)
  *

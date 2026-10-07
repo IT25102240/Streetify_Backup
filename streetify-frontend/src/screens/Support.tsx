@@ -1,3 +1,13 @@
+/* 
+ * ============================================================================
+ * Member Name: mithun (IT25102193 Weerasingha W.A.M.B.)
+ * Module: Review, Rating, and Feedback Management (Review & Dispute Form)
+ * 
+ * COLOR MANAGEMENT (Buttons & Page):
+ * - Page Background: Inherited globally from src/index.css (body selector)
+ * - Buttons: Dispute submission uses the shared <Btn> component from src/ui.tsx.
+ * ============================================================================
+ */
 /**
  * Screen F — Customer Support Officer Portal
  * Implements UC35: Investigate Cancellation Disputes
