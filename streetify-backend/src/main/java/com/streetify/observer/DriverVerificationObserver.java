@@ -51,6 +51,7 @@ public class DriverVerificationObserver implements VerificationObserver {
      * @param note      the reviewer's note (displayed to the driver)
      */
     @Override
+    @SuppressWarnings("null")
     public void onVerificationStatusChanged(Long driverId, String newStatus, String note) {
         // Build the notification payload for the driver's app
         Map<String, Object> payload = Map.of(

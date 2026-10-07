@@ -67,6 +67,7 @@ public class WebSocketTripObserver implements TripStatusObserver {
      * @param newStatus      the new TripStatus name string
      */
     @Override
+    @SuppressWarnings("null")
     public void onTripStatusChanged(Long tripId, String passengerEmail, String newStatus) {
         // Build the notification payload
         Map<String, Object> payload = Map.of(

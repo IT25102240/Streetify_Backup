@@ -48,6 +48,7 @@ public class AuditLogVerificationObserver implements VerificationObserver {
      * @param note      the reviewer's note / reason
      */
     @Override
+    @SuppressWarnings("null")
     public void onVerificationStatusChanged(Long driverId, String newStatus, String note) {
         // Determine the action type string for the audit record
         String actionType = switch (newStatus.toUpperCase()) {
